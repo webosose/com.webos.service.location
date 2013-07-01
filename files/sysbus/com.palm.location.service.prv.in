@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.palm.location
+Exec=@WEBOS_INSTALL_SBINDIR@/location
+Type=dynamic

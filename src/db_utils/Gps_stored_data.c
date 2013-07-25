@@ -96,10 +96,6 @@ void gps_service_get_stored_position(position_data * last_pos)
     xmlChar *result =NULL;
 
     if(handle == NULL){
-        if(DEBUG)
-            g_print("gps_service_get_stored_position ");
-
-
         last_pos->latitude = 0.0;
         last_pos->longitude = 0.0;
         last_pos->altitude = 0.0;
@@ -110,19 +106,11 @@ void gps_service_get_stored_position(position_data * last_pos)
         last_pos->timestamp =0;
     }
     else {
-
-
         handle->fileName= LOCATION_DB_PREF_PATH;
-
         get(handle , "latitude", &result);
-
-        if(DEBUG)
-            g_print("latitud %f",atof ( result ));
         last_pos->latitude = atof ( result );
-
         get(handle , "longitude", &result);
         last_pos->longitude = atof ( result );
-
         get(handle, "altitude", &result);
         last_pos->altitude = atof ( result );
         get(handle , "speed", &result);
@@ -137,11 +125,6 @@ void gps_service_get_stored_position(position_data * last_pos)
         last_pos->timestamp = atoi ( result );
         free(handle);
     }
-
-
-
-
-
 }
 
 

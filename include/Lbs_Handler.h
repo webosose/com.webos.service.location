@@ -28,7 +28,7 @@
 
 G_BEGIN_DECLS
 
-#define HANDLER_TYPE_LBS                  (wifi_handler_get_type())
+#define HANDLER_TYPE_LBS                  (lbs_handler_get_type())
 #define LBS_HANDLER(obj)                  (G_TYPE_CHECK_INSTANCE_CAST((obj), HANDLER_TYPE_LBS, LbsHandler))
 #define LBS_IS_HANDLER(obj)               (G_TYPE_CHECK_INSTANCE_TYPE((obj), HANDLER_TYPE_LBS))
 #define LBS_HANDLER_CLASS(klass)          (G_TYPE_CHECK_CLASS_CAST((klass), HANDLER_TYPE_LBS, LbsHandlerClass))
@@ -37,7 +37,6 @@ G_BEGIN_DECLS
 
 typedef struct _LbsHandler LbsHandler;
 typedef struct _LbsHandlerClass LbsHandlerClass;
-
 
 struct _LbsHandler
 {
@@ -51,9 +50,11 @@ struct _LbsHandlerClass
 
 GType lbs_handler_get_type(void);
 
-typedef enum {
+typedef enum
+{
     LBS_PROGRESS_NONE = 0,
-    LBS_GEOCODE_ON=1 << 0,
+    LBS_GEOCODE_ON = 1 << 0,
+    LBS_REVGEOCODE_ON = 2 << 0,
 } GeocodeHandlerStateFlags;
 
 G_END_DECLS

@@ -38,7 +38,6 @@ G_BEGIN_DECLS
 typedef struct _GpsHandler GpsHandler;
 typedef struct _GpsHandlerClass GpsHandlerClass;
 
-
 struct _GpsHandler
 {
     GObject parent_instance;
@@ -51,9 +50,10 @@ struct _GpsHandlerClass
 
 GType gps_handler_get_type(void);
 
-typedef enum {
+typedef enum
+{
     PROGRESS_NONE = 0,
-    GET_POSITION_ON=1 << 0,
+    GET_POSITION_ON = 1 << 0,
     START_TRACKING_ON = 1 << 1,
     NMEA_GET_DATA_ON = 1 << 2,
     SATELLITE_GET_DATA_ON = 1 << 3,

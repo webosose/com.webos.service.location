@@ -34,12 +34,12 @@ G_BEGIN_DECLS
 
 #define PREF_PATH   "."             //Path of all prefence to store in system
 #define MY_ENCODING "ISO-8859-1"    //Not used now
-
 typedef struct _DBHandle DBHandle;
 /*
  * DB handle has neccasry info to process request
  */
-struct _DBHandle {
+struct _DBHandle
+{
     xmlDocPtr doc;
     char* fileName;
 };
@@ -47,7 +47,8 @@ struct _DBHandle {
 /*
  * Error codes
  */
-enum {
+enum
+{
     SUCCESS = 0,
     IO_ERROR,
     NULL_VALUE,
@@ -58,8 +59,6 @@ enum {
     FILE_EXIST_ERROR,
     UNKNOWN_ERROR,
 } DbErrorCodes;
-
-
 
 /**
  * <Funciton>       createPreference

@@ -21,6 +21,7 @@ set(SRC
         Position.c
         Velocity.c
         Accuracy.c
+        Address.c
         Satellite.c
         Network_Handler.c
         Lbs_Handler.c

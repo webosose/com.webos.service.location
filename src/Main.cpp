@@ -28,6 +28,7 @@
 #include "LocationService.h"
 #include "Conf.h"
 #include <LocationService_Log.h>
+#include<LocationServiceState.h>
 
 // PmLogging
 #define LS_LOG_CONTEXT_NAME     "avocado.location.location"
@@ -41,30 +42,38 @@ int main(int argc, char *argv[])
     GMainLoop *mainLoop = g_main_loop_new(NULL, FALSE);
     if (mainLoop == NULL) {
         LS_LOG_DEBUG("Out of Memory");
-        return 0;
+        return EXIT_FAILURE;
     }
 
     LocationService *locService = NULL;
-    LocationService::setGmainloop(mainLoop);
-    locService = LocationService::getInstance(mainLoop);
-    if(locService == NULL)
-    {
+    LocationServiceState *locServiceState = NULL;
+    locService = LocationService::getInstance();
+    if (locService == NULL) {
         LS_LOG_DEBUG("locService instance failed create");
         g_main_loop_unref(mainLoop);
-        return 0;
+        return EXIT_FAILURE;
     }
-    if(locService->init() == false)
-    {
+    if (locService->init(mainLoop) == false) {
         g_main_loop_unref(mainLoop);
         delete locService;
-        return 0;
+        return EXIT_FAILURE;
+    }
+    locServiceState = new (std::nothrow) LocationServiceState(locService);
+    if (locServiceState == NULL) {
+        delete locService;
+        locService == NULL;
+        g_main_loop_unref(mainLoop);
+        return EXIT_FAILURE;
     }
     LS_LOG_DEBUG("Location service started.");
-    g_main_loop_run (mainLoop);
+    locServiceState->init();
+    g_main_loop_run(mainLoop);
     LS_LOG_DEBUG("Location service stopped.");
     g_main_loop_unref(mainLoop);
     delete locService;
     locService == NULL;
-    return 0;
+    delete locServiceState;
+    locServiceState == NULL;
+    return EXIT_SUCCESS;
 
 }

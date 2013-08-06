@@ -38,7 +38,6 @@ G_BEGIN_DECLS
 typedef struct _GoogleHandler GoogleHandler;
 typedef struct _GoogleHandlerClass GoogleHandlerClass;
 
-
 struct _GoogleHandler
 {
     GObject parent_instance;
@@ -51,13 +50,15 @@ struct _GoogleHandlerClass
 
 GType google_handler_get_type(void);
 
-typedef enum {
+typedef enum
+{
     GOOGLE_PROGRESS_NONE = 0,
-    GOOGLE_GET_POSITION_ON=1 << 0,
+    GOOGLE_GET_POSITION_ON = 1 << 0,
     GOOGLE_START_TRACKING_ON = 1 << 1
 } GoogleHandlerStateFlags;
 
-typedef enum {
+typedef enum
+{
     GOOGLE_START_TRACK = 0,
     GOOGLE_GET_POSITION
 } GoogleHandlerMethod;

@@ -16,7 +16,6 @@
  *
  * LICENSE@@@ */
 
-
 #ifndef _LUNA_LOCATION_SERVICE_UTIL_H_
 #define _LUNA_LOCATION_SERVICE_UTIL_H_
 

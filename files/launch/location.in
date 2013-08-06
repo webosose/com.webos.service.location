@@ -17,5 +17,6 @@ stop on started start_update
 respawn
 
 script
+         mkdir -p /usr/share/location
         exec @WEBOS_INSTALL_SBINDIR@/location
 end script

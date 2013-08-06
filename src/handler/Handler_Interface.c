@@ -24,7 +24,6 @@
 #include <Handler_Interface.h>
 #include <LocationService_Log.h>
 
-
 static void handler_interface_base_init(gpointer g_class)
 {
     static gboolean is_initialized = FALSE;
@@ -34,11 +33,9 @@ GType handler_interface_get_type(void)
 {
     static GType interface_type = 0;
     if (interface_type == 0) {
-        static const GTypeInfo info = { sizeof(HandlerInterface),
-            handler_interface_base_init, NULL };
+        static const GTypeInfo info = { sizeof(HandlerInterface), handler_interface_base_init, NULL };
 
-        interface_type = g_type_register_static(G_TYPE_INTERFACE, "Handler",
-                &info, 0);
+        interface_type = g_type_register_static(G_TYPE_INTERFACE, "Handler", &info, 0);
     }
     return interface_type;
 }
@@ -55,7 +52,7 @@ int handler_start(Handler *self, int handler_type)
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->start, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_start\n");
-    
+
     return HANDLER_INTERFACE_GET_INTERFACE(self)->start(self, handler_type);
 }
 
@@ -123,7 +120,7 @@ int handler_get_last_position(Handler *self, Position *position, Accuracy *accur
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_position, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_last_position\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self) ->get_last_position(self, position ,accuracy, handlertype);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_position(self, position, accuracy, handlertype);
 }
 
 /**
@@ -202,14 +199,13 @@ int handler_get_power_requirement(Handler *self, int *power)
  * @param           <ttff> <In> <calculated value of TTFF form GPS>
  * @return          int
  */
-int handler_get_time_to_first_fix(Handler *self, double *ttff)
+guint64 handler_get_time_to_first_fix(Handler *self)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
-    g_return_val_if_fail(ttff, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_ttfx, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_time_to_first_fix\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_ttfx(self, ttff);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_ttfx(self);
 }
 
 /**
@@ -299,7 +295,7 @@ int handler_get_property(Handler *self, GObject *object, guint property_id, GVal
     //g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_property, ERROR_NOT_AVAILABLE);
     //LS_LOG_DEBUG("handler_get_property\n");
 
-    return 0;//dummy now
+    return 0;    //dummy now
     //return HANDLER_INTERFACE_GET_INTERFACE(self)->get_property(self, object, property_id, value, pspec); //TO-DO-change
 }
 
@@ -361,13 +357,13 @@ int handler_compare_handler(Handler *self, int handler1, int handler2)
  * @param           <geo_cb> <In> <callback function to get result>
  * @return          int
  */
-int handler_get_geo_code(Handler *self, Address *address, GeoCodeCallback geo_cb)
+int handler_get_geo_code(Handler *self, Address* address, Position *pos, Accuracy *ac)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_geo_code, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_geo_code\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_geo_code(self, address, geo_cb);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_geo_code(self, address, pos, ac);
 }
 
 /**
@@ -378,12 +374,14 @@ int handler_get_geo_code(Handler *self, Address *address, GeoCodeCallback geo_cb
  * @param           <rev_geo_cb> <In> <callback function for reverse geocode>
  * @return          int
  */
-int handler_get_reverse_geo_code(Handler *self, Position *pos, RevGeocodeCallback rev_geo_cb)
+int handler_get_reverse_geo_code(Handler *self, Position* pos, Address* address)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(pos, ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(address, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_reverse_geo_code\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode(self, pos, rev_geo_cb);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode(self, pos, address);
 }
 

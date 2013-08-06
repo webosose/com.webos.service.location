@@ -26,7 +26,8 @@
 
 #include <glib-object.h>
 
-typedef enum {
+typedef enum
+{
     HANDLER_WIFI = 0,
     HANDLER_CELLID,
     HANDLER_GOOGLE_WIFI_CELL,
@@ -37,7 +38,8 @@ typedef enum {
     HANDLER_MAX,
 } HandlerTypes;
 
-typedef enum {
+typedef enum
+{
     HANDLER_DATA_NMEA = 0,
     HANDLER_DATA_SATELLITE,
     HANDLER_DATA_POSITION
@@ -46,13 +48,14 @@ typedef enum {
 /*
  * Common Error codes of Location Framework
  */
-typedef enum {
+typedef enum
+{
     ERROR_NONE = 0,
     ERROR_NOT_IMPLEMENTED,
     ERROR_TIMEOUT,
-    ERROR_NETWORK_ERROR ,
+    ERROR_NETWORK_ERROR,
     ERROR_NOT_APPLICABLE_TO_THIS_HANDLER,
-    ERROR_NOT_AVAILABLE ,
+    ERROR_NOT_AVAILABLE,
     ERROR_WRONG_PARAMETER,
     ERROR_DUPLICATE_REQUEST,
     ERROR_REQUEST_INPROGRESS
@@ -61,20 +64,29 @@ typedef enum {
 /*
  * Common status codes of GPS
  */
-typedef enum {
+typedef enum
+{
     GPS_STATUS_ERROR = 0,
     GPS_STATUS_UNAVAILABLE,
     GPS_STATUS_ACQUIRING,
     GPS_STATUS_AVAILABLE
 } GPSStatus;
+enum
+{
+    ERROR_NETWORK_NOT_FOUND = 0,
+    ERROR_NO_MEMORY,
+    ERROR_NO_RESPONSE,
+    ERROR_NO_DATA
+};
+#define DEFAULT_VALUE 0
 
 typedef GObject HandlerObject;
-typedef struct _Position    Position;
-typedef struct _Status      Status;
-typedef struct _Velocity    Velocity;
-typedef struct _Nmea        Nmea;
-typedef struct _Satellite   Satellite;
-typedef struct _Accuracy    Accuracy;
-typedef struct _Address     Address;
+typedef struct _Position Position;
+typedef struct _Status Status;
+typedef struct _Velocity Velocity;
+typedef struct _Nmea Nmea;
+typedef struct _Satellite Satellite;
+typedef struct _Accuracy Accuracy;
+typedef struct _Address Address;
 
 #endif /* _LOCATION_H_ */

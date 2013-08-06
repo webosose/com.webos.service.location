@@ -29,33 +29,35 @@
 
 class LocationServiceState
 {
-    public:
-        LocationServiceState(LocationService *locSrvcPtr)
-        {
-            m_locSrvcPtr = locSrvcPtr;
-        }
-        LocationService *m_locSrvcPtr;
-        ~LocationServiceState(){}
-        void init();
+public:
+    LocationServiceState(LocationService *locSrvcPtr)
+    {
+        m_locSrvcPtr = locSrvcPtr;
+    }
+    LocationService *m_locSrvcPtr;
+    ~LocationServiceState()
+    {
+    }
+    void init();
 
-        enum SERVICE_STATE
-        {
-            SERVICE_NOT_RUNNING = 0,
-            SERVICE_GETTING_READY,
-            SERVICE_READY
-        };
-    private:
-        void NotifyStateChange(int);
-        bool _wifi_status_cb(LSHandle *sh, LSMessage *reply);
-        bool _connectivity_status_cb(LSHandle *sh, LSMessage *reply);
-        static bool wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx);
-        static bool connectivity_status_cb(LSHandle *sh, LSMessage *message, void *ctx)
-        {
-            return ((LocationServiceState *)ctx)->_connectivity_status_cb(sh,message);
-        }
-        void register_wifi_status();
-        void register_modem_status();
-        void register_connectivity_status();
+    enum SERVICE_STATE
+    {
+        SERVICE_NOT_RUNNING = 0,
+        SERVICE_GETTING_READY,
+        SERVICE_READY
+    };
+private:
+    void NotifyStateChange(int);
+    bool _wifi_status_cb(LSHandle *sh, LSMessage *reply);
+    bool _connectivity_status_cb(LSHandle *sh, LSMessage *reply);
+    static bool wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx);
+    static bool connectivity_status_cb(LSHandle *sh, LSMessage *message, void *ctx)
+    {
+        return ((LocationServiceState *) ctx)->_connectivity_status_cb(sh, message);
+    }
+    void register_wifi_status();
+    void register_modem_status();
+    void register_connectivity_status();
 };
 
 #endif

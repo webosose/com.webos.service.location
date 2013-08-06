@@ -28,7 +28,8 @@
 
 G_BEGIN_DECLS
 
-typedef enum _GpsAccuracyLevel {
+typedef enum _GpsAccuracyLevel
+{
     ACCURACY_LEVEL_NONE = 0,
     ACCURACY_LEVEL_COUNTRY,
     ACCURACY_LEVEL_REGION,
@@ -38,7 +39,8 @@ typedef enum _GpsAccuracyLevel {
     ACCURACY_LEVEL_DETAILED,
 } GpsAccuracyLevel;
 
-struct _Accuracy {
+struct _Accuracy
+{
     GpsAccuracyLevel level;
     gdouble horizAccuracy;
     gdouble vertAccuracy;

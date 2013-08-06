@@ -11,20 +11,15 @@
 #include <string.h>
 #include <Position.h>
 
-
 Velocity *velocity_create(guint timestamp, gdouble speed, gdouble direction, gdouble climb, int flags)
 {
     Velocity* velocity = g_slice_new0(Velocity);
     velocity->timestamp = timestamp;
-    if (flags & POSITION_FIELDS_NONE)
-        return velocity;
+    if (flags & POSITION_FIELDS_NONE) return velocity;
 
-    if (flags & VELOCITY_FIELDS_SPEED)
-        velocity->speed = speed;
-    if (flags & VELOCITY_FIELDS_DIRECTION)
-        velocity->direction = direction;
-    if (flags & VELOCITY_FIELDS_CLIMB)
-        velocity->climb = climb;
+    if (flags & VELOCITY_FIELDS_SPEED) velocity->speed = speed;
+    if (flags & VELOCITY_FIELDS_DIRECTION) velocity->direction = direction;
+    if (flags & VELOCITY_FIELDS_CLIMB) velocity->climb = climb;
 
     return velocity;
 }

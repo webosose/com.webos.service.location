@@ -37,7 +37,8 @@ static const gchar LBS_PLUGIN_NAME[] = "lbs";   //without lib prefix
 /*
  * Common Plugin properties
  */
-typedef struct {
+typedef struct
+{
     char *plugin_name;
     char *plugin_path;
     GModule *gmodule;   //Holds the loaded plugin eg: libgps.so
@@ -46,7 +47,8 @@ typedef struct {
 /*
  * Gps Plugin Structure
  */
-typedef struct {
+typedef struct
+{
     Plugin_Prop *plugin_prop;
     gpointer plugin_handler;
     gpointer (*init)(GpsPluginOps *ops);
@@ -57,7 +59,8 @@ typedef struct {
 /*
  * Wifi Plugin Structure
  */
-typedef struct{
+typedef struct
+{
     Plugin_Prop* plugin_prop;
     gpointer plugin_handler;
     gpointer (*init)(WifiPluginOps* ops);
@@ -67,7 +70,8 @@ typedef struct{
 /*
  * Cell Plugin Structure
  */
-typedef struct{
+typedef struct
+{
     Plugin_Prop* plugin_prop;
     gpointer plugin_handler;
     gpointer (*init)(CellPluginOps* ops);
@@ -78,7 +82,8 @@ typedef struct{
 /*
  * LBS Plugin Structure
  */
-typedef struct{
+typedef struct
+{
     Plugin_Prop* plugin_prop;
     gpointer plugin_handler;
     gpointer (*init)(LbsPluginOps* ops);

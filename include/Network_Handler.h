@@ -38,7 +38,6 @@ G_BEGIN_DECLS
 typedef struct _NwHandler NwHandler;
 typedef struct _NwHandlerClass NwHandlerClass;
 
-
 struct _NwHandler
 {
     GObject parent_instance;

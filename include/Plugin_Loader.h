@@ -49,7 +49,7 @@ typedef struct {
 typedef struct {
     Plugin_Prop *plugin_prop;
     gpointer plugin_handler;
-    gpointer (*init)(GpsPluginOps *ops);
+    gpointer(*init)(GpsPluginOps *ops);
     void (*shutdown)(gpointer handle);
     GpsPluginOps ops;
 } GpsPlugin;
@@ -57,20 +57,20 @@ typedef struct {
 /*
  * Wifi Plugin Structure
  */
-typedef struct{
-    Plugin_Prop* plugin_prop;
+typedef struct {
+    Plugin_Prop *plugin_prop;
     gpointer plugin_handler;
-    gpointer (*init)(WifiPluginOps* ops);
+    gpointer(*init)(WifiPluginOps *ops);
     void (*shutdown)(gpointer handle);
     WifiPluginOps ops;
 } WifiPlugin;
 /*
  * Cell Plugin Structure
  */
-typedef struct{
-    Plugin_Prop* plugin_prop;
+typedef struct {
+    Plugin_Prop *plugin_prop;
     gpointer plugin_handler;
-    gpointer (*init)(CellPluginOps* ops);
+    gpointer(*init)(CellPluginOps *ops);
     void (*shutdown)(gpointer handle);
     CellPluginOps ops;
 } CellPlugin;
@@ -78,10 +78,10 @@ typedef struct{
 /*
  * LBS Plugin Structure
  */
-typedef struct{
-    Plugin_Prop* plugin_prop;
+typedef struct {
+    Plugin_Prop *plugin_prop;
     gpointer plugin_handler;
-    gpointer (*init)(LbsPluginOps* ops);
+    gpointer(*init)(LbsPluginOps *ops);
     void (*shutdown)(gpointer handle);
     LbsPluginOps ops;
 } LbsPlugin;
@@ -93,8 +93,8 @@ typedef struct{
  *Plugin loader APIS
  */
 gboolean plugin_init(void);
-gpointer plugin_new(const char* plugin_name);
-void plugin_free(gpointer mod, const char* plugin_name);
+gpointer plugin_new(const char *plugin_name);
+void plugin_free(gpointer mod, const char *plugin_name);
 gboolean is_supported_plugin(const char *plugin_name);
 
 #endif /* PLUGIN_LOADER_H_ */

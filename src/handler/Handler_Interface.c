@@ -24,7 +24,6 @@
 #include <Handler_Interface.h>
 #include <LocationService_Log.h>
 
-
 static void handler_interface_base_init(gpointer g_class)
 {
     static gboolean is_initialized = FALSE;
@@ -33,13 +32,12 @@ static void handler_interface_base_init(gpointer g_class)
 GType handler_interface_get_type(void)
 {
     static GType interface_type = 0;
-    if (interface_type == 0) {
-        static const GTypeInfo info = { sizeof(HandlerInterface),
-            handler_interface_base_init, NULL };
 
-        interface_type = g_type_register_static(G_TYPE_INTERFACE, "Handler",
-                &info, 0);
+    if (interface_type == 0) {
+        static const GTypeInfo info = { sizeof(HandlerInterface), handler_interface_base_init, NULL };
+        interface_type = g_type_register_static(G_TYPE_INTERFACE, "Handler", &info, 0);
     }
+
     return interface_type;
 }
 
@@ -55,7 +53,6 @@ int handler_start(Handler *self, int handler_type)
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->start, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_start\n");
-    
     return HANDLER_INTERFACE_GET_INTERFACE(self)->start(self, handler_type);
 }
 
@@ -70,7 +67,6 @@ int handler_stop(Handler *self, int handlertype)
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->stop, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_stop\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->stop(self, handlertype);
 }
 
@@ -81,13 +77,13 @@ int handler_stop(Handler *self, int handlertype)
  * @param           <pos_cb> <In> <callback function to get result>
  * @return          int
  */
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype,
+                         LSHandle *sh)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(pos_cb, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_position, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_position\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_position(self, enable, pos_cb, handlerobj, handlertype, sh);
 }
 
@@ -99,13 +95,13 @@ int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb
  * @param           <track_cb> <In> <callback function to get result>
  * @return          void
  */
-void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
+void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj,
+                            int handlertype, LSHandle *sh)
 {
     g_return_if_fail(HANDLER_IS_INTERFACE(self));
     g_return_if_fail(track_cb);
     g_return_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking);
     LS_LOG_DEBUG("handler_start_tracking\n");
-
     HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking(self, enable, track_cb, handlerobj, handlertype, sh);
 }
 
@@ -122,8 +118,7 @@ int handler_get_last_position(Handler *self, Position *position, Accuracy *accur
     g_return_val_if_fail(accuracy, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_position, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_last_position\n");
-
-    return HANDLER_INTERFACE_GET_INTERFACE(self) ->get_last_position(self, position ,accuracy, handlertype);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_position(self, position, accuracy, handlertype);
 }
 
 /**
@@ -139,7 +134,6 @@ int handler_get_velocity(Handler *self, VelocityCallback vel_cb)
     g_return_val_if_fail(vel_cb, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_velocity, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_velocity\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_velocity(self, vel_cb);
 }
 
@@ -157,7 +151,6 @@ int handler_get_last_velocity(Handler *self, Velocity *velocity, Accuracy *accur
     g_return_val_if_fail(accuracy, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_velocity, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_last_velocity\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_velocity(self, velocity, accuracy);
 }
 
@@ -174,7 +167,6 @@ int handler_get_accuracy(Handler *self, AccuracyCallback acc_cb)
     g_return_val_if_fail(acc_cb, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_accuracy, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_accuracy\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_accuracy(self, acc_cb);
 }
 
@@ -191,7 +183,6 @@ int handler_get_power_requirement(Handler *self, int *power)
     g_return_val_if_fail(power, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_power_requirement, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_power_requirement\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_power_requirement(self, power);
 }
 
@@ -202,14 +193,12 @@ int handler_get_power_requirement(Handler *self, int *power)
  * @param           <ttff> <In> <calculated value of TTFF form GPS>
  * @return          int
  */
-int handler_get_time_to_first_fix(Handler *self, double *ttff)
+guint64 handler_get_time_to_first_fix(Handler *self)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
-    g_return_val_if_fail(ttff, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_ttfx, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_time_to_first_fix\n");
-
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_ttfx(self, ttff);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_ttfx(self);
 }
 
 /**
@@ -225,7 +214,6 @@ int handler_get_gps_satellite_data(Handler *self, gboolean enable_satellite, Sat
     g_return_val_if_fail(sat_cb, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_sat_data, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_gps_satellite_data\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_sat_data(self, enable_satellite, sat_cb);
 }
 
@@ -242,7 +230,6 @@ int handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCallback nmea
     g_return_val_if_fail(nmea_cb, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_nmea_data, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_nmea_data\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_nmea_data(self, enable_nmea, nmea_cb, userdata);
 }
 
@@ -259,7 +246,6 @@ int handler_send_extra_command(Handler *self, int *command, ExtraCmdCallback ext
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->send_extra_cmd, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_send_extra_command\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->send_extra_cmd(self, command, extra_cb);
 }
 
@@ -278,7 +264,6 @@ int handler_set_property(Handler *self, GObject *object, guint property_id, cons
     //g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     //g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->set_property, ERROR_NOT_AVAILABLE);
     //LS_LOG_DEBUG("handler_set_property\n");
-
     return 0;/*TO-DO: change it*/
     //return HANDLER_INTERFACE_GET_INTERFACE(self)->set_property(self, object, property_id,value, pspec); //TO-DO-change
 }
@@ -298,8 +283,7 @@ int handler_get_property(Handler *self, GObject *object, guint property_id, GVal
     //g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     //g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_property, ERROR_NOT_AVAILABLE);
     //LS_LOG_DEBUG("handler_get_property\n");
-
-    return 0;//dummy now
+    return 0;    //dummy now
     //return HANDLER_INTERFACE_GET_INTERFACE(self)->get_property(self, object, property_id, value, pspec); //TO-DO-change
 }
 
@@ -315,7 +299,6 @@ int handler_get_current_handler(Handler *self, int handlerType)
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_cur_handler, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_current_handler\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_cur_handler(self, handlerType);
 }
 
@@ -331,7 +314,6 @@ int handler_set_current_handler(Handler *self, int handlerType)
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->set_cur_handler, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_set_current_handler\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->set_cur_handler(self, handlerType);
 }
 
@@ -349,7 +331,6 @@ int handler_compare_handler(Handler *self, int handler1, int handler2)
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->compare_handler, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_compare_handler\n");
-
     return HANDLER_INTERFACE_GET_INTERFACE(self)->compare_handler(self, handler1, handler2);
 }
 
@@ -361,13 +342,12 @@ int handler_compare_handler(Handler *self, int handler1, int handler2)
  * @param           <geo_cb> <In> <callback function to get result>
  * @return          int
  */
-int handler_get_geo_code(Handler *self, Address *address, GeoCodeCallback geo_cb)
+int handler_get_geo_code(Handler *self, Address *address, Position *pos, Accuracy *ac)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_geo_code, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_geo_code\n");
-
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_geo_code(self, address, geo_cb);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_geo_code(self, address, pos, ac);
 }
 
 /**
@@ -378,12 +358,13 @@ int handler_get_geo_code(Handler *self, Address *address, GeoCodeCallback geo_cb
  * @param           <rev_geo_cb> <In> <callback function for reverse geocode>
  * @return          int
  */
-int handler_get_reverse_geo_code(Handler *self, Position *pos, RevGeocodeCallback rev_geo_cb)
+int handler_get_reverse_geo_code(Handler *self, Position *pos, Address *address)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(pos, ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(address, ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_get_reverse_geo_code\n");
-
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode(self, pos, rev_geo_cb);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode(self, pos, address);
 }
 

@@ -38,14 +38,11 @@ G_BEGIN_DECLS
 typedef struct _WifiHandler WifiHandler;
 typedef struct _WifiHandlerClass WifiHandlerClass;
 
-
-struct _WifiHandler
-{
+struct _WifiHandler {
     GObject parent_instance;
 };
 
-struct _WifiHandlerClass
-{
+struct _WifiHandlerClass {
     GObjectClass parent_class;
 };
 
@@ -53,7 +50,7 @@ GType wifi_handler_get_type(void);
 
 typedef enum {
     WIFI_PROGRESS_NONE = 0,
-    WIFI_GET_POSITION_ON=1 << 0,
+    WIFI_GET_POSITION_ON = 1 << 0,
     WIFI_START_TRACKING_ON = 1 << 1
 } WifiHandlerStateFlags;
 

@@ -31,10 +31,16 @@
 #define ERROR_NOT_AVAILABLE     4
 #define ERROR_NONE              0
 #define LOCATION_DB_PREF_PATH   "usr/share/location/location_position.xml"
-
-void gps_service_get_stored_position(position_data * last_pos);
-void gps_service_store_position(position_data * last_pos);
-void wifi_plugin_set_stored_position(guint64 timestamp, gdouble longitude, gdouble latitude , gdouble hor_accuracy, gdouble ver_accuracy);
+#define LOCATION_DB_PREF_PATH_CELL "usr/share/location/location_wifi.xml"
+void gps_service_get_stored_position(position_data *last_pos);
+void gps_service_store_position(position_data *last_pos);
+void wifi_plugin_set_stored_position(guint64 timestamp, gdouble longitude,
+                                     gdouble latitude, gdouble hor_accuracy,
+                                     gdouble ver_accuracy);
+int cell_get_stored_position(Position *position, Accuracy *accuracy);
+void cell_set_stored_position(guint64 timestamp, gdouble longitude,
+                              gdouble latitude, gdouble hor_accuracy,
+                              gdouble ver_accuracy);
 void initializeLocationDB();
 
 #endif

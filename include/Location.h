@@ -50,9 +50,9 @@ typedef enum {
     ERROR_NONE = 0,
     ERROR_NOT_IMPLEMENTED,
     ERROR_TIMEOUT,
-    ERROR_NETWORK_ERROR ,
+    ERROR_NETWORK_ERROR,
     ERROR_NOT_APPLICABLE_TO_THIS_HANDLER,
-    ERROR_NOT_AVAILABLE ,
+    ERROR_NOT_AVAILABLE,
     ERROR_WRONG_PARAMETER,
     ERROR_DUPLICATE_REQUEST,
     ERROR_REQUEST_INPROGRESS
@@ -67,14 +67,21 @@ typedef enum {
     GPS_STATUS_ACQUIRING,
     GPS_STATUS_AVAILABLE
 } GPSStatus;
+enum {
+    ERROR_NETWORK_NOT_FOUND = 0,
+    ERROR_NO_MEMORY,
+    ERROR_NO_RESPONSE,
+    ERROR_NO_DATA
+};
+#define DEFAULT_VALUE 0
 
 typedef GObject HandlerObject;
-typedef struct _Position    Position;
-typedef struct _Status      Status;
-typedef struct _Velocity    Velocity;
-typedef struct _Nmea        Nmea;
-typedef struct _Satellite   Satellite;
-typedef struct _Accuracy    Accuracy;
-typedef struct _Address     Address;
+typedef struct _Position Position;
+typedef struct _Status Status;
+typedef struct _Velocity Velocity;
+typedef struct _Nmea Nmea;
+typedef struct _Satellite Satellite;
+typedef struct _Accuracy Accuracy;
+typedef struct _Address Address;
 
 #endif /* _LOCATION_H_ */

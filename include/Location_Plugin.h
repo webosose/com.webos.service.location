@@ -40,8 +40,8 @@
  * @param           <type> <In> <type>
  * @return          void
  */
-typedef void (*PositionCallback)(gboolean enable_cb, Position *position, Accuracy *accuracy,
-        int error, gpointer userdata, int type);
+typedef void (*PositionCallback)(gboolean enable_cb, Position *position, Accuracy *accuracy, int error,
+                                 gpointer userdata, int type);
 
 /**
  * <Funciton>       LastPositionCallback
@@ -52,8 +52,7 @@ typedef void (*PositionCallback)(gboolean enable_cb, Position *position, Accurac
  * @param           <userdata> <In> <Gobject private instance>
  * @return          void
  */
-typedef void (*LastPositionCallback)(gboolean enable_cb, Position *lastPosition, Accuracy *accuracy,
-        gpointer userdata);
+typedef void (*LastPositionCallback)(gboolean enable_cb, Position *lastPosition, Accuracy *accuracy, gpointer userdata);
 
 /**
  * <Funciton >   VelocityCallback
@@ -64,8 +63,7 @@ typedef void (*LastPositionCallback)(gboolean enable_cb, Position *lastPosition,
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-typedef void (*VelocityCallback)(gboolean enable_cb,Velocity *velocity, Accuracy *accuracy,
-        gpointer userdata);
+typedef void (*VelocityCallback)(gboolean enable_cb, Velocity *velocity, Accuracy *accuracy, gpointer userdata);
 
 /**
  * <Funciton >   handler_stop
@@ -76,8 +74,7 @@ typedef void (*VelocityCallback)(gboolean enable_cb,Velocity *velocity, Accuracy
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-typedef void (*LastVelocityCallback)(gboolean enable_cb,Velocity *velocity, Accuracy *accuracy,
-        gpointer userdata);
+typedef void (*LastVelocityCallback)(gboolean enable_cb, Velocity *velocity, Accuracy *accuracy, gpointer userdata);
 
 /**
  * <Funciton >   handler_stop
@@ -87,7 +84,7 @@ typedef void (*LastVelocityCallback)(gboolean enable_cb,Velocity *velocity, Accu
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-typedef void (*AccuracyCallback)(gboolean enable_cb,Accuracy *accuracy, gpointer userdata);
+typedef void (*AccuracyCallback)(gboolean enable_cb, Accuracy *accuracy, gpointer userdata);
 
 /**
  * <Funciton >   handler_stop
@@ -108,18 +105,18 @@ typedef void (*NmeaCallback)(gboolean enable_cb, int timestamp, char *data, int 
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-typedef void (*StatusCallback)(gboolean enable_cb,gint status, gpointer userdata);
+typedef void (*StatusCallback)(gboolean enable_cb, gint status, gpointer userdata);
 
 /**
  * <Funciton >   SatelliteCallback
  * <Description>  Callback to get Satellite Info
  * @param     <enable_cb> <In> <enable/disable the callback>
  * @param     <Satellite> <In> <Satellite data>
- * 
+ *
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-typedef void (*SatelliteCallback)(gboolean enable_cb,Satellite *satellite,gpointer userdata);
+typedef void (*SatelliteCallback)(gboolean enable_cb, Satellite *satellite, gpointer userdata);
 /**
  * <Funciton>       TimeoutCallback
  * <Description>    Callback for Timeout
@@ -168,7 +165,8 @@ typedef void (*ExtraCmdCallback)(gboolean enable_cb, int command, gpointer userd
  * @param           <userdata> <In> <Gobject private instance>
  * @return          void
  */
-typedef void (*StartTrackingCallBack)(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error, gpointer userdata, int type);
+typedef void (*StartTrackingCallBack)(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error,
+                                      gpointer userdata, int type);
 
 /**
  * <Funciton>       getTTFF_cb
@@ -179,10 +177,6 @@ typedef void (*StartTrackingCallBack)(gboolean enable_cb, Position *pos, Accurac
  * @return          void
  */
 typedef void (*getTTFF_cb)(gboolean enable_cb, double ttff, gpointer userdata);
-
-
-
-
 
 /**
  * GPS plug-in APIS
@@ -205,16 +199,19 @@ typedef struct {
     int (*start)(gpointer handle, gpointer userdata);
     int (*stop)(gpointer handle);
     int (*get_position)(gpointer handle, PositionCallback pos_cb, gpointer celldata);
-    int (*get_last_position)(gpointer handle, Position **position, Accuracy **accuracy);
     int (*start_tracking)(gpointer handle, gboolean enable, StartTrackingCallBack track_cb, gpointer celldata);
 } CellPluginOps;
 
 typedef struct {
     int (*start)(gpointer handle, gpointer userdata);
     int (*stop)(gpointer handle);
-    int (*get_geocode)(gpointer handle, const Address *address, GList **position_list, GList **accuracy_list);
-    int (*get_geocode_freetext)(gpointer handle, const gchar *address, GList **position_list, GList **accuracy_list);
-    int (*get_reverse_geocode)(gpointer handle, Position *position, Address **address, Accuracy **accuracy);              
+    int (*get_reverse_geocode)(gpointer handle, Position *pos, Address *address);
+    int (*get_geocode)(gpointer handle, const Address *address, Position *pos, Accuracy *ac);
+    int (*get_geocode_freetext)(gpointer handle, const gchar *addrress, Position *pos, Accuracy *ac);
+    int (*get_geocode_async)(gpointer handle, const Address *address, GeoCodeCallback geo_callback, gpointer userdata);
+    int (*get_geocode_freetext_async)(gpointer handle, const gchar *address, GeoCodeCallback geo_callback,
+                                      gpointer userdata);
+    int (*get_reverse_geocode_async)(gpointer handle, Position *position, RevGeocodeCallback rev_cb, gpointer userdata);
 } LbsPluginOps;
 
 #endif  /* _LOCATION_PLUGIN_H_ */

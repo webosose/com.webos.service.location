@@ -28,6 +28,7 @@
 #include <Location.h>
 #include <Position.h>
 #include <Accuracy.h>
+#include <Address.h>
 #include <Location_Plugin.h>
 #include <lunaservice.h>
 
@@ -49,22 +50,24 @@ typedef struct _HandlerInterface HandlerInterface;
 
 typedef int (*TYPE_START_FUNC)(Handler *self, int handler_type);
 typedef int (*TYPE_STOP_FUNC)(Handler *self, int handler_type);
-typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
-typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
+typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj,
+                                 int handlertype, LSHandle *sh);
+typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj,
+                                 int handlertype, LSHandle *sh);
 typedef int (*TYPE_GET_LAST_POSITION)(Handler *self, Position *position, Accuracy *accuracy, int handlertype);
 typedef int (*TYPE_GET_VELOCITY)(Handler *self, VelocityCallback vel_cb);
 typedef int (*TYPE_GET_LAST_VELOCITY)(Handler *self, Velocity *velocity, Accuracy *accuracy);
 typedef int (*TYPE_GET_ACCURACY)(Handler *self, AccuracyCallback acc_cb);
 typedef int (*TYPE_GET_POWER_REQ)(Handler *self, int *power);
-typedef int (*TYPE_GET_TTFF)(Handler *self, double *ttff);
+typedef int (*TYPE_GET_TTFF)(Handler *self);
 typedef int (*TYPE_GET_SAT)(Handler *self, gboolean enable_satellite, SatelliteCallback sat_cb);
 typedef int (*TYPE_GET_NMEA)(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
 typedef int (*TYPE_SEND_EXTRA)(Handler *self, int *command, ExtraCmdCallback extra_cb);
 typedef int (*TYPE_GET_CUR_HANDLER)(Handler *self, int handlerType);
 typedef int (*TYPE_SET_CUR_HANDLER)(Handler *self, int handlerType);
 typedef int (*TYPE_COMP_HANDLER)(Handler *self, int handler1, int handler2);
-typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, GeoCodeCallback geo_cb);
-typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, RevGeocodeCallback rev_geo_cb);
+typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, Position *pos, Accuracy *ac);
+typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, Address *address);
 
 /**
  * Interface for all Location Handlers
@@ -101,9 +104,11 @@ int handler_start(Handler *self, int handler_type);
 
 int handler_stop(Handler *self, int handler_type);
 
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, int handlertype, LSHandle *sh);
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, int handlertype,
+                         LSHandle *sh);
 
-void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
+void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj,
+                            int handlertype, LSHandle *sh);
 
 int handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy, int handlertype);
 
@@ -115,7 +120,7 @@ int handler_get_accuracy(Handler *self, AccuracyCallback acc_cb);
 
 int handler_get_power_requirement(Handler *self, int *power);
 
-int handler_get_time_to_first_fix(Handler *self, double *ttff);
+guint64 handler_get_time_to_first_fix(Handler *self);
 
 int handler_get_gps_satellite_data(Handler *self, gboolean enable_satellite, SatelliteCallback sat_cb);
 
@@ -133,9 +138,9 @@ int handler_set_current_handler(Handler *self, int handlerType);
 
 int handler_compare_handler(Handler *self, int handler1, int handler2);
 
-int handler_get_geo_code(Handler *self, Address *address, GeoCodeCallback geo_cb);
+int handler_get_geo_code(Handler *self, Address *address, Position *pos, Accuracy *ac);
 
-int handler_get_reverse_geo_code(Handler *self, Position *pos, RevGeocodeCallback rev_geo_cb);
+int handler_get_reverse_geo_code(Handler *self, Position *pos, Address *address);
 
 G_END_DECLS
 

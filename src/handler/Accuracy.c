@@ -12,14 +12,15 @@
 #include <Position.h>
 #include <Accuracy.h>
 
-
 Accuracy *accuracy_create(GpsAccuracyLevel level, gdouble horizontal_accuracy, gdouble vertical_accuracy)
 {
     Accuracy *accuracy = g_slice_new0(Accuracy);
+
+    if (accuracy == NULL) return NULL;
+
     accuracy->level = level;
     accuracy->horizAccuracy = horizontal_accuracy;
     accuracy->vertAccuracy = vertical_accuracy;
-
     return accuracy;
 }
 

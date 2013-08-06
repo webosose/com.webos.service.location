@@ -38,14 +38,11 @@ G_BEGIN_DECLS
 typedef struct _CellHandler CellHandler;
 typedef struct _CellHandlerClass CellHandlerClass;
 
-
-struct _CellHandler
-{
+struct _CellHandler {
     GObject parent_instance;
 };
 
-struct _CellHandlerClass
-{
+struct _CellHandlerClass {
     GObjectClass parent_class;
 };
 
@@ -53,7 +50,7 @@ GType cell_handler_get_type(void);
 
 typedef enum {
     CELL_PROGRESS_NONE = 0,
-    CELL_GET_POSITION_ON=1 << 0,
+    CELL_GET_POSITION_ON = 1 << 0,
     CELL_START_TRACKING_ON = 1 << 1
 } CellHandlerStateFlags;
 

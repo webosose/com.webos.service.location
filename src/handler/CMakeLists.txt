@@ -16,11 +16,11 @@ set(SRC
         Wifi_Handler.c
         Handler_Interface.c
         Cell_Handler.c
-        Google_Handler.c
         Plugin_Loader.c
         Position.c
         Velocity.c
         Accuracy.c
+        Address.c
         Satellite.c
         Network_Handler.c
         Lbs_Handler.c

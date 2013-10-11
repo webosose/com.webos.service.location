@@ -48,6 +48,7 @@ add_subdirectory(src/plugin/CellPlugin)
 add_subdirectory(src/plugin/LbsPlugin)
 add_subdirectory(src/handler)
 add_subdirectory(src/db_utils)
+add_subdirectory(src/httphandler)
 
 install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_PREFIX}/include/location

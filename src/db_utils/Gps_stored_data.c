@@ -79,8 +79,12 @@ void gps_service_get_stored_position(position_data *last_pos)
     handle = (DBHandle *) malloc(sizeof(DBHandle));
     xmlChar *result = NULL;
 
-    if (last_pos == NULL)
+    if (last_pos == NULL) {
+        if (handle != NULL)
+            free(handle);
+
         return;
+    }
 
     if (handle == NULL) {
         last_pos->latitude = 0.0;

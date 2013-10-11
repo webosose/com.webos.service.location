@@ -61,6 +61,9 @@ static int lbs_handler_start(Handler *handler_data)
     LS_LOG_DEBUG("[DEBUG] lbs_handler_start");
     LbsHandlerPrivate *priv = GET_PRIVATE(handler_data);
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->lbs_plugin, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->lbs_plugin->ops.start, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->lbs_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     g_mutex_lock(priv->mutex);
 
     if (priv->is_started == TRUE) {
@@ -68,9 +71,6 @@ static int lbs_handler_start(Handler *handler_data)
         return ERROR_NONE;
     }
 
-    g_return_val_if_fail(priv->lbs_plugin, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->lbs_plugin->ops.start, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->lbs_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     ret = priv->lbs_plugin->ops.start(priv->lbs_plugin->plugin_handler, handler_data);
 
     if (ret == ERROR_NONE) priv->is_started = TRUE;
@@ -85,12 +85,17 @@ static int lbs_handler_start(Handler *handler_data)
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int lbs_handler_stop(Handler *self)
+static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     int ret = ERROR_NONE;
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("[DEBUG]lbs_handler_stop() api progress %d\n", priv->api_progress_flag);
+
+    if (priv->is_started == FALSE)
+        return ERROR_NOT_STARTED;
+
+    if (forcestop == TRUE) priv->api_progress_flag = 0;
 
     if (priv->api_progress_flag != 0) return ERROR_REQUEST_INPROGRESS;
 

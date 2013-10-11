@@ -62,12 +62,12 @@ typedef struct {
  */
 static void unreference_geoclue(GeoclueLbs *geoclueLbs)
 {
-    if (geoclueLbs->geocode) {
+    if (geoclueLbs->geocode != NULL) {
         g_object_unref(geoclueLbs->geocode);
         geoclueLbs->geocode = NULL;
     }
 
-    if (geoclueLbs->reverse_geocode) {
+    if (geoclueLbs->reverse_geocode != NULL) {
         g_object_unref(geoclueLbs->reverse_geocode);
         geoclueLbs->reverse_geocode = NULL;
     }
@@ -84,7 +84,8 @@ int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, 
                                    &alt, &geoclue_acc,
                                    &error);
 
-    if (error) {
+    if (error != NULL) {
+        LS_LOG_DEBUG(" Error in getting data");
         g_error_free(error);
         return ERROR_NOT_AVAILABLE;
     }
@@ -95,7 +96,10 @@ int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, 
 
         if (fields & GEOCLUE_POSITION_FIELDS_ALTITUDE) pos->altitude = alt;
         else pos->altitude = DEFAULT_VALUE;
-    } else return ERROR_NOT_AVAILABLE;
+    } else {
+        LS_LOG_DEBUG(" latitude logtyude not present");
+        return ERROR_NOT_AVAILABLE;
+    }
 
     if (geoclue_acc != NULL) {
         geoclue_accuracy_get_details(geoclue_acc, &ac->level, &ac->horizAccuracy, &ac->vertAccuracy);
@@ -141,7 +145,7 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
                                    &alt, &geoclue_acc, &error);
     g_hash_table_destroy(geoclue_addrress);
 
-    if (error) {
+    if (error != NULL) {
         g_error_free(error);
         LS_LOG_DEBUG(" Error in return geocode");
         pos->latitude = DEFAULT_VALUE;
@@ -189,7 +193,7 @@ int get_reverse_geocode(gpointer handle, Position *pos, Address *address)
     if (success == FALSE || error) {
         g_error_free(error);
 
-        if (addr_acc) geoclue_accuracy_free(addr_acc);
+        if (addr_acc != NULL) geoclue_accuracy_free(addr_acc);
 
         return ERROR_NOT_AVAILABLE;
     }

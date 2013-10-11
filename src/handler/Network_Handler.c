@@ -77,9 +77,6 @@ void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accurac
 void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns,
                             int type)
 {
-    LS_LOG_DEBUG(
-        "[DEBUG] NW Handler : tracking_cb  latitude =%f , longitude =%f , accuracy =%f\n", position->latitude,
-        position->longitude, accuracy->horizAccuracy);
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
     g_return_if_fail(priv);
     g_return_if_fail(priv->track_cb);
@@ -152,14 +149,17 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int nw_handler_stop(Handler *self, int handlertype)
+static int nw_handler_stop(Handler *self, int handlertype, gboolean forcestop)
 {
     LS_LOG_DEBUG("[DEBUG]nw_handler_stop() \n");
     NwHandlerPrivate *priv = GET_PRIVATE(self);
     int ret = ERROR_NONE;
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
     // This should call cell id stop or Wifi stop
-    ret = handler_stop(HANDLER_INTERFACE(priv->handler_obj[handlertype]), handlertype);
+    if (priv->handler_obj[handlertype] != NULL)
+        ret = handler_stop(HANDLER_INTERFACE(priv->handler_obj[handlertype]), handlertype, forcestop);
+
     return ret;
 }
 
@@ -176,8 +176,10 @@ static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallb
     LS_LOG_DEBUG("[DEBUG]nw_handler_get_position\n");
     int result = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("[DEBUG]nw_handler_get_position hanlder type [%d]\n", handlertype);
     priv->pos_cb_arr[handlertype] = pos_cb;
+    g_return_val_if_fail(priv->handler_obj[handlertype], ERROR_NOT_AVAILABLE);
     result = handler_get_position(priv->handler_obj[handlertype], enable, priv->nw_cb_arr[handlertype], self, handlertype,
                                   sh);
     LS_LOG_DEBUG("[DEBUG]result : gps_handler_get_position %d  \n", result);

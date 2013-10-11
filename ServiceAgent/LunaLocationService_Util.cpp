@@ -16,47 +16,6 @@
 #include <cjson/json.h>
 #include <LocationService_Log.h>
 
-void LSMessageReplyErrorInvalidHandle(LSHandle *sh, LSMessage *message)
-{
-    LSError lserror;
-    char mResult[50];
-    LSErrorInit(&lserror);
-    sprintf(mResult, "{\"returnValue\":true, \"errorCode\":%d}", TRACKING_UNKNOWN_ERROR);
-    bool retVal = LSMessageReply(sh, message, mResult, &lserror);
-
-    if (!retVal) {
-        LSErrorPrint(&lserror, stderr);
-        LSErrorFree(&lserror);
-    }
-}
-
-void LSMessageReplyErrorNullPointer(LSHandle *sh, LSMessage *message)
-{
-    LSError lserror;
-    char mResult[50];
-    LSErrorInit(&lserror);
-    sprintf(mResult, "{\"returnValue\":true, \"errorCode\":%d}", TRACKING_UNKNOWN_ERROR);
-    bool retVal = LSMessageReply(sh, message, mResult, &lserror);
-
-    if (!retVal) {
-        LSErrorPrint(&lserror, stderr);
-        LSErrorFree(&lserror);
-    }
-}
-
-void LSMessageReplyErrorInvalidJSON(LSHandle *sh, LSMessage *message)
-{
-    LSError lserror;
-    char mResult[50];
-    LSErrorInit(&lserror);
-    sprintf(mResult, "{\"returnValue\":true, \"errorCode\":%d}", TRACKING_UNKNOWN_ERROR);
-    bool retVal = LSMessageReply(sh, message, mResult, &lserror);
-
-    if (!retVal) {
-        LSErrorPrint(&lserror, stderr);
-        LSErrorFree(&lserror);
-    }
-}
 
 bool LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode)
 {
@@ -67,9 +26,11 @@ bool LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode)
         return true;
     }
 
+    json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(false));
     json_object_object_add(serviceObject, "errorCode", json_object_new_int(errorCode));
-    json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
+    //json_object_object_add(serviceObject, "errorText", json_object_new_string("Location General error"));
     bool retVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &lserror);
+    //bool retVal = LSMessageRespond(message, json_object_to_json_string(serviceObject), &lserror);
 
     if (retVal == false) {
         LSErrorPrint(&lserror, stderr);
@@ -88,7 +49,7 @@ bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message)
     LSError mLSError;
     LSErrorInit(&mLSError);
 
-    if (!LSMessageReply(sh, message, subscribe_answer, &mLSError)) {
+    if (LSMessageReply(sh, message, subscribe_answer, &mLSError) == false) {
         LSErrorPrint(&mLSError, stderr);
         LSErrorFree(&mLSError);
         return false;
@@ -103,7 +64,7 @@ void LSMessageReplySuccess(LSHandle *sh, LSMessage *message)
     LSErrorInit(&lserror);
     bool retVal = LSMessageReply(sh, message, "{\"returnValue\":true}", &lserror);
 
-    if (!retVal) {
+    if (retVal == false) {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
     }

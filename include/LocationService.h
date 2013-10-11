@@ -26,6 +26,7 @@
 
 #include <lunaservice.h>
 #include <ServiceAgent.h>
+#include<IConnectivityListener.h>
 #include <string.h>
 #include <Location.h>
 #include "boost/shared_ptr.hpp"
@@ -35,8 +36,8 @@
 #include <pthread.h>
 #include <LocationService_Log.h>
 #define SHORT_RESPONSE_TIME  10000;
-#define MEDIUM_RESPONSE_TIME  60000;
-#define LONG_RESPONSE_TIME  100000;
+#define MEDIUM_RESPONSE_TIME  100000;
+#define LONG_RESPONSE_TIME  150000;
 #define ACCURACY_LEVEL_HIGH 1
 #define ACCURACY_LEVEL_LOW 3
 #define RESPONSE_LEVEL_LOW 1
@@ -60,7 +61,7 @@
  * @brief CONSTANT DEFINITIONS
  */
 
-class LocationService
+class LocationService: public IConnectivityListener
 {
 public:
     class TimerData
@@ -119,6 +120,12 @@ public:
             return m_handlerType;
         }
         ;
+		//Multiple handler started, one failed then wait for other reply [START]
+        void UpdateReqHandlerType(unsigned char tmp){
+            m_handlerType = tmp;
+        }
+        ;
+		//Multiple handler started, one failed then wait for other reply [STOP]
         TimerData *m_timerdata;
 
     private:
@@ -212,6 +219,10 @@ public:
         getInstance()->getGpsSatelliteData_reply(satellite);
     }
 
+    static void getGpsStatus_cb(int state) {
+        getInstance()->getGpsStatus_reply(state);
+    }
+
     static int CreateSharedPref();
     static bool GetWifiApsList_cb(LSHandle *sh, LSMessage *reply, void *ctx) {
         return getInstance()->_GetWifiApsList_cb(sh, reply, ctx);
@@ -258,9 +269,21 @@ public:
         isTelephonyAvailable = state; //state; for TESTING
     }
 
+    void LocationService::Handle_WifiNotification(bool wifi_state) {
+        setWifiState(wifi_state);
+    }
+    void LocationService::Handle_ConnectivityNotification(bool Conn_state) {
+        updateConntionManagerState(Conn_state);
+    }
+    void LocationService::Handle_TelephonyNotification(bool Tele_state) {
+        updateTelephonyState(Tele_state);
+    }
+
 private:
     bool mGpsStatus;
     bool mNwStatus;
+    bool mIsStartFirstReply;
+    long long mlastTrackingReplyTime;
     typedef boost::shared_ptr<Request> Requestptr;
     std::vector<Requestptr> m_reqlist;
     bool wifistate;
@@ -288,7 +311,7 @@ private:
     bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
     bool _GetWifiApsList_cb(LSHandle *sh, LSMessage *reply, void *ctx);
     gboolean _TimerCallback(void *data);
-    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge,
+    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge, int accuracy,
                                unsigned char handlerstatus);
     void handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *);
     bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
@@ -302,6 +325,7 @@ private:
     void get_nmea_reply(int timestamp, char *data, int length);
     void getCurrentPosition_reply(Position *, Accuracy *, int, int);
     void getGpsSatelliteData_reply(Satellite *);
+    void getGpsStatus_reply(int);
     void stopSubcription(const char *key);
     bool isSubscListEmpty(LSHandle *sh, const char *key);
     void LSErrorPrintAndFree(LSError *ptrLSError);

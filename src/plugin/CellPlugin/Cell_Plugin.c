@@ -168,7 +168,11 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
         ac = accuracy_create(ACCURACY_LEVEL_NONE, hor_acc, vert_acc);
     }
 
-    g_return_if_fail(ac);
+    if (ac == NULL) {
+        position_free(ret_pos);
+        return;
+    }
+
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_CELLID);
     position_free(ret_pos);
     accuracy_free(ac);
@@ -214,7 +218,11 @@ static void tracking_cb(GeocluePosition *position, GeocluePositionFields fields,
         ac = accuracy_create(ACCURACY_LEVEL_NONE, hor_acc, vert_acc);
     }
 
-    g_return_if_fail(ac);
+    if (ac == NULL) {
+        position_free(ret_pos);
+        return;
+    }
+
     (*cellPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, cellPlugin->userdata, HANDLER_CELLID);
     position_free(ret_pos);
     accuracy_free(ac);
@@ -238,9 +246,9 @@ static int get_position(gpointer handle, PositionCallback positionCB, gpointer a
 
     if (send_geoclue_command(geoclueCell->geoclue_pos, "CELLDATA", agent_userdata) == TRUE) {
         LS_LOG_DEBUG("[DEBUG] cell data sent  done\n");
-    }
-    else
-	return ERROR_NOT_AVAILABLE;
+    } else
+        return ERROR_NOT_AVAILABLE;
+
     geoclue_position_get_position_async(geoclueCell->geoclue_pos, (GeocluePositionCallback) position_cb_async, geoclueCell);
     return ERROR_NONE;
 }

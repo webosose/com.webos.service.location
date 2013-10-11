@@ -59,6 +59,7 @@ void wrappergetReverseLocation_cb(gboolean enable_cb, Address *address, gpointer
 void wrapper_getGeoCodeLocation_cb(gboolean enable_cb, Position *position, gpointer privateIns);
 void wrapper_getGpsSatelliteData_cb(gboolean enable_cb, Satellite *satellite, gpointer privateIns);
 void wrapper_sendExtraCommand_cb(gboolean enable_cb, int command, gpointer privateIns);
+void wrapper_gpsStatus_cb(gboolean enable_cb, int state, gpointer data);
 //TODO
 void getTimeToFirstFix_cb();
 void setState_cb();

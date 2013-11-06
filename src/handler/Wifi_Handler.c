@@ -62,6 +62,10 @@ void wifi_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(privateIns);
     g_return_if_fail(priv);
     g_return_if_fail(priv->track_cb);
+	//Return pos is NULL 25/10/2013 [START]
+	g_return_if_fail(position);
+	g_return_if_fail(accuracy);
+   //Return pos is NULL 25/10/2013 [END]
     (*(priv->track_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
 }
 /**
@@ -92,6 +96,9 @@ static int wifi_handler_start(Handler *handler_data)
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(handler_data);
     int ret = ERROR_NONE;
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->wifi_plugin, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->wifi_plugin->ops.start, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->wifi_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     g_mutex_lock(priv->mutex);
 
     if (priv->is_started == TRUE) {
@@ -99,9 +106,6 @@ static int wifi_handler_start(Handler *handler_data)
         return ERROR_NONE;
     }
 
-    g_return_val_if_fail(priv->wifi_plugin, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->wifi_plugin->ops.start, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->wifi_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     ret = priv->wifi_plugin->ops.start(priv->wifi_plugin->plugin_handler, handler_data);
 
     if (ret == ERROR_NONE) priv->is_started = TRUE;
@@ -116,12 +120,17 @@ static int wifi_handler_start(Handler *handler_data)
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int wifi_handler_stop(Handler *self)
+static int wifi_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 {
     LS_LOG_DEBUG("[DEBUG]wifi_handler_stop() \n");
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
     int ret = ERROR_NONE;
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
+    if (priv->is_started == FALSE)
+        return ERROR_NOT_STARTED;
+
+    if (forcestop == TRUE) priv->api_progress_flag = 0;
 
     if (priv->api_progress_flag != 0) return ERROR_REQUEST_INPROGRESS;
 
@@ -200,9 +209,8 @@ static void wifi_handler_start_tracking(Handler *self, gboolean enable, StartTra
         if (result == ERROR_NONE) priv->api_progress_flag |= WIFI_START_TRACKING_ON;
         else track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
     } else {
-        result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler, enable, wifi_handler_tracking_cb);
-
-        if (result == ERROR_NONE) priv->api_progress_flag &= ~WIFI_START_TRACKING_ON;
+        priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler, enable, wifi_handler_tracking_cb);
+        priv->api_progress_flag &= ~WIFI_START_TRACKING_ON;
     }
 
     LS_LOG_DEBUG("[DEBUG] return from wifi_handler_start_tracking , %d  \n", result);

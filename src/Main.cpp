@@ -28,7 +28,7 @@
 #include "LocationService.h"
 #include "Conf.h"
 #include <LocationService_Log.h>
-#include<LocationServiceState.h>
+#include<ConnectionStateObserver.h>
 
 // PmLogging
 #define LS_LOG_CONTEXT_NAME     "avocado.location.location"
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     }
 
     LocationService *locService = NULL;
-    LocationServiceState *locServiceState = NULL;
+    ConnectionStateObserver *connectionStateObserverObj = NULL;
     locService = LocationService::getInstance();
 
     if (locService == NULL) {
@@ -61,23 +61,27 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    locServiceState = new(std::nothrow) LocationServiceState(locService);
+    connectionStateObserverObj = new(std::nothrow) ConnectionStateObserver();
 
-    if (locServiceState == NULL) {
+    if (connectionStateObserverObj == NULL) {
         delete locService;
         locService == NULL;
         g_main_loop_unref(mainLoop);
         return EXIT_FAILURE;
     }
 
+    connectionStateObserverObj->init(locService->getPrivatehandle());
+    //Register
+    connectionStateObserverObj->RegisterListener(locService);
     LS_LOG_DEBUG("Location service started.");
-    locServiceState->init();
     g_main_loop_run(mainLoop);
     LS_LOG_DEBUG("Location service stopped.");
     g_main_loop_unref(mainLoop);
+    //Unregister
+    connectionStateObserverObj->UnregisterListener(locService);
     delete locService;
     locService == NULL;
-    delete locServiceState;
-    locServiceState == NULL;
+    delete connectionStateObserverObj;
+    connectionStateObserverObj == NULL;
     return EXIT_SUCCESS;
 }

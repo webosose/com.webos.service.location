@@ -66,7 +66,10 @@ void cell_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(privateIns);
     g_return_if_fail(priv);
     g_return_if_fail(priv->track_cb);
-
+    //Return pos is NULL 25/10/2013 [START]
+	g_return_if_fail(position);
+	g_return_if_fail(accuracy);
+	//Return pos is NULL 25/10/2013 [END]
     if (position != NULL) {
         LS_LOG_DEBUG(
             "[DEBUG] GPS Handler : tracking_cb  latitude =%f , longitude =%f , accuracy =%f\n", position->latitude,
@@ -116,6 +119,9 @@ static int cell_handler_start(Handler *handler_data)
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(handler_data);
     int ret = ERROR_NONE;
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->cell_plugin, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->cell_plugin->ops.start, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->cell_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     g_mutex_lock(priv->mutex);
 
     if (priv->is_started == TRUE) {
@@ -123,9 +129,6 @@ static int cell_handler_start(Handler *handler_data)
         return ERROR_NONE;
     }
 
-    g_return_val_if_fail(priv->cell_plugin, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->cell_plugin->ops.start, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->cell_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     ret = priv->cell_plugin->ops.start(priv->cell_plugin->plugin_handler, handler_data);
 
     if (ret == ERROR_NONE) priv->is_started = TRUE;
@@ -140,12 +143,17 @@ static int cell_handler_start(Handler *handler_data)
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int cell_handler_stop(Handler *self)
+static int cell_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 {
     LS_LOG_DEBUG("[DEBUG]cell_handler_stop() \n");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
     int ret = ERROR_NONE;
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
+    if (priv->is_started == FALSE)
+        return ERROR_NOT_STARTED;
+
+    if (forcestop == TRUE) priv->api_progress_flag = 0;
 
     if (priv->api_progress_flag != DEFAULT_VALUE) return ERROR_REQUEST_INPROGRESS;
 
@@ -165,21 +173,10 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 {
     LS_LOG_DEBUG("cell_data_cb \n");
     struct json_object *new_obj = NULL;
-    struct json_object *mcc_obj = NULL;
-    struct json_object *mnc_obj = NULL;
-    struct json_object *full_name_obj = NULL;
-    struct json_object *lac_obj = NULL;
-    struct json_object *cid_obj = NULL;
-    struct json_object *signalStrengthObj = NULL;
     struct json_object *return_value = NULL;
     struct json_object *error_code = NULL;
-    unsigned char act;
-    int mcc;
-    int mnc;
-    char *full_name;
-    int lac;
+    struct json_object *cid_obj = NULL;
     int cid;
-    int signal;
     int track_ret = ERROR_NONE;
     int pos_ret = ERROR_NONE;
     int error = ERROR_NONE;
@@ -190,9 +187,8 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     if (priv->is_started == FALSE) return FALSE;
 
     /*Creating a json array*/
-    struct json_object *celldata = json_object_new_object();
-    struct json_object *cellTowersListItem = json_object_new_object();
-    struct json_object *celltowerlist = json_object_new_array();
+    struct json_object *cell_data_obj ;
+  
     const char *str = LSMessageGetPayload(reply);
     LS_LOG_DEBUG("message=%s \n \n", str);
     // str ="{\"act\":1,\"plmn\": 40486}";
@@ -200,10 +196,6 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     new_obj = json_tokener_parse(str);
 
     if (new_obj == NULL) {
-        json_object_put(celldata);
-        json_object_put(celltowerlist);
-        json_object_put(cellTowersListItem);
-        json_object_put(new_obj);
         return FALSE;
     }
 
@@ -226,57 +218,11 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
                 priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
             }
         }
-
-        json_object_put(celldata);
-        json_object_put(celltowerlist);
-        json_object_put(cellTowersListItem);
         json_object_put(new_obj);
         return FALSE;
     }
 
-    // act_obj = json_object_object_get(new_obj, "act");
-    //act = 1;
-    //LS_LOG_DEBUG("act value %d\n", act);
-    cid_obj = json_object_object_get(new_obj, "cellId");
-    cid = json_object_get_int(cid_obj);
-
-    if (cid <= DEFAULT_VALUE) {
-        json_object_put(celldata);
-        json_object_put(celltowerlist);
-        json_object_put(cellTowersListItem);
-        json_object_put(new_obj);
-        return  FALSE;
-    }
-
-    mcc_obj = json_object_object_get(new_obj, "mcc");
-    mcc = json_object_get_int(mcc_obj);
-    mnc_obj = json_object_object_get(new_obj, "mnc");
-    mnc = json_object_get_int(mnc_obj);
-    full_name_obj = json_object_object_get(new_obj, "operatorName");
-    full_name = json_object_get_string(full_name_obj);
-    lac_obj = json_object_object_get(new_obj, "lac");
-    lac = json_object_get_int(lac_obj);
-    signalStrengthObj = json_object_object_get(new_obj, "signalStrenght");
-    signal = json_object_get_int(signalStrengthObj);
-    LS_LOG_DEBUG("parsing completed");
-    // converting to required json
-    struct json_object *cell_data_obj = json_object_new_object();
-    json_object_object_add(cell_data_obj, "homeMobileCountryCode", json_object_new_int(mcc));
-    json_object_object_add(cell_data_obj, "homeMobileNetworkCode", json_object_new_int(mnc));
-    LS_LOG_DEBUG("after MCC and MNC");
-    json_object_object_add(cell_data_obj, "radioType", json_object_new_string("gsm"));
-    json_object_object_add(cell_data_obj, "carrier", json_object_new_string(full_name));
-    json_object_object_add(cellTowersListItem, "cellId", json_object_new_int(cid));
-    json_object_object_add(cellTowersListItem, "locationAreaCode", json_object_new_int(lac));
-    json_object_object_add(cellTowersListItem, "mobileCountryCode", json_object_new_int(mcc));
-    json_object_object_add(cellTowersListItem, "mobileNetworkCode", json_object_new_int(mnc));
-    json_object_object_add(cellTowersListItem, "age", json_object_new_int(DEFAULT_VALUE));
-    json_object_object_add(cellTowersListItem, "signalStrength", json_object_new_int(signal));
-    json_object_array_add(celltowerlist, cellTowersListItem);
-    json_object_object_add(cell_data_obj, "cellTowers", celltowerlist);
-    LS_LOG_DEBUG("cell_data_obj=%s\n", json_object_to_json_string(cell_data_obj));
-    LS_LOG_DEBUG("send start tracking indication %d\n", priv->api_progress_flag & CELL_START_TRACKING_ON);
-
+    cell_data_obj = json_object_object_get(new_obj, "data");
     if (priv->api_progress_flag & CELL_START_TRACKING_ON) {
         LS_LOG_DEBUG("send start tracking indication\n");
         track_ret = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler, TRUE, cell_handler_tracking_cb,
@@ -288,16 +234,13 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
                   (gpointer) json_object_to_json_string(cell_data_obj));
     }
 
-    json_object_put(celldata);
-    json_object_put(celltowerlist);
-    json_object_put(cellTowersListItem);
-    json_object_put(cell_data_obj);
     json_object_put(new_obj);
 
     if (track_ret == ERROR_NOT_AVAILABLE) priv->api_progress_flag &= ~CELL_START_TRACKING_ON;
 
     if (pos_ret == ERROR_NOT_AVAILABLE) priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
-	return TRUE;
+
+    return TRUE;
 }
 gboolean request_cell_data(LSHandle *sh, gpointer self, int subscribe)
 {
@@ -364,16 +307,12 @@ static void cell_handler_start_tracking(Handler *self, gboolean enable, StartTra
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
         return;
     }
-
-    if (priv->api_progress_flag & CELL_START_TRACKING_ON) {
-        track_cb(TRUE, NULL, NULL, ERROR_DUPLICATE_REQUEST, priv->nwhandler, HANDLER_CELLID);
-        return;
-    }
-
+   
     priv->track_cb = NULL;
     priv->nwhandler = handlerobj;
 
     if (enable) {
+	    if (priv->api_progress_flag & CELL_START_TRACKING_ON) return;
         priv->sh = sh;
         priv->track_cb = track_cb;
 

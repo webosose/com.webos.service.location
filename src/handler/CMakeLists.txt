@@ -9,7 +9,7 @@ set(SRC
         ${PROJECT_SOURCE_DIR}/src/Main.cpp
         ${PROJECT_SOURCE_DIR}/src/LocationManagerService.c
         ${PROJECT_SOURCE_DIR}/ServiceAgent/LocationService.cpp
-        ${PROJECT_SOURCE_DIR}/ServiceAgent/LocationServiceState.cpp
+        ${PROJECT_SOURCE_DIR}/ServiceAgent/ConnectionStateObserver.cpp
         ${PROJECT_SOURCE_DIR}/ServiceAgent/JsonUtility.c
         ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaLocationService_Util.cpp
         Gps_Handler.c

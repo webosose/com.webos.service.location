@@ -49,7 +49,7 @@ typedef struct _Handler Handler;
 typedef struct _HandlerInterface HandlerInterface;
 
 typedef int (*TYPE_START_FUNC)(Handler *self, int handler_type);
-typedef int (*TYPE_STOP_FUNC)(Handler *self, int handler_type);
+typedef int (*TYPE_STOP_FUNC)(Handler *self, int handler_type, gboolean forcestop);
 typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj,
                                  int handlertype, LSHandle *sh);
 typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj,
@@ -62,12 +62,13 @@ typedef int (*TYPE_GET_POWER_REQ)(Handler *self, int *power);
 typedef int (*TYPE_GET_TTFF)(Handler *self);
 typedef int (*TYPE_GET_SAT)(Handler *self, gboolean enable_satellite, SatelliteCallback sat_cb);
 typedef int (*TYPE_GET_NMEA)(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
-typedef int (*TYPE_SEND_EXTRA)(Handler *self, int *command, ExtraCmdCallback extra_cb);
+typedef int (*TYPE_SEND_EXTRA)(Handler *self , char *command);
 typedef int (*TYPE_GET_CUR_HANDLER)(Handler *self, int handlerType);
 typedef int (*TYPE_SET_CUR_HANDLER)(Handler *self, int handlerType);
 typedef int (*TYPE_COMP_HANDLER)(Handler *self, int handler1, int handler2);
 typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, Position *pos, Accuracy *ac);
 typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, Address *address);
+typedef int (*TYPE_GET_GPS_STATUS)(Handler *self, StatusCallback status_cb);
 
 /**
  * Interface for all Location Handlers
@@ -93,6 +94,7 @@ struct _HandlerInterface {
     TYPE_COMP_HANDLER compare_handler;
     TYPE_GEO_CODE get_geo_code;
     TYPE_REV_GEO_CODE get_rev_geocode;
+    TYPE_GET_GPS_STATUS get_gps_status;
 };
 
 /*
@@ -102,7 +104,7 @@ GType handler_interface_get_type(void);
 
 int handler_start(Handler *self, int handler_type);
 
-int handler_stop(Handler *self, int handler_type);
+int handler_stop(Handler *self, int handler_type, gboolean forcestop);
 
 int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, int handlertype,
                          LSHandle *sh);
@@ -126,7 +128,7 @@ int handler_get_gps_satellite_data(Handler *self, gboolean enable_satellite, Sat
 
 int handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
 
-int handler_send_extra_command(Handler *self, int *command, ExtraCmdCallback extra_cb);
+int handler_send_extra_command(Handler *self , char *command);
 
 int handler_set_property(Handler *self, GObject *object, guint property_id, const GValue *value, GParamSpec *pspec);
 
@@ -141,6 +143,8 @@ int handler_compare_handler(Handler *self, int handler1, int handler2);
 int handler_get_geo_code(Handler *self, Address *address, Position *pos, Accuracy *ac);
 
 int handler_get_reverse_geo_code(Handler *self, Position *pos, Address *address);
+
+int handler_get_gps_status(Handler *self, StatusCallback gpsStatus_cb);
 
 G_END_DECLS
 

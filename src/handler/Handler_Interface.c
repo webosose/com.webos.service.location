@@ -62,12 +62,12 @@ int handler_start(Handler *self, int handler_type)
  * @param           <self> <In> <Handler GObject>
  * @return          int
  */
-int handler_stop(Handler *self, int handlertype)
+int handler_stop(Handler *self, int handlertype, gboolean forcestop)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->stop, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_stop\n");
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->stop(self, handlertype);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->stop(self, handlertype, forcestop);
 }
 
 /**
@@ -232,7 +232,6 @@ int handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCallback nmea
     LS_LOG_DEBUG("handler_get_nmea_data\n");
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_nmea_data(self, enable_nmea, nmea_cb, userdata);
 }
-
 /**
  * <Funciton>       handler_send_extra_command
  * <Description>    send extra command to GPS ,applicable to GPS handler only
@@ -241,12 +240,28 @@ int handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCallback nmea
  * @param           <extra_cb> <In> <XTRA callback function to get result>
  * @return          int
  */
-int handler_send_extra_command(Handler *self, int *command, ExtraCmdCallback extra_cb)
+int handler_get_gps_status(Handler *self , StatusCallback gpsStatus_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(gpsStatus_cb, ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_gps_status, ERROR_NOT_AVAILABLE);
+    LS_LOG_DEBUG("handler_get_gps_status\n");
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_gps_status(self, gpsStatus_cb);
+}
+/**
+ * <Funciton>       handler_send_extra_command
+ * <Description>    send extra command to GPS ,applicable to GPS handler only
+ * @param           <self> <In> <Handler GObject>
+ * @param           <command> <In> <extra command id>
+ * @param           <extra_cb> <In> <XTRA callback function to get result>
+ * @return          int
+ */
+int handler_send_extra_command(Handler *self , char *command)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->send_extra_cmd, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("handler_send_extra_command\n");
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->send_extra_cmd(self, command, extra_cb);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->send_extra_cmd(self, command);
 }
 
 /**

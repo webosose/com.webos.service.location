@@ -22,11 +22,13 @@
 #define SUBSC_SEND_XTRA_CMD_KEY "sendExtraCommand"
 #define SUBSC_GET_TTFF_KEY "getTimeToFirstFix"
 #define SUBSC_GET_GPS_SATELLITE_DATA "getGpsSatelliteData"
+#define SUBSC_GPS_ENGINE_STATUS "GetGpsStatus"
 
 #define GPS "gps"
 #define NETWORK "network"
 #define START TRUE
 #define STOP FALSE
+#define MINIMAL_ACCURACY 100 // 100 meter as minimum accuracy for handler to reply
 enum TrakingErrorCode {
     TRACKING_SUCCESS,
     TRACKING_TIMEOUT,
@@ -99,12 +101,30 @@ enum getAllLocationHandlersErrorCode {
     GET_ALL_LOCATION_HANDLER_OUT_OF_MEM
 };
 
+enum getGpsStatusErrorCode {
+    GET_GPS_STATUS_SUCCESS,
+    GET_GPS_STATUS_NOT_SUBSCRIPTION,
+    GET_GPS_STATUS_HANDLER_NOT_AVAILABLE,
+    GET_GPS_STATUS_UNKNOWN
+};
+
+
 enum methodsCode {
     METHOD_NONE,
     START_TRACK,
     GET_POS
 };
+enum sendExtraCommandErrorCode {
+    SEND_EXTRA_INVALID_INPUT,
+    SEND_EXTRA_HANDLER_START_FAILURE,
+    SEND_EXTRA_OUT_OF_MEM
+};
 
+enum {
+    FORCE_TIME_INJECTION = 1,
+    FORCE_XTRA_INJECTION,
+    DELETE_AIDING_DATA
+};
 /**
  * bitfield representing the
  * API progrees state
@@ -139,6 +159,11 @@ enum HanlderRequestType {
     HANDLER_GPS_BIT = (1u << HANDLER_GPS),
     HANDLER_WIFI_BIT = (1u << HANDLER_WIFI),
     HANDLER_CELLID_BIT = (1u << HANDLER_CELLID)
+};
+
+enum maxAge {
+    ALWAYS_READ_FROM_CACHE = -1,
+    READ_FROM_CACHE
 };
 
 typedef struct structHandlerStatus {

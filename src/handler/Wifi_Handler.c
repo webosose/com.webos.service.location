@@ -62,10 +62,10 @@ void wifi_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(privateIns);
     g_return_if_fail(priv);
     g_return_if_fail(priv->track_cb);
-	//Return pos is NULL 25/10/2013 [START]
-	g_return_if_fail(position);
-	g_return_if_fail(accuracy);
-   //Return pos is NULL 25/10/2013 [END]
+    //Return pos is NULL 25/10/2013 [START]
+    g_return_if_fail(position);
+    g_return_if_fail(accuracy);
+    //Return pos is NULL 25/10/2013 [END]
     (*(priv->track_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
 }
 /**
@@ -225,7 +225,10 @@ static void wifi_handler_start_tracking(Handler *self, gboolean enable, StartTra
  */
 static int wifi_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
 {
-    if (wifi_plugin_get_stored_position(position, accuracy) == ERROR_NOT_AVAILABLE) return ERROR_NOT_AVAILABLE;
+    if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH_WIFI) == ERROR_NOT_AVAILABLE) {
+        LS_LOG_DEBUG("get last wifi_handler_get_last_position Failed to read\n");
+        return ERROR_NOT_AVAILABLE;
+    }
 
     return ERROR_NONE;
 }

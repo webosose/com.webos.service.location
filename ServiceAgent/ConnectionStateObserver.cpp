@@ -29,13 +29,15 @@
 #include <boost/foreach.hpp>
 void ConnectionStateObserver::RegisterListener(IConnectivityListener *l)
 {
-    if(l == NULL) return;
+    if (l == NULL) return;
+
     m_listeners.insert(l);
 }
 
 void ConnectionStateObserver::UnregisterListener(IConnectivityListener *l)
 {
-    if(l == NULL) return;
+    if (l == NULL) return;
+
     std::set<IConnectivityListener *>::const_iterator iter = m_listeners.find(l);
 
     if (iter != m_listeners.end()) {
@@ -53,7 +55,9 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
          (ConnHandle = l->getPrivatehandle());
       }*/
     LS_LOG_DEBUG("init\n");
-    if(ConnHandle == NULL) return;
+
+    if (ConnHandle == NULL) return;
+
     register_wifi_status(ConnHandle);
     register_telephony_status(ConnHandle);
     register_connectivity_status(ConnHandle);

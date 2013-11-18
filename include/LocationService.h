@@ -39,6 +39,7 @@
 #define MEDIUM_RESPONSE_TIME  100000;
 #define LONG_RESPONSE_TIME  150000;
 #define ACCURACY_LEVEL_HIGH 1
+#define ACCURACY_LEVEL_MEDIUM 2
 #define ACCURACY_LEVEL_LOW 3
 #define RESPONSE_LEVEL_LOW 1
 #define RESPONSE_LEVEL_MEDIUM 2
@@ -120,12 +121,12 @@ public:
             return m_handlerType;
         }
         ;
-		//Multiple handler started, one failed then wait for other reply [START]
-        void UpdateReqHandlerType(unsigned char tmp){
+        //Multiple handler started, one failed then wait for other reply [START]
+        void UpdateReqHandlerType(unsigned char tmp) {
             m_handlerType = tmp;
         }
         ;
-		//Multiple handler started, one failed then wait for other reply [STOP]
+        //Multiple handler started, one failed then wait for other reply [STOP]
         TimerData *m_timerdata;
 
     private:

@@ -173,6 +173,7 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
         return;
     }
 
+    set_store_position(latitude, longitude, altitude, 0.0, 0.0, hor_acc, vert_acc, LOCATION_DB_PREF_PATH_CELL);
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_CELLID);
     position_free(ret_pos);
     accuracy_free(ac);
@@ -223,6 +224,7 @@ static void tracking_cb(GeocluePosition *position, GeocluePositionFields fields,
         return;
     }
 
+    set_store_position(latitude, longitude, altitude, 0.0, 0.0, hor_acc, vert_acc, LOCATION_DB_PREF_PATH_CELL);
     (*cellPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, cellPlugin->userdata, HANDLER_CELLID);
     position_free(ret_pos);
     accuracy_free(ac);

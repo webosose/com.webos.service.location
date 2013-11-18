@@ -49,7 +49,7 @@ G_DEFINE_TYPE_WITH_CODE(NwHandler, nw_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERF
                         nw_handler_interface_init));
 
 #define WIFI_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_NW, NwHandlerPrivate))
-
+static void intialize_nw_handler(Handler *handler_data, int handler_type);
 /**
  * <Funciton >   position_cb
  * <Description>  Callback function for Position ,as per Location_Plugin.h
@@ -114,26 +114,21 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
     // This should call cell id start or Wifi start
     switch (handler_type) {
         case HANDLER_WIFI:
-            if (plugin_is_supported("wifi")) {
-                priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_WIFI, NULL);
-                g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
-                priv->nw_cb_arr[handler_type] = nw_handler_position_wifi_cb;
-                ret = handler_start(HANDLER_INTERFACE(priv->handler_obj [handler_type]), handler_type);
+            intialize_nw_handler(handler_data, handler_type);
+            g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
+            priv->nw_cb_arr[handler_type] = nw_handler_position_wifi_cb;
+            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj [handler_type]), handler_type);
 
-                if (ret == ERROR_NONE)
-                    LS_LOG_DEBUG("wifi_handler_start started \n");
-            }
+            if (ret == ERROR_NONE)
+                LS_LOG_DEBUG("wifi_handler_start started \n");
 
             break;
 
         case HANDLER_CELLID:
-            if (plugin_is_supported("cell")) {
-                priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_CELL, NULL);
-                g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
-                priv->nw_cb_arr[handler_type] = nw_handler_position_cell_cb;
-                ret = handler_start(HANDLER_INTERFACE(priv->handler_obj[handler_type]), handler_type);
-            }
-
+            intialize_nw_handler(handler_data, handler_type);
+            g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
+            priv->nw_cb_arr[handler_type] = nw_handler_position_cell_cb;
+            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj[handler_type]), handler_type);
             break;
 
         default:
@@ -142,7 +137,26 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
 
     return ret;
 }
+static void intialize_nw_handler(Handler *handler_data, int handler_type)
+{
+    NwHandlerPrivate *priv = GET_PRIVATE(handler_data);
 
+    switch (handler_type) {
+        case HANDLER_WIFI:
+            if (plugin_is_supported("wifi")) {
+                priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_WIFI, NULL);
+            }
+
+            break;
+
+        case HANDLER_CELLID:
+            if (plugin_is_supported("cell")) {
+                priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_CELL, NULL);
+            }
+
+            break;
+    }
+}
 /**
  * <Funciton >   wifi_handler_get_last_position
  * <Description>  stop the GPS handler
@@ -228,6 +242,7 @@ static int nw_handler_get_last_position(Handler *self, Position *position, Accur
     int ret = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    intialize_nw_handler(self, handlertype);
     ret = handler_get_last_position(HANDLER_INTERFACE(priv->handler_obj[handlertype]), position, accuracy, handlertype);
     return ret;
 }

@@ -223,12 +223,15 @@ static int gps_handler_start(Handler *self)
         g_mutex_unlock(priv->mutex);
         return ERROR_NONE;
     }
+
     ret = priv->gps_plugin->ops.start(priv->gps_plugin->plugin_handler, gps_handler_status_cb, self);
-	if(ret == ERROR_NONE) {
-      priv->fixrequesttime = time(0);
-      priv->ttffstate = TRUE;
-      priv->is_started = TRUE;
-	}
+
+    if (ret == ERROR_NONE) {
+        priv->fixrequesttime = time(0);
+        priv->ttffstate = TRUE;
+        priv->is_started = TRUE;
+    }
+
     g_mutex_unlock(priv->mutex);
     return ret;
 }
@@ -413,7 +416,7 @@ static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrac
  */
 static int gps_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
 {
-    if (gps_plugin_get_stored_position(position, accuracy) == ERROR_NOT_AVAILABLE) {
+    if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH) == ERROR_NOT_AVAILABLE) {
         LS_LOG_DEBUG("get last poistion Failed to read\n");
         return ERROR_NOT_AVAILABLE;
     }

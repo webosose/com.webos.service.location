@@ -67,17 +67,9 @@ void cell_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *
     g_return_if_fail(priv);
     g_return_if_fail(priv->track_cb);
     //Return pos is NULL 25/10/2013 [START]
-	g_return_if_fail(position);
-	g_return_if_fail(accuracy);
-	//Return pos is NULL 25/10/2013 [END]
-    if (position != NULL) {
-        LS_LOG_DEBUG(
-            "[DEBUG] GPS Handler : tracking_cb  latitude =%f , longitude =%f , accuracy =%f\n", position->latitude,
-            position->longitude, accuracy->horizAccuracy);
-        cell_set_stored_position(position->timestamp, position->longitude, position->latitude, accuracy->horizAccuracy,
-                                 accuracy->vertAccuracy);
-    }
-
+    g_return_if_fail(position);
+    g_return_if_fail(accuracy);
+    //Return pos is NULL 25/10/2013 [END]
     (*(priv->track_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
 }
 /**
@@ -95,15 +87,6 @@ void cell_handler_position_cb(gboolean enable_cb, Position *position, Accuracy *
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(privateIns);
     g_return_if_fail(priv);
     g_return_if_fail(priv->pos_cb);
-
-    if (position != NULL) {
-        LS_LOG_DEBUG(
-            "[DEBUG] GPS Handler : tracking_cb  latitude =%f , longitude =%f , accuracy =%f\n", position->latitude,
-            position->longitude, accuracy->horizAccuracy);
-        cell_set_stored_position(position->timestamp, position->longitude, position->latitude, accuracy->horizAccuracy,
-                                 accuracy->vertAccuracy);
-    }
-
     (*priv->pos_cb)(enable_cb, position, accuracy, error, priv->nwhandler, type); //call SA position callback
     priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
 }
@@ -188,7 +171,6 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 
     /*Creating a json array*/
     struct json_object *cell_data_obj ;
-  
     const char *str = LSMessageGetPayload(reply);
     LS_LOG_DEBUG("message=%s \n \n", str);
     // str ="{\"act\":1,\"plmn\": 40486}";
@@ -218,11 +200,13 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
                 priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
             }
         }
+
         json_object_put(new_obj);
         return FALSE;
     }
 
     cell_data_obj = json_object_object_get(new_obj, "data");
+
     if (priv->api_progress_flag & CELL_START_TRACKING_ON) {
         LS_LOG_DEBUG("send start tracking indication\n");
         track_ret = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler, TRUE, cell_handler_tracking_cb,
@@ -307,12 +291,13 @@ static void cell_handler_start_tracking(Handler *self, gboolean enable, StartTra
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
         return;
     }
-   
+
     priv->track_cb = NULL;
     priv->nwhandler = handlerobj;
 
     if (enable) {
-	    if (priv->api_progress_flag & CELL_START_TRACKING_ON) return;
+        if (priv->api_progress_flag & CELL_START_TRACKING_ON) return;
+
         priv->sh = sh;
         priv->track_cb = track_cb;
 
@@ -340,12 +325,13 @@ static void cell_handler_start_tracking(Handler *self, gboolean enable, StartTra
  */
 static int cell_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
 {
-    int ret = ERROR_NONE;
-    ret = cell_get_stored_position(position, accuracy);
-    LS_LOG_DEBUG(
-        "[DEBUG] cell_handler_get_last_position  latitude =%f , longitude =%f , accuracy =%f\n", position->latitude,
-        position->longitude, accuracy->horizAccuracy);
-    return ret;
+    if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH_CELL) == ERROR_NOT_AVAILABLE) {
+        LS_LOG_DEBUG("Cell get last poistion Failed to read\n");
+        return ERROR_NOT_AVAILABLE;
+    }
+
+    LS_LOG_DEBUG("get last poistion success bit\n");
+    return ERROR_NONE;
 }
 
 /**

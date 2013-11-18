@@ -71,8 +71,9 @@ struct MemoryStruct CurlConnection_getData(char *URL , char *accept, char *conte
         if (charset != NULL)
             m_httpHeadersList = curl_slist_append(m_httpHeadersList, charset);
 
-        if(URL != NULL)
-        curl_easy_setopt(curl_handle, CURLOPT_URL, URL); //XTRA_BIN
+        if (URL != NULL)
+            curl_easy_setopt(curl_handle, CURLOPT_URL, URL); //XTRA_BIN
+
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&chunk);
         curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, HTTP_REQUEST);
@@ -107,14 +108,17 @@ struct MemoryStruct  CurlConnection_postData(char *URL , char *postdata , char *
         if (charset != NULL)
             m_httpHeadersList = curl_slist_append(m_httpHeadersList, charset);
 
-        if(URL != NULL)
-        curl_easy_setopt(curl_handle, CURLOPT_URL, URL);
+        if (URL != NULL)
+            curl_easy_setopt(curl_handle, CURLOPT_URL, URL);
+
         curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, NO_CERTIFICATE_VERIFY);
         curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, NO_SSL_VERIFYHOST);
         curl_easy_setopt(curl_handle, CURLOPT_POST, HTTP_REQUEST);
         curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, (long)strlen(postdata));
-        if(postdata != NULL)
-        curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, postdata);
+
+        if (postdata != NULL)
+            curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, postdata);
+
         curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, m_httpHeadersList);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
         curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&chunk);

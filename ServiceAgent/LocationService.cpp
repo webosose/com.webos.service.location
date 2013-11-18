@@ -324,6 +324,7 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
         maximumAge = json_object_get_int(m_JsonSubArgument);
 
         if (maximumAge != READ_FROM_CACHE) {
+            LS_LOG_DEBUG("maximumAge= %d", maximumAge);
             mRetVal = readLocationfromCache(sh, message, serviceObject, maximumAge, accuracyLevel, handlerStatus);
 
             if (mRetVal == true) {
@@ -455,7 +456,29 @@ bool LocationService::reqLocationToHandler(int handler_type, unsigned char *reqH
         return true;
     }
 }
+int convertAccuracyLeveltoAccuracy(int accuracylevel)
+{
+    int accuracy;
 
+    switch (accuracylevel) {
+        case ACCURACY_LEVEL_LOW :     //read from cellid
+            accuracy = 2000;
+            break;
+
+        case ACCURACY_LEVEL_MEDIUM:   //read from wifi
+            accuracy = 500;
+            break;
+
+        case ACCURACY_LEVEL_HIGH :    //read from gps
+            accuracy = 100;
+            break;
+
+        default:
+            accuracy = 2000;
+    }
+
+    return accuracy;
+}
 /**
  * <Funciton >   readLocationfromCache
  * <Description>  gets the location from cache
@@ -467,7 +490,7 @@ bool LocationService::reqLocationToHandler(int handler_type, unsigned char *reqH
  * @return    bool, if successful return true else false
  */
 bool LocationService::readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge,
-        int accuracy,
+        int accuracylevel,
         unsigned char handlerstatus)
 {
     LS_LOG_DEBUG("=======readLocationfromCache=======");
@@ -501,65 +524,85 @@ bool LocationService::readLocationfromCache(LSHandle *sh, LSMessage *message, js
     if (getCachedDatafromHandler(HANDLER_INTERFACE(handler_array[HANDLER_NW]), &cellidpos, &cellidacc,
                                  HANDLER_CELLID)) cellCacheSucess = true;
 
+    int accuracy = convertAccuracyLeveltoAccuracy(accuracylevel);
+
     if (maxAge == ALWAYS_READ_FROM_CACHE) {
-        //compare all three source location
-        if (gpsCacheSuccess && (gpspos.timestamp > wifipos.timestamp && gpspos.timestamp > cellidpos.timestamp)) {
-            // gpspos is latest
+        //Match accuracy in all cached data
+        if (gpsCacheSuccess && (gpsacc.horizAccuracy <= accuracy)) {
             pos = gpspos;
             acc = gpsacc;
-        } else if (wifiCacheSuccess && (wifipos.timestamp > gpspos.timestamp && wifipos.timestamp > cellidpos.timestamp)) {
-            //wifipos is latest
+        } else if (wifiCacheSuccess && (accuracy <= wifiacc.horizAccuracy)) {
             pos = wifipos;
             acc = wifiacc;
-        } else if (cellCacheSucess) {
-            //cellid latest
+        } else if (cellCacheSucess && (accuracy <= cellidacc.horizAccuracy)) {
             pos = cellidpos;
             acc = cellidacc;
         } else {
-            LS_LOG_DEBUG("No Cache data present");
-            return false;
+            g_print("No Cache data present");
+            location_util_add_returnValue_json(serviceObject, false);
+            location_util_add_errorCode_json(serviceObject, GETPOS_POS_NOT_AVAILABLE);
+            mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+
+            if (mRetVal == false) LSErrorPrintAndFree(&mLSError);
+
+            return true;
         }
 
+        //Read according to accuracy value
         location_util_add_pos_json(serviceObject, &pos);
         location_util_add_acc_json(serviceObject, &acc);
-        mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
 
-        if (mRetVal == false) LSErrorPrintAndFree(&mLSError);
+        if (pos.latitude != 0 && pos.longitude != 0) {
+            mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
 
-        return true;
+            if (mRetVal == false) LSErrorPrintAndFree(&mLSError);
+
+            return true;
+        } else return FALSE;
     } else {
         long long currentTime = ::time(0);
         currentTime *= 1000; // milli sec
         long long longmaxAge = maxAge * 1000;
 
         //More accurate data return first
-        if ((handlerstatus & HANDLER_GPS_BIT) && gpsCacheSuccess && (longmaxAge <= currentTime - gpspos.timestamp)) {
-            location_util_add_pos_json(serviceObject, &gpspos);
-            location_util_add_acc_json(serviceObject, &gpsacc);
-            mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+        switch (accuracylevel) {
+            case ACCURACY_LEVEL_HIGH:
+                if (gpsCacheSuccess && (longmaxAge <= currentTime - gpspos.timestamp)) {
+                    location_util_add_pos_json(serviceObject, &gpspos);
+                    location_util_add_acc_json(serviceObject, &gpsacc);
+                    mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
 
-            if (mRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-            } else return true;
-        }
+                    if (mRetVal == false) {
+                        LSErrorPrintAndFree(&mLSError);
+                    } else return true;
+                }
 
-        if ((handlerstatus & HANDLER_WIFI_BIT) && wifiCacheSuccess && (longmaxAge <= currentTime - wifipos.timestamp)) {
-            location_util_add_pos_json(serviceObject, &wifipos);
-            location_util_add_acc_json(serviceObject, &wifiacc);
-            mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+                break;
 
-            if (mRetVal == false) LSErrorPrintAndFree(&mLSError);
-            else return true;
-        }
+            case ACCURACY_LEVEL_MEDIUM:
+                if (wifiCacheSuccess && (longmaxAge <= currentTime - wifipos.timestamp)) {
+                    location_util_add_pos_json(serviceObject, &wifipos);
+                    location_util_add_acc_json(serviceObject, &wifiacc);
+                    mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
 
-        if ((handlerstatus & HANDLER_CELLID_BIT) && cellCacheSucess && (longmaxAge <= currentTime - cellidpos.timestamp)) {
-            location_util_add_pos_json(serviceObject, &cellidpos);
-            location_util_add_acc_json(serviceObject, &cellidacc);
-            mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+                    if (mRetVal == false) LSErrorPrintAndFree(&mLSError);
+                    else return true;
+                }
 
-            if (mRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-            } else return true;
+                break;
+
+            case ACCURACY_LEVEL_LOW:
+                if (cellCacheSucess && (longmaxAge <= currentTime - cellidpos.timestamp)) {
+                    location_util_add_pos_json(serviceObject, &cellidpos);
+                    location_util_add_acc_json(serviceObject, &cellidacc);
+                    mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+
+                    if (mRetVal == false) {
+                        LSErrorPrintAndFree(&mLSError);
+                    } else return true;
+                }
+
+                break;
         }
 
         return false;
@@ -846,7 +889,7 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
     } else {
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
         json_object_put(m_JsonArgument);
-        LSMessageReplyError(sh, message, GET_REV_LOCATION_UNKNOWN_ERROR);
+        LSMessageReplyError(sh, message, GET_REV_LOCATION_INTERNET_CONNETION_NOT_AVAILABLE);
         return true;
     }
 

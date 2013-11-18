@@ -185,6 +185,7 @@ static void position_cb(GeocluePositionGps *position, GeocluePositionGpsFields f
         return;
     }
 
+    set_store_position(latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
     //Call the GPS Handler callback
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_GPS);
     position_free(ret_pos);
@@ -318,6 +319,7 @@ static void tracking_cb(GeocluePositionGps *position, GeocluePositionGpsFields f
         return;
     }
 
+    set_store_position(latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
     (*gpsPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, gpsPlugin->userdata, HANDLER_GPS);
     position_free(ret_pos);
     accuracy_free(ac);

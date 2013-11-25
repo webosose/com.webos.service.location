@@ -30,12 +30,15 @@
 
 void location_util_add_pos_json(struct json_object *serviceObject, Position *pos)
 {
+    char str[50];
+
     if (!serviceObject || !pos) return;
 
+    sprintf(str, "%lld", pos->timestamp);
     json_object_object_add(serviceObject, "latitude", json_object_new_double(pos->latitude));
     json_object_object_add(serviceObject, "longitude", json_object_new_double(pos->longitude));
     json_object_object_add(serviceObject, "altitude", json_object_new_double(pos->altitude));
-    json_object_object_add(serviceObject, "timestamp", json_object_new_int(pos->timestamp));
+    json_object_object_add(serviceObject, "timestamp", json_object_new_double(pos->timestamp));
     json_object_object_add(serviceObject, "heading", json_object_new_double(pos->direction));
     json_object_object_add(serviceObject, "velocity", json_object_new_double(pos->speed));
 }

@@ -1553,7 +1553,6 @@ void LocationService::startTracking_reply(Position *pos, Accuracy *accuracy, int
     bool mRetVal;
 
     if (error == ERROR_NONE) {
-        trackhandlerstate = 0;
         serviceObject = json_object_new_object();
 
         if (serviceObject == NULL) {

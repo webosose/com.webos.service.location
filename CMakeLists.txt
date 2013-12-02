@@ -16,11 +16,11 @@ include(FindPkgConfig)
 pkg_check_modules(GLIB2 REQUIRED glib-2.0)
 add_definitions(${GLIB2_CFLAGS})
 
-pkg_check_modules(GMOD REQUIRED gmodule-2.0)
-add_definitions(${GMOD_CFLAGS})
-
 pkg_check_modules(GOBJ REQUIRED gobject-2.0)
 add_definitions(${GOBJ_CFLAGS})
+
+pkg_check_modules(GMOD REQUIRED gmodule-2.0)
+add_definitions(${GMOD_CFLAGS})
 
 pkg_check_modules(GEOCLUE REQUIRED geoclue)
 add_definitions(${GEOCLUE_CFLAGS})
@@ -28,17 +28,20 @@ add_definitions(${GEOCLUE_CFLAGS})
 pkg_check_modules(LUNASERVICE REQUIRED luna-service2)
 add_definitions(${LUNASERVICE_CFLAGS})
 
+pkg_check_modules(LUNAPREFS REQUIRED luna-prefs)
+add_definitions(${LUNAPREFS_CFLAGS})
+
 pkg_check_modules(CJSON REQUIRED cjson)
 add_definitions(${CJSON_CFLAGS})
-
-pkg_check_modules(LIBCURL REQUIRED libcurl)
-add_definitions(${LIBCURL_CFLAGS})
 
 pkg_check_modules(LIB2XML REQUIRED libxml-2.0)
 add_definitions(${LIB2XML_CFLAGS})
 
 pkg_check_modules(PMLOGLIB REQUIRED PmLogLib)
 add_definitions(${PMLOGLIB_CFLAGS})
+
+pkg_check_modules(HTTPHANDLER REQUIRED httphandler)
+add_definitions(${HTTPHANDLER_CFLAGS})
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 

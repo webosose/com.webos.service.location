@@ -34,10 +34,6 @@
 #include <geoclue/geoclue-types.h>
 #include <LocationService_Log.h>
 
-// PmLogging
-#define LS_LOG_CONTEXT_NAME     "avocado.location.gps_plugin"
-PmLogContext gLsLogContext;
-
 /**
  * Local GPS plugin structure
  */
@@ -60,7 +56,6 @@ typedef struct {
     NmeaCallback nmea_cb;
 
     gpointer userdata;
-    guint log_handler;
 } GeoclueGps;
 
 #define LGE_GPS_SERVICE_NAME    "org.freedesktop.Geoclue.Providers.LgeGpsService"
@@ -557,8 +552,6 @@ static int stop(gpointer handle)
  */
 EXPORT_API gpointer init(GpsPluginOps *ops)
 {
-    // PmLog initialization
-    PmLogGetContext(LS_LOG_CONTEXT_NAME, &gLsLogContext);
     LS_LOG_DEBUG("[DEBUG]gps plugin init\n");
     ops->start = start;
     ops->stop = stop;
@@ -573,9 +566,6 @@ EXPORT_API gpointer init(GpsPluginOps *ops)
 
     if (gpsd == NULL) return NULL;
 
-    gpsd->log_handler = g_log_set_handler(NULL,
-                                          G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, lsloghandler,
-                                          NULL);
     return (gpointer) gpsd;
 }
 
@@ -590,7 +580,6 @@ EXPORT_API void shutdown(gpointer handle)
     LS_LOG_DEBUG("[DEBUG]gps plugin shutdown\n");
     g_return_if_fail(handle);
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
-    g_log_remove_handler(NULL, geoclueGps->log_handler);
     unreference_geoclue(geoclueGps);
     g_free(geoclueGps);
 }

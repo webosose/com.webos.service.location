@@ -33,9 +33,6 @@
 #include <geoclue/geoclue-types.h>
 #include <LocationService_Log.h>
 
-// PmLogging
-#define LS_LOG_CONTEXT_NAME     "avocado.location.wifi_plugin"
-PmLogContext gLsLogContext;
 
 /**
  * Local Wifi plugin structure
@@ -387,8 +384,6 @@ EXPORT_API gpointer init(WifiPluginOps *ops)
 {
     GeoclueWifi *geoclueWifi;
     g_return_val_if_fail(ops, NULL);
-    // PmLog initialization
-    PmLogGetContext(LS_LOG_CONTEXT_NAME, &gLsLogContext);
     LS_LOG_DEBUG("[DEBUG] init called\n");
     geoclueWifi = g_new0(GeoclueWifi, 1);
     g_return_val_if_fail(geoclueWifi, NULL);

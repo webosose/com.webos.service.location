@@ -34,9 +34,6 @@
 #include <geoclue/geoclue-types.h>
 #include <LocationService_Log.h>
 
-// PmLogging
-#define LS_LOG_CONTEXT_NAME     "avocado.location.cell_plugin"
-PmLogContext gLsLogContext;
 
 /**
  * Local GPS plugin structure
@@ -54,7 +51,6 @@ typedef struct {
     StartTrackingCallBack track_cb;
     gboolean track_started;
     gpointer userdata;
-    guint log_handler;
 } GeoclueCell;
 
 #define LGE_CELL_SERVICE_NAME "org.freedesktop.Geoclue.Providers.LgeCellService"
@@ -391,8 +387,6 @@ static int stop(gpointer handle)
  */
 EXPORT_API gpointer init(CellPluginOps *ops)
 {
-    // PmLog initialization
-    PmLogGetContext(LS_LOG_CONTEXT_NAME, &gLsLogContext);
     LS_LOG_DEBUG("[DEBUG]cell plugin init\n");
     ops->start = start;
     ops->stop = stop;
@@ -406,9 +400,6 @@ EXPORT_API gpointer init(CellPluginOps *ops)
     if (celld == NULL) return NULL;
 
     memset(celld, 0, sizeof(GeoclueCell));
-    celld->log_handler = g_log_set_handler(NULL,
-                                           G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, lsloghandler,
-                                           NULL);
     return (gpointer) celld;
 }
 
@@ -423,7 +414,6 @@ EXPORT_API void shutdown(gpointer handle)
     LS_LOG_DEBUG("[DEBUG]cell plugin shutdown\n");
     g_return_if_fail(handle);
     GeoclueCell *geoclueCell = (GeoclueCell *) handle;
-    g_log_remove_handler(NULL, geoclueCell->log_handler);
     unreference_geoclue(geoclueCell);
     g_free(geoclueCell);
 }

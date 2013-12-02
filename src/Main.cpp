@@ -28,10 +28,10 @@
 #include "LocationService.h"
 #include "Conf.h"
 #include <LocationService_Log.h>
-#include<ConnectionStateObserver.h>
+#include <ConnectionStateObserver.h>
 
 // PmLogging
-#define LS_LOG_CONTEXT_NAME     "avocado.location.location"
+#define LS_LOG_CONTEXT_NAME     "location"
 PmLogContext gLsLogContext;
 
 int main(int argc, char *argv[])

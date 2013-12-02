@@ -34,10 +34,6 @@
 #include <geoclue/geoclue-types.h>
 #include <LocationService_Log.h>
 
-// PmLogging
-#define LS_LOG_CONTEXT_NAME     "avocado.location.lbs_plugin"
-PmLogContext gLsLogContext;
-
 /**
  * Local GPS plugin structure
  */
@@ -48,7 +44,6 @@ typedef struct {
     GeoclueGeocode *geocode;
     GeoclueReverseGeocode *reverse_geocode;
     gpointer userdata;
-    guint log_handler;
 } GeoclueLbs;
 
 #define LGE_NOMINATIM_SERVICE_NAME "org.freedesktop.Geoclue.Providers.Nominatim"
@@ -303,9 +298,6 @@ EXPORT_API gpointer init(LbsPluginOps *ops)
 
     if (lbs == NULL) return NULL;
 
-    lbs->log_handler = g_log_set_handler(NULL,
-                                         G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION, lsloghandler,
-                                         NULL);
     return (gpointer) lbs;
 }
 
@@ -320,7 +312,6 @@ EXPORT_API void shutdown(gpointer handle)
     LS_LOG_DEBUG("[DEBUG]wifi plugin shutdown\n");
     g_return_if_fail(handle);
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
-    g_log_remove_handler(NULL, geoclueLbs->log_handler);
     unreference_geoclue(geoclueLbs);
     g_free(geoclueLbs);
 }

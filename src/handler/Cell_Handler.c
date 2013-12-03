@@ -38,12 +38,11 @@ typedef struct _CellHandlerPrivate {
     StartTrackingCallBack track_cb;
 
     gpointer nwhandler;
-    guint log_handler;
     gint api_progress_flag;
     LSHandle *sh;
     LSMessage *message;
     LSMessageToken m_cellInfoReq;
-    GMutex *mutex;
+    GMutex mutex;
 } CellHandlerPrivate;
 
 #define CELL_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_CELL, CellHandlerPrivate))
@@ -105,10 +104,10 @@ static int cell_handler_start(Handler *handler_data)
     g_return_val_if_fail(priv->cell_plugin, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->cell_plugin->ops.start, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->cell_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
-    g_mutex_lock(priv->mutex);
+    g_mutex_lock(&priv->mutex);
 
     if (priv->is_started == TRUE) {
-        g_mutex_unlock(priv->mutex);
+        g_mutex_unlock(&priv->mutex);
         return ERROR_NONE;
     }
 
@@ -116,7 +115,7 @@ static int cell_handler_start(Handler *handler_data)
 
     if (ret == ERROR_NONE) priv->is_started = TRUE;
 
-    g_mutex_unlock(priv->mutex);
+    g_mutex_unlock(&priv->mutex);
     return ret;
 }
 
@@ -359,11 +358,8 @@ static void cell_handler_finalize(GObject *gobject)
     plugin_free(priv->cell_plugin, "cell");
     priv->cell_plugin = NULL;
 
-    if (priv->mutex != NULL) {
-        g_mutex_free(priv->mutex);
-    }
+    g_mutex_clear(&priv->mutex);
 
-    g_log_remove_handler(NULL, priv->log_handler);
     G_OBJECT_CLASS(cell_handler_parent_class)->finalize(gobject);
 }
 
@@ -417,13 +413,7 @@ static void cell_handler_init(CellHandler *self)
         LS_LOG_DEBUG("[DEBUG]cell plugin loading failed\n");
     }
 
-    priv->mutex = g_mutex_new();
-
-    if (priv->mutex == NULL)
-        LS_LOG_ERROR("Failed in allocating mutex\n");
-
-    priv->log_handler = g_log_set_handler(NULL, G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
-                                          lsloghandler, NULL);
+    g_mutex_init(&priv->mutex);
 }
 
 /**

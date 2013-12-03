@@ -35,9 +35,8 @@
 typedef struct _LbsHandlerPrivate {
     LbsPlugin *lbs_plugin;
     gboolean is_started;
-    guint log_handler;
     gint api_progress_flag;
-    GMutex *mutex;
+    GMutex mutex;
 } LbsHandlerPrivate;
 
 #define GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), HANDLER_TYPE_LBS, LbsHandlerPrivate))
@@ -64,10 +63,10 @@ static int lbs_handler_start(Handler *handler_data)
     g_return_val_if_fail(priv->lbs_plugin, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->lbs_plugin->ops.start, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->lbs_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
-    g_mutex_lock(priv->mutex);
+    g_mutex_lock(&priv->mutex);
 
     if (priv->is_started == TRUE) {
-        g_mutex_unlock(priv->mutex);
+        g_mutex_unlock(&priv->mutex);
         return ERROR_NONE;
     }
 
@@ -75,7 +74,7 @@ static int lbs_handler_start(Handler *handler_data)
 
     if (ret == ERROR_NONE) priv->is_started = TRUE;
 
-    g_mutex_unlock(priv->mutex);
+    g_mutex_unlock(&priv->mutex);
     return ret;
 }
 
@@ -189,11 +188,8 @@ static void lbs_handler_finalize(GObject *gobject)
         priv->lbs_plugin = NULL;
     }
 
-    if (priv->mutex != NULL) {
-        g_mutex_free(priv->mutex);
-    }
+    g_mutex_clear(&priv->mutex);
 
-    g_log_remove_handler(NULL, priv->log_handler);
     G_OBJECT_CLASS(lbs_handler_parent_class)->finalize(gobject);
 }
 
@@ -247,12 +243,7 @@ static void lbs_handler_init(LbsHandler *self)
         LS_LOG_DEBUG("[DEBUG] Lbs plugin loading failed\n");
     }
 
-    priv->mutex = g_mutex_new();
-
-    if (priv->mutex == NULL) LS_LOG_ERROR("Failed in allocating mutex\n");
-
-    priv->log_handler = g_log_set_handler(NULL, G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
-                                          lsloghandler, NULL);
+    g_mutex_init(&priv->mutex);
 }
 
 /**

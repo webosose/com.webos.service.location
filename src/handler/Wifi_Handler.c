@@ -37,8 +37,7 @@ typedef struct _WifiHandlerPrivate {
     StartTrackingCallBack track_cb;
     gpointer nwhandler;
     gint api_progress_flag;
-    guint log_handler;
-    GMutex *mutex;
+    GMutex mutex;
 } WifiHandlerPrivate;
 
 #define WIFI_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_WIFI, WifiHandlerPrivate))
@@ -99,10 +98,10 @@ static int wifi_handler_start(Handler *handler_data)
     g_return_val_if_fail(priv->wifi_plugin, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->wifi_plugin->ops.start, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->wifi_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
-    g_mutex_lock(priv->mutex);
+    g_mutex_lock(&priv->mutex);
 
     if (priv->is_started == TRUE) {
-        g_mutex_unlock(priv->mutex);
+        g_mutex_unlock(&priv->mutex);
         return ERROR_NONE;
     }
 
@@ -110,7 +109,7 @@ static int wifi_handler_start(Handler *handler_data)
 
     if (ret == ERROR_NONE) priv->is_started = TRUE;
 
-    g_mutex_unlock(priv->mutex);
+    g_mutex_unlock(&priv->mutex);
     return ret;
 }
 
@@ -274,11 +273,8 @@ static void wifi_handler_finalize(GObject *gobject)
         priv->wifi_plugin = NULL;
     }
 
-    if (priv->mutex != NULL) {
-        g_mutex_free(priv->mutex);
-    }
+    g_mutex_clear(&priv->mutex);
 
-    g_log_remove_handler(NULL, priv->log_handler);
     memset(priv, 0x00, sizeof(WifiHandlerPrivate));
     G_OBJECT_CLASS(wifi_handler_parent_class)->finalize(gobject);
 }
@@ -328,12 +324,7 @@ static void wifi_handler_init(WifiHandler *self)
         LS_LOG_DEBUG("[DEBUG]wifi plugin loading failed\n");
     }
 
-    priv->mutex = g_mutex_new();
-
-    if (priv->mutex == NULL) LS_LOG_ERROR("Failed in allocating mutex\n");
-
-    priv->log_handler = g_log_set_handler(NULL, G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
-                                          lsloghandler, NULL);
+    g_mutex_init(&priv->mutex);
 }
 
 /**

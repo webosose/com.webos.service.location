@@ -46,13 +46,12 @@ typedef struct _GpsHandlerPrivate {
     StartTrackingCallBack track_cb;
 
     guint pos_timer;
-    guint log_handler;
     gint api_progress_flag;
     guint64 fixrequesttime;
     guint64 ttff;
     guint64 lastfixtime;
     gboolean ttffstate;
-    GMutex *mutex;
+    GMutex mutex;
     gboolean network_state;
     gboolean telephony_api_state;
     LSHandle *sh;
@@ -212,15 +211,14 @@ static int gps_handler_start(Handler *self)
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
-    g_return_val_if_fail(priv->mutex, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin->ops.start, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
     LS_LOG_DEBUG("gps_handler_start\n");
-    g_mutex_lock(priv->mutex);
+    g_mutex_lock(&priv->mutex);
 
     if (priv->is_started == TRUE) {
-        g_mutex_unlock(priv->mutex);
+        g_mutex_unlock(&priv->mutex);
         return ERROR_NONE;
     }
 
@@ -232,7 +230,7 @@ static int gps_handler_start(Handler *self)
         priv->is_started = TRUE;
     }
 
-    g_mutex_unlock(priv->mutex);
+    g_mutex_unlock(&priv->mutex);
     return ret;
 }
 
@@ -694,11 +692,8 @@ static void finalize(GObject *gobject)
         priv->gps_plugin = NULL;
     }
 
-    if (priv->mutex != NULL) {
-        g_mutex_free(priv->mutex);
-    }
+    g_mutex_clear(&priv->mutex);
 
-    g_log_remove_handler(NULL, priv->log_handler);
     memset(priv, 0x00, sizeof(GpsHandlerPrivate));
     G_OBJECT_CLASS(gps_handler_parent_class)->finalize(gobject);
 }
@@ -753,13 +748,7 @@ static void gps_handler_init(GpsHandler *self)
         LS_LOG_ERROR("Failed to load gps plugin\n");
     }
 
-    priv->mutex = g_mutex_new();
-
-    if (priv->mutex == NULL)
-        LS_LOG_ERROR("Failed in allocating mutex\n");
-
-    priv->log_handler = g_log_set_handler(NULL, G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
-                                          lsloghandler, NULL);
+    g_mutex_init(&priv->mutex);
 }
 
 /**

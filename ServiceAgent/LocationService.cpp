@@ -884,14 +884,14 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
 
     LOCATION_ASSERT(pthread_mutex_lock(&lbs_reverse_lock) == 0);
 
-    if (isInternetConnectionAvailable == true) {
+    //if (isInternetConnectionAvailable == true) {
         ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), HANDLER_LBS);
-    } else {
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
-        json_object_put(m_JsonArgument);
-        LSMessageReplyError(sh, message, GET_REV_LOCATION_INTERNET_CONNETION_NOT_AVAILABLE);
-        return true;
-    }
+    //} else {
+    //    LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
+    //    json_object_put(m_JsonArgument);
+    //    LSMessageReplyError(sh, message, GET_REV_LOCATION_INTERNET_CONNETION_NOT_AVAILABLE);
+    //    return true;
+    //}
 
     if (ret == ERROR_NONE) {
         /*Position pos;

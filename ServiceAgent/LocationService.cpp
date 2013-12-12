@@ -1552,14 +1552,13 @@ void LocationService::startTracking_reply(Position *pos, Accuracy *accuracy, int
     LSErrorInit(&mLSError);
     bool mRetVal;
 
+    serviceObject = json_object_new_object();
+    if (serviceObject == NULL) {
+        LS_LOG_DEBUG("No memory");
+        return;
+    }
+
     if (error == ERROR_NONE) {
-        serviceObject = json_object_new_object();
-
-        if (serviceObject == NULL) {
-            LS_LOG_DEBUG("No memory");
-            return;
-        }
-
         location_util_add_returnValue_json(serviceObject, true);
         location_util_add_errorCode_json(serviceObject, SUCCESS);
         location_util_add_pos_json(serviceObject, pos);

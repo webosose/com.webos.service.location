@@ -43,7 +43,8 @@ const char *PLUGIN_PATH = "/usr/lib/location/plugins";
 static Plugin_Prop *
 fill_plugin_property(const char *plugin_name, gboolean is_resident)
 {
-    if (!plugin_name) return NULL;
+    if (!plugin_name)
+        return NULL;
 
     Plugin_Prop *properties = g_new0(Plugin_Prop, 1);
     properties->plugin_name = g_strdup(plugin_name);
@@ -74,7 +75,8 @@ fill_plugin_property(const char *plugin_name, gboolean is_resident)
 
     LS_LOG_DEBUG("is_resident %d \n ", is_resident);
 
-    if (is_resident) g_module_make_resident(properties->gmodule);
+    if (is_resident)
+        g_module_make_resident(properties->gmodule);
 
     return properties;
 }
@@ -87,11 +89,14 @@ fill_plugin_property(const char *plugin_name, gboolean is_resident)
  */
 static void unref_plugin(Plugin_Prop *plugin)
 {
-    if (plugin->plugin_name) g_free(plugin->plugin_name);
+    if (plugin->plugin_name)
+        g_free(plugin->plugin_name);
 
-    if (plugin->plugin_path) g_free(plugin->plugin_path);
+    if (plugin->plugin_path)
+        g_free(plugin->plugin_path);
 
-    if (plugin->gmodule) g_module_close(plugin->gmodule);
+    if (plugin->gmodule)
+        g_module_close(plugin->gmodule);
 
     g_free(plugin);
 }
@@ -149,7 +154,8 @@ static gpointer load_plugin(const char *plugin_name)
 {
     gpointer ret_plugin = NULL;
 
-    if (!plugin_name) return NULL;
+    if (!plugin_name)
+        return NULL;
 
     Plugin_Prop *plugin_prop = NULL;
     gpointer init_symb = NULL;
@@ -179,7 +185,8 @@ static gpointer load_plugin(const char *plugin_name)
             LS_LOG_DEBUG(" GPS plugin init failed\n");
             unref_plugin(gps_plugin->plugin_prop);
             ret_plugin = NULL;
-        } else ret_plugin = (gpointer) gps_plugin;
+        } else
+            ret_plugin = (gpointer) gps_plugin;
     } else if (0 == g_strcmp0(plugin_name, WIFI_PLUGIN_NAME)) {
         WifiPlugin *wifi_plugin = g_new0(WifiPlugin, 1); //Create Wifi plugin
         g_return_val_if_fail(wifi_plugin, NULL);
@@ -192,7 +199,8 @@ static gpointer load_plugin(const char *plugin_name)
             LS_LOG_DEBUG(" Wifi plugin init failed\n");
             unref_plugin(wifi_plugin->plugin_prop);
             ret_plugin = NULL;
-        } else ret_plugin = (gpointer) wifi_plugin;
+        } else
+            ret_plugin = (gpointer) wifi_plugin;
     } else if (0 == g_strcmp0(plugin_name, CELL_PLUGIN_NAME)) {
         CellPlugin *cell_plugin = g_new0(CellPlugin, 1); //Create Cell plugin
         g_return_val_if_fail(cell_plugin, NULL);
@@ -205,7 +213,8 @@ static gpointer load_plugin(const char *plugin_name)
             LS_LOG_DEBUG(" Cell plugin init failed\n");
             unref_plugin(cell_plugin->plugin_prop);
             ret_plugin = NULL;
-        } else ret_plugin = (gpointer) cell_plugin;
+        } else
+            ret_plugin = (gpointer) cell_plugin;
     } else if (0 == g_strcmp0(plugin_name, LBS_PLUGIN_NAME)) {
         LbsPlugin *lbs_plugin = g_new0(LbsPlugin, 1); //Create Cell plugin
         g_return_val_if_fail(lbs_plugin, NULL);
@@ -218,7 +227,8 @@ static gpointer load_plugin(const char *plugin_name)
             LS_LOG_DEBUG(" LBS plugin init failed\n");
             unref_plugin(lbs_plugin->plugin_prop);
             ret_plugin = NULL;
-        } else ret_plugin = (gpointer) lbs_plugin;
+        } else
+            ret_plugin = (gpointer) lbs_plugin;
     } else {
         LS_LOG_DEBUG("module name (%s) is wrong", plugin_name);
         ret_plugin = NULL;
@@ -235,7 +245,8 @@ static gpointer load_plugin(const char *plugin_name)
  */
 gpointer plugin_new(const char *plugin_name)
 {
-    if (!plugin_name) return NULL;
+    if (!plugin_name)
+        return NULL;
 
     char name[20];
     gpointer mod = NULL;
@@ -260,7 +271,8 @@ gpointer plugin_new(const char *plugin_name)
  */
 static void unload_plugin(gpointer plugin, const char *plugin_name)
 {
-    if (!plugin || !plugin_name) return;
+    if (!plugin || !plugin_name)
+        return;
 
     if (0 == g_strcmp0(plugin_name, GPS_PLUGIN_NAME)) {
         GpsPlugin *gps_plugin = (GpsPlugin *) plugin;
@@ -327,14 +339,16 @@ static void unload_plugin(gpointer plugin, const char *plugin_name)
 
 void plugin_free(gpointer plugin, const char *plugin_name)
 {
-    if (!plugin || !plugin_name) return;
+    if (!plugin || !plugin_name)
+        return;
 
     unload_plugin(plugin, plugin_name);
 }
 
 gboolean plugin_is_supported(const char *plugin_name)
 {
-    if (!plugin_name) return FALSE;
+    if (!plugin_name)
+        return FALSE;
 
     int index = 0;
     gboolean ret = FALSE;
@@ -360,7 +374,8 @@ gboolean plugin_is_supported(const char *plugin_name)
  */
 gboolean is_supported_plugin(const char *plugin_name)
 {
-    if (!plugin_name) return FALSE;
+    if (!plugin_name)
+        return FALSE;
 
     Plugin_Prop *plugin = fill_plugin_property(plugin_name, FALSE);
 

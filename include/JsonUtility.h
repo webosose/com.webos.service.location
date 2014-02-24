@@ -40,9 +40,10 @@ void location_util_add_pos_json(struct json_object *, Position *);
 void location_util_add_acc_json(struct json_object *, Accuracy *);
 void location_util_add_vel_json(struct json_object *, Velocity *);
 void location_util_add_returnValue_json(struct json_object *serviceObject, bool returnValue);
+void location_util_add_errorText_json(struct json_object *serviceObject, char *errorText);
 void location_util_add_errorCode_json(struct json_object *serviceObject, int errorCode);
 void testjson(struct json_object *serviceObject);
-void location_util_parsejsonAddress(struct json_object *m_JsonArgument, Address *addr);
+bool location_util_parsejsonAddress(struct json_object *m_JsonArgument, Address *addr);
 #ifdef __cplusplus
 }
 #endif

@@ -14,7 +14,8 @@ Address *address_create(const gchar *street, const gchar *locality, const gchar 
 {
     Address *addr = g_slice_new0(Address);
 
-    if (addr == NULL) return NULL;
+    if (addr == NULL)
+        return NULL;
 
     addr->street = g_strdup(street);
     addr->locality = g_strdup(locality);

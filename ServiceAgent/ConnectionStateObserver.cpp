@@ -29,14 +29,16 @@
 #include <boost/foreach.hpp>
 void ConnectionStateObserver::RegisterListener(IConnectivityListener *l)
 {
-    if (l == NULL) return;
+    if (l == NULL)
+        return;
 
     m_listeners.insert(l);
 }
 
 void ConnectionStateObserver::UnregisterListener(IConnectivityListener *l)
 {
-    if (l == NULL) return;
+    if (l == NULL)
+        return;
 
     std::set<IConnectivityListener *>::const_iterator iter = m_listeners.find(l);
 
@@ -56,7 +58,8 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
       }*/
     LS_LOG_DEBUG("init\n");
 
-    if (ConnHandle == NULL) return;
+    if (ConnHandle == NULL)
+        return;
 
     register_wifi_status(ConnHandle);
     register_telephony_status(ConnHandle);
@@ -85,23 +88,21 @@ void ConnectionStateObserver::Notify_TelephonyStateChange(bool TeleState)
 }
 void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn)
 {
-    LSCall(HandleConn, "palm://com.palm.wifi/getstatus", "{\"subscribe\":true}",
-           ConnectionStateObserver::wifi_status_cb, this,
-           NULL, NULL);
+    LSCall(HandleConn, "palm://com.palm.wifi/getstatus", "{\"subscribe\":true}", ConnectionStateObserver::wifi_status_cb, this, NULL, NULL);
 }
 
 void ConnectionStateObserver::register_connectivity_status(LSHandle *HandleConn)
 {
-    LSCall(HandleConn, "palm://com.palm.connectionmanager/getstatus", "{\"subscribe\":true}",
-           ConnectionStateObserver::connectivity_status_cb, this, NULL, NULL);
+    LSCall(HandleConn, "palm://com.palm.connectionmanager/getstatus", "{\"subscribe\":true}", ConnectionStateObserver::connectivity_status_cb, this,
+            NULL, NULL);
 }
 
 void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn)
 {
     //Check modem status
     //Not implemented, will be implemented in future
-    LSCall(HandleConn, "palm://com.palm.telephony/isTelephonyReady", "{\"subscribe\":true}",
-           ConnectionStateObserver::telephony_status_cb, this, NULL, NULL);
+    LSCall(HandleConn, "palm://com.palm.telephony/isTelephonyReady", "{\"subscribe\":true}", ConnectionStateObserver::telephony_status_cb, this, NULL,
+            NULL);
 }
 
 bool ConnectionStateObserver::wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx)

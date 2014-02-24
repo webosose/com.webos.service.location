@@ -158,6 +158,9 @@ public:
     static bool _startTracking(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->startTracking(sh, message, NULL);
     }
+    static bool _startTrackingBestPosition(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->startTrackingBestPosition(sh, message, NULL);
+    }
     static bool _getReverseLocation(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getReverseLocation(sh, message, NULL);
     }
@@ -283,6 +286,10 @@ public:
 private:
     bool mGpsStatus;
     bool mNwStatus;
+    bool mCachedGpsEngineStatus;
+    bool mIsGetNmeaSubProgress;
+    bool mIsGetSatSubProgress;
+    bool mIsStartTrackProgress;
     bool mIsStartFirstReply;
     long long mlastTrackingReplyTime;
     typedef boost::shared_ptr<Request> Requestptr;
@@ -293,10 +300,36 @@ private:
     LocationService();
     //mapped with HandlerTypes
     Handler *handler_array[HANDLER_MAX];
+
+    char* locationErrorText[LOCATION_MAXIMUM] {
+    "Success" , //LOCATION_SUCCESS
+    "TimeOut", //LOCATION_TIMEOUT,
+    "Handler Not Available", //GET_STATE_HANDLER_NOT_AVAILABLE,
+    "Invalid input" , //GET_STATE_HANDLER_INVALID_INPUT,
+    "Unknown error", //GET_STATE_UNKNOWN_ERROR
+    "Out of Memory" //GET_STATE_OUT_OF_MEM
+    };
+
+    char* trakingErrorText[TRACKING_MAXIMUM] {
+    "Success" , //TRACKING_SUCCESS
+    "TimeOut", //TRACKING_TIMEOUT,
+    "Position Not Available", //TRACKING_POS_NOT_AVAILABLE,
+    "Unknown error" , //TRACKING_UNKNOWN_ERROR,
+    "Gps Not supported", //TRACKING_GPS_UNAVAILABLE,
+    "Location Source is off", //TRACKING_LOCATION_OFF,
+    "Request Pending" , //TRACKING_PENDING_REQ,
+    "App is blacklisted", //TRACKING_APP_BLACK_LISTED,
+    "Handler start failure", //HANDLER_START_FAILURE,
+    "state unknown",//STATE_UNKNOWN
+    "Invalid Input"
+    };
+
+
     //ServiceAgentProp *service_agent_prop;
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
     bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);
     bool startTracking(LSHandle *sh, LSMessage *message, void *data);
+    bool startTrackingBestPosition(LSHandle *sh, LSMessage *message, void *data);
     bool getReverseLocation(LSHandle *sh, LSMessage *message, void *data);
     bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
     bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
@@ -312,9 +345,8 @@ private:
     bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
     bool _GetWifiApsList_cb(LSHandle *sh, LSMessage *reply, void *ctx);
     gboolean _TimerCallback(void *data);
-    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge, int accuracy,
-                               unsigned char handlerstatus);
-    void handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *);
+    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge, int accuracy, unsigned char handlerstatus);
+    bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *);
     bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
     int ConvetResponseTimeFromLevel(int accLevel, int responseTimeLevel);
     bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh);
@@ -323,12 +355,16 @@ private:
     int geocluecall(double *, double *);
 
     void startTracking_reply(Position *pos, Accuracy *acc, int, int);
+    void startTrackingBestPosition_reply(struct json_object *, Accuracy *acc);
     void get_nmea_reply(int timestamp, char *data, int length);
     void getCurrentPosition_reply(Position *, Accuracy *, int, int);
     void getGpsSatelliteData_reply(Satellite *);
     void getGpsStatus_reply(int);
-    void stopSubcription(const char *key);
+    void stopSubcription(LSHandle *sh, const char *key);
+    void LocationService::stopNonSubcription(const char *key);
     bool isSubscListEmpty(LSHandle *sh, const char *key);
+    bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
+    bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
     void LSErrorPrintAndFree(LSError *ptrLSError);
     void startWifiHandler(void);
 

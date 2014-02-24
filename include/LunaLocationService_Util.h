@@ -25,7 +25,7 @@ void LSMessageReplyErrorInvalidHandle(LSHandle *sh, LSMessage *message);
 void LSMessageReplyErrorNullPointer(LSHandle *sh, LSMessage *message);
 void LSMessageReplyErrorInvalidTapiData(LSHandle *sh, LSMessage *message);
 void LSMessageReplyErrorTapiCall(LSHandle *sh, LSMessage *message, int error_Code);
-bool LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
+bool LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode, char *errorText);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSSubscriptionRespondFailed();
 //void LSMessageReplyErrorInvalidUserData(LSHandle *sh, LSMessage *message);

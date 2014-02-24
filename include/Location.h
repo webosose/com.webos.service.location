@@ -75,7 +75,7 @@ enum {
     ERROR_NO_DATA
 };
 #define DEFAULT_VALUE 0
-
+#define INVALID_PARAM -1.0
 typedef GObject HandlerObject;
 typedef struct _Position Position;
 typedef struct _Status Status;

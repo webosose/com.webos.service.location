@@ -75,9 +75,8 @@ int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, 
     GeoclueAccuracy *geoclue_acc = NULL;
     GError *error = NULL;
     double lat, lon, alt;
-    GeocluePositionFields fields = geoclue_geocode_freeform_address_to_position(geoclueLbs->geocode, addrress, &lat, &lon,
-                                   &alt, &geoclue_acc,
-                                   &error);
+    GeocluePositionFields fields = geoclue_geocode_freeform_address_to_position(geoclueLbs->geocode, addrress, &lat, &lon, &alt, &geoclue_acc,
+            &error);
 
     if (error != NULL) {
         LS_LOG_DEBUG(" Error in getting data");
@@ -89,8 +88,10 @@ int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, 
         pos->latitude = lat;
         pos->longitude = lon;
 
-        if (fields & GEOCLUE_POSITION_FIELDS_ALTITUDE) pos->altitude = alt;
-        else pos->altitude = DEFAULT_VALUE;
+        if (fields & GEOCLUE_POSITION_FIELDS_ALTITUDE)
+            pos->altitude = alt;
+        else
+            pos->altitude = DEFAULT_VALUE;
     } else {
         LS_LOG_DEBUG(" latitude logtyude not present");
         return ERROR_NOT_AVAILABLE;
@@ -118,26 +119,24 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
     GHashTable *geoclue_addrress = geoclue_address_details_new();
     g_return_val_if_fail(geoclue_addrress, ERROR_NOT_AVAILABLE);
 
-    if (address->street != NULL) geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_STREET,
-                address->street);
+    if (address->street != NULL)
+        geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_STREET, address->street);
 
-    if (address->locality != NULL) geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_LOCALITY,
-                address->locality);
+    if (address->locality != NULL)
+        geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_LOCALITY, address->locality);
 
-    if (address->region != NULL) geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_REGION,
-                address->region);
+    if (address->region != NULL)
+        geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_REGION, address->region);
 
-    if (address->countrycode != NULL) geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_COUNTRY,
-                address->countrycode);
+    if (address->countrycode != NULL)
+        geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_COUNTRY, address->countrycode);
 
-    if (address->postcode != NULL) geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_POSTALCODE,
-                address->postcode);
+    if (address->postcode != NULL)
+        geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_POSTALCODE, address->postcode);
 
-    LS_LOG_DEBUG(
-        "value of locality  %s region %s country %s country coede %s area %s street %s postcode %s", address->locality,
-        address->region, address->country, address->countrycode, address->area, address->street, address->postcode);
-    GeocluePositionFields fields = geoclue_geocode_address_to_position(geoclueLbs->geocode, geoclue_addrress, &lat, &lon,
-                                   &alt, &geoclue_acc, &error);
+    LS_LOG_DEBUG("value of locality  %s region %s country %s country coede %s area %s street %s postcode %s", address->locality, address->region,
+            address->country, address->countrycode, address->area, address->street, address->postcode);
+    GeocluePositionFields fields = geoclue_geocode_address_to_position(geoclueLbs->geocode, geoclue_addrress, &lat, &lon, &alt, &geoclue_acc, &error);
     g_hash_table_destroy(geoclue_addrress);
 
     if (error != NULL) {
@@ -153,8 +152,10 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
         pos->latitude = lat;
         pos->longitude = lon;
 
-        if (fields & GEOCLUE_POSITION_FIELDS_ALTITUDE) pos->altitude = alt;
-        else pos->altitude = DEFAULT_VALUE;
+        if (fields & GEOCLUE_POSITION_FIELDS_ALTITUDE)
+            pos->altitude = alt;
+        else
+            pos->altitude = DEFAULT_VALUE;
     } else {
         LS_LOG_DEBUG(" Error in return geocode no data avaible");
         err = ERROR_NOT_AVAILABLE;
@@ -180,15 +181,15 @@ int get_reverse_geocode(gpointer handle, Position *pos, Address *address)
     GHashTable *geoclue_addr = NULL;
     GeoclueAccuracy *pos_acc = geoclue_accuracy_new(GEOCLUE_ACCURACY_LEVEL_DETAILED, DEFAULT_VALUE, DEFAULT_VALUE);
     g_return_val_if_fail(pos_acc, ERROR_NOT_AVAILABLE);
-    gboolean success = geoclue_reverse_geocode_position_to_address(geoclueLbs->reverse_geocode, pos->latitude,
-                       pos->longitude, pos_acc, &geoclue_addr,
-                       &addr_acc, &error);
+    gboolean success = geoclue_reverse_geocode_position_to_address(geoclueLbs->reverse_geocode, pos->latitude, pos->longitude, pos_acc, &geoclue_addr,
+            &addr_acc, &error);
     geoclue_accuracy_free(pos_acc);
 
     if (success == FALSE || error) {
         g_error_free(error);
 
-        if (addr_acc != NULL) geoclue_accuracy_free(addr_acc);
+        if (addr_acc != NULL)
+            geoclue_accuracy_free(addr_acc);
 
         return ERROR_NOT_AVAILABLE;
     }
@@ -203,7 +204,8 @@ int get_reverse_geocode(gpointer handle, Position *pos, Address *address)
         address->countrycode = g_hash_table_lookup(geoclue_addr, GEOCLUE_ADDRESS_KEY_COUNTRYCODE);
     }
 
-    if (addr_acc != NULL) geoclue_accuracy_free(addr_acc);
+    if (addr_acc != NULL)
+        geoclue_accuracy_free(addr_acc);
 
     return ERROR_NONE;
 }

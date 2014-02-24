@@ -45,8 +45,7 @@ typedef struct _NwHandlerPrivate {
 
 static void nw_handler_interface_init(HandlerInterface *interface);
 
-G_DEFINE_TYPE_WITH_CODE(NwHandler, nw_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE,
-                        nw_handler_interface_init));
+G_DEFINE_TYPE_WITH_CODE(NwHandler, nw_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, nw_handler_interface_init));
 
 #define WIFI_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_NW, NwHandlerPrivate))
 static void intialize_nw_handler(Handler *handler_data, int handler_type);
@@ -58,8 +57,7 @@ static void intialize_nw_handler(Handler *handler_data, int handler_type);
  * @param     <privateIns> <In> <instance of handler>
  * @return    int
  */
-void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error,
-                                 gpointer privateIns, int type)
+void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
     LS_LOG_DEBUG("[DEBUG]NW  nw_handler_position_wifi_cb callback called  %d , type %d\n", enable_cb, type);
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
@@ -74,8 +72,7 @@ void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accurac
  * @param     <privateIns> <In> <instance of handler>
  * @return    int
  */
-void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns,
-                            int type)
+void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
     g_return_if_fail(priv);
@@ -90,8 +87,7 @@ void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *ac
  * @param     <privateIns> <In> <instance of handler>
  * @return    int
  */
-void nw_handler_position_cell_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error,
-                                 gpointer privateIns, int type)
+void nw_handler_position_cell_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
     LS_LOG_DEBUG("[DEBUG]NW  nw_handler_position_cellid_cb callback called  %d \n", enable_cb);
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
@@ -184,8 +180,7 @@ static int nw_handler_stop(Handler *self, int handlertype, gboolean forcestop)
  * @param     <self> <In> <Position callback function to get result>
  * @return    int
  */
-static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handle,
-                                   int handlertype, LSHandle *sh)
+static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handle, int handlertype, LSHandle *sh)
 {
     LS_LOG_DEBUG("[DEBUG]nw_handler_get_position\n");
     int result = ERROR_NONE;
@@ -194,8 +189,7 @@ static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallb
     LS_LOG_DEBUG("[DEBUG]nw_handler_get_position hanlder type [%d]\n", handlertype);
     priv->pos_cb_arr[handlertype] = pos_cb;
     g_return_val_if_fail(priv->handler_obj[handlertype], ERROR_NOT_AVAILABLE);
-    result = handler_get_position(priv->handler_obj[handlertype], enable, priv->nw_cb_arr[handlertype], self, handlertype,
-                                  sh);
+    result = handler_get_position(priv->handler_obj[handlertype], enable, priv->nw_cb_arr[handlertype], self, handlertype, sh);
     LS_LOG_DEBUG("[DEBUG]result : gps_handler_get_position %d  \n", result);
     return result;
 }
@@ -206,25 +200,23 @@ static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallb
  * @param     <self> <In> <Position callback function to get result>
  * @return    int
  */
-static void nw_handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb,
-                                      gpointer handleobj, int handlertype,
-                                      LSHandle *sh)
+static void nw_handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handleobj, int handlertype,
+        LSHandle *sh)
 {
     int result = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
 
-    if (priv == NULL) track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
+    if (priv == NULL)
+        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
 
     priv->track_cb = NULL;
 
     if (enable) {
         priv->track_cb = track_cb;
         LS_LOG_DEBUG("[DEBUG] nw_handler_start_tracking : priv->track_cb %d \n ", priv->track_cb);
-        handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self,
-                               handlertype, sh);
+        handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
     } else {
-        handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self,
-                               handlertype, sh);
+        handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
     }
 
     LS_LOG_DEBUG("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);

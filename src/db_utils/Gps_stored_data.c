@@ -87,38 +87,51 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
     if (handle == NULL)
         return ERROR_NOT_AVAILABLE;
     else {
-        if (isFileExists(path) == 0) return ERROR_NOT_AVAILABLE;
+        if (isFileExists(path) == 0)
+            return ERROR_NOT_AVAILABLE;
 
         handle->fileName = path;
         ret = get(handle, "timestamp", &result);
 
-        if (ret == KEY_NOT_FOUND) return ERROR_NOT_AVAILABLE;
-        else position->timestamp = atoll(result);
+        if (ret == KEY_NOT_FOUND)
+            return ERROR_NOT_AVAILABLE;
+        else
+            position->timestamp = atoll(result);
 
         ret = get(handle, "latitude", &result);
 
-        if (ret == KEY_NOT_FOUND) return ERROR_NOT_AVAILABLE;
-        else position->latitude = atof(result);
+        if (ret == KEY_NOT_FOUND)
+            return ERROR_NOT_AVAILABLE;
+        else
+            position->latitude = atof(result);
 
         ret = get(handle, "longitude", &result);
 
-        if (ret == KEY_NOT_FOUND) return ERROR_NOT_AVAILABLE;
-        else position->longitude = atof(result);
+        if (ret == KEY_NOT_FOUND)
+            return ERROR_NOT_AVAILABLE;
+        else
+            position->longitude = atof(result);
 
         ret = get(handle, "altitude", &result);
 
-        if (ret == KEY_NOT_FOUND) return ERROR_NOT_AVAILABLE;
-        else position->altitude = atof(result);
+        if (ret == KEY_NOT_FOUND)
+            return ERROR_NOT_AVAILABLE;
+        else
+            position->altitude = atof(result);
 
         ret = get(handle, "hor_accuracy", &result);
 
-        if (ret == KEY_NOT_FOUND) return ERROR_NOT_AVAILABLE;
-        else accuracy->horizAccuracy = atof(result);
+        if (ret == KEY_NOT_FOUND)
+            return ERROR_NOT_AVAILABLE;
+        else
+            accuracy->horizAccuracy = atof(result);
 
         ret = get(handle, "ver_accuracy", &result);
 
-        if (ret == KEY_NOT_FOUND) return ERROR_NOT_AVAILABLE;
-        else accuracy->vertAccuracy = atof(result);
+        if (ret == KEY_NOT_FOUND)
+            return ERROR_NOT_AVAILABLE;
+        else
+            accuracy->vertAccuracy = atof(result);
 
         free(handle);
     }

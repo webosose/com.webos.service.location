@@ -9,9 +9,8 @@ void LocationServiceState::init()
 
 void LocationServiceState::register_wifi_status()
 {
-    LSCall(m_locSrvcPtr->getPrivatehandle(), "palm://com.palm.wifi/getstatus", "{\"subscribe\":true}",
-           LocationServiceState::wifi_status_cb, this,
-           NULL, NULL);
+    LSCall(m_locSrvcPtr->getPrivatehandle(), "palm://com.palm.wifi/getstatus", "{\"subscribe\":true}", LocationServiceState::wifi_status_cb, this,
+            NULL, NULL);
 }
 
 void LocationServiceState::register_connectivity_status()

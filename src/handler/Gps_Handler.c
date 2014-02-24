@@ -52,19 +52,14 @@ typedef struct _GpsHandlerPrivate {
     guint64 lastfixtime;
     gboolean ttffstate;
     GMutex mutex;
-    gboolean network_state;
-    gboolean telephony_api_state;
-    LSHandle *sh;
-    LSMessage *message;
-    LSMessageToken m_telInfoReq;
+
 } GpsHandlerPrivate;
 
 #define GPS_HANDLER_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_GPS, GpsHandlerPrivate))
 
 static void handler_interface_init(HandlerInterface *iface);
 
-G_DEFINE_TYPE_WITH_CODE(GpsHandler, gps_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE,
-                        handler_interface_init));
+G_DEFINE_TYPE_WITH_CODE(GpsHandler, gps_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, handler_interface_init));
 
 static gboolean gps_timeout_cb(gpointer user_data)
 {
@@ -76,9 +71,11 @@ static gboolean gps_timeout_cb(gpointer user_data)
     Position *position = position_create(0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, field);
     Accuracy *accuracy = accuracy_create(ACCURACY_LEVEL_NONE, 0.0, 0.0);
 
-    if (priv->pos_cb)(*priv->pos_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
+    if (priv->pos_cb)
+        (*priv->pos_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
 
-    if (priv->track_cb)(*priv->track_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
+    if (priv->track_cb)
+        (*priv->track_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
 
     position_free(position);
     accuracy_free(accuracy);
@@ -250,11 +247,11 @@ static int gps_handler_stop(Handler *self,  int handler_type, gboolean forcestop
     if (priv->is_started == FALSE)
         return ERROR_NOT_STARTED;
 
-    if (forcestop == TRUE) priv->api_progress_flag = 0;
+    if (forcestop == TRUE)
+        priv->api_progress_flag = 0;
 
-    if (priv->api_progress_flag != 0) return ERROR_REQUEST_INPROGRESS;
-
-    priv->telephony_api_state = FALSE;
+    if (priv->api_progress_flag != 0)
+        return ERROR_REQUEST_INPROGRESS;
 
     if (priv->pos_timer) {
         g_source_remove(priv->pos_timer);
@@ -292,23 +289,18 @@ static int gps_handler_get_position(Handler *self, gboolean enable, PositionCall
     LS_LOG_DEBUG("gps_handler_get_position\n");
 
     if (enable) {
-        if (priv->api_progress_flag & GET_POSITION_ON) return ERROR_DUPLICATE_REQUEST;
+        if (priv->api_progress_flag & GET_POSITION_ON)
+            return ERROR_DUPLICATE_REQUEST;
 
         g_return_val_if_fail(pos_cb, ERROR_NOT_AVAILABLE);
         g_return_val_if_fail(priv->gps_plugin->ops.get_position, ERROR_NOT_AVAILABLE);
-
-        if (priv->telephony_api_state == FALSE) {
-            if (TRUE == request_data_conn_state(sh, self, TRUE))
-                priv->telephony_api_state = TRUE;
-        }
-
         priv->pos_cb = pos_cb;
         result = priv->gps_plugin->ops.get_position(priv->gps_plugin->plugin_handler, gps_handler_position_cb);
 
         if (result == ERROR_NONE) {
-            if (!priv->pos_timer) priv->pos_timer = g_timeout_add_seconds(
-                        GPS_UPDATE_INTERVAL_MAX,
-                        gps_timeout_cb, self);
+            if (!priv->pos_timer)
+                priv->pos_timer = g_timeout_add_seconds(
+                GPS_UPDATE_INTERVAL_MAX, gps_timeout_cb, self);
 
             priv->api_progress_flag |= GET_POSITION_ON;
         }
@@ -317,14 +309,6 @@ static int gps_handler_get_position(Handler *self, gboolean enable, PositionCall
     } else {
         // Clear the Flag
         priv->api_progress_flag &= ~GET_POSITION_ON;
-
-        if (priv->m_telInfoReq != DEFAULT_VALUE && !(priv->api_progress_flag & START_TRACKING_ON)) {
-            mRet = LSCallCancel(priv->sh, priv->m_telInfoReq, &lserror);
-            LS_LOG_DEBUG("[DEBUG] LSCallCancel return from GPS_handler_start_tracking   %d \n", mRet);
-            priv->m_telInfoReq = DEFAULT_VALUE;
-            priv->telephony_api_state = FALSE;
-        }
-
         LS_LOG_DEBUG("result: gps_handler_get_position Clearing Position\n");
     }
 
@@ -338,9 +322,8 @@ static int gps_handler_get_position(Handler *self, gboolean enable, PositionCall
  * @param           <self> <In> <Position callback function to get result>
  * @return          int
  */
-static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb,
-                                       gpointer handlerobj,
-                                       int handlertype, LSHandle *sh)
+static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype,
+        LSHandle *sh)
 {
     LS_LOG_DEBUG("GPS handler start Tracking called\n");
     int result = ERROR_NONE;
@@ -354,7 +337,8 @@ static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrac
     }
 
     if (enable) {
-        if (priv->api_progress_flag & START_TRACKING_ON) return;
+        if (priv->api_progress_flag & START_TRACKING_ON)
+            return;
     }
 
     priv->track_cb = NULL;
@@ -362,23 +346,12 @@ static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrac
     if (enable) {
         priv->track_cb = track_cb;
         LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_cb %d\n", priv->track_cb);
-
-        if (priv->telephony_api_state == FALSE) {
-            LS_LOG_DEBUG("gps_handler_start_tracking: telephony_api_state");
-
-            if (TRUE == request_data_conn_state(sh, self, TRUE)) {
-                LS_LOG_DEBUG("gps_handler_start_tracking: telephony_api_state ..2");
-                priv->telephony_api_state = TRUE;
-            }
-        }
-
-        result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb,
-                 HANDLER_DATA_POSITION);
+        result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
 
         if (result == ERROR_NONE) {
-            if (!priv->pos_timer) priv->pos_timer = g_timeout_add_seconds(
-                        GPS_UPDATE_INTERVAL_MAX,
-                        gps_timeout_cb, self);
+            if (!priv->pos_timer)
+                priv->pos_timer = g_timeout_add_seconds(
+                GPS_UPDATE_INTERVAL_MAX, gps_timeout_cb, self);
 
             priv->api_progress_flag |= START_TRACKING_ON;
         } else {
@@ -390,17 +363,8 @@ static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrac
             priv->pos_timer = 0;
         }
 
-        priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb,
-                                           HANDLER_DATA_POSITION);
+        priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
         priv->api_progress_flag &= ~START_TRACKING_ON;
-
-        if (priv->m_telInfoReq != DEFAULT_VALUE && !(priv->api_progress_flag & GET_POSITION_ON)) {
-            mRet = LSCallCancel(priv->sh, priv->m_telInfoReq, &lserror);
-            LS_LOG_DEBUG("[DEBUG] LSCallCancel return from GPS_handler_start_tracking   %d \n", mRet);
-            priv->m_telInfoReq = DEFAULT_VALUE;
-            priv->telephony_api_state = FALSE;
-        }
-
         LS_LOG_DEBUG("gps_handler_start_tracking Clearing bit\n");
     }
 }
@@ -444,115 +408,6 @@ static guint64 gps_handler_get_time_to_first_fix(Handler *self)
     return priv->ttff;
 }
 
-gboolean data_conn_cb(LSHandle *sh, LSMessage *reply, void *ctx)
-{
-    struct json_object *new_obj;
-    struct json_object *return_value;
-    struct json_object *datastate;
-    gboolean ret;
-    char *state;
-    int error = ERROR_NONE;
-    struct json_object *error_code = NULL;
-    LS_LOG_DEBUG("result: data_conn_cb \n");
-    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE((Handler *) ctx);
-    g_return_if_fail(priv);
-    const char *str = LSMessageGetPayload(reply);
-    struct json_object *data_obj = json_object_new_object();
-    new_obj = json_tokener_parse(str);
-    return_value = json_object_object_get(new_obj, "returnValue");
-    ret = json_object_get_boolean(return_value);
-
-    if (ret == FALSE) {
-        LS_LOG_DEBUG("result: data_conn_cb not aviavle \n");
-        priv->network_state = FALSE;
-        error_code = json_object_object_get(new_obj, "errorCode");
-        error = json_object_get_int(error_code);
-
-        if (error == -1) {
-            if (priv->api_progress_flag & START_TRACKING_ON) {
-                request_data_conn_state(sh, ctx, TRUE);
-
-                if (priv->api_progress_flag & GET_POSITION_ON) {
-                    g_return_if_fail(priv->pos_cb);
-                    (*priv->pos_cb)(TRUE , NULL, NULL, ERROR_NETWORK_ERROR, priv, HANDLER_GPS);//call SA position callback
-                    priv->api_progress_flag &= ~GET_POSITION_ON;
-                }
-            }
-
-            json_object_object_add(data_obj, "network", json_object_new_boolean(priv->network_state));
-            json_object_object_add(data_obj, "apn", json_object_new_string("dummy"));
-            json_object_object_add(data_obj, "pdptype", json_object_new_string("IPV4"));
-            priv->gps_plugin->ops.send_network_data(priv->gps_plugin->plugin_handler,
-                                                    (gpointer) json_object_to_json_string(data_obj));
-        }
-    } else {
-        datastate = json_object_object_get(new_obj, "state");
-        state = json_object_get_string(datastate);
-
-        if (strcmp(state, "active") == 0)  {
-            LS_LOG_DEBUG("result: data_conn_cb avialable \n");
-            priv->network_state = TRUE;
-            request_data_conn_state(sh, ctx, FALSE);
-        }
-    }
-
-    json_object_put(new_obj);
-    json_object_put(data_obj);
-    return TRUE;
-}
-gboolean apn_cb(LSHandle *sh, LSMessage *reply, void *ctx)
-{
-    struct json_object *new_obj;
-    struct json_object *return_value;
-    struct json_object *extended;
-    struct json_object *apndata;
-    struct json_object *pdptype;
-    char *apn;
-    char *pdp;
-    gboolean ret;
-    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE((Handler *) ctx);
-    g_return_if_fail(priv);
-    const char *str = LSMessageGetPayload(reply);
-    new_obj = json_tokener_parse(str);
-    return_value = json_object_object_get(new_obj, "returnValue");
-    ret = json_object_get_boolean(return_value);
-
-    if (ret == FALSE) {
-        json_object_put(new_obj);
-        return ret;
-    }
-
-    extended = json_object_object_get(new_obj, "extended");
-    apndata = json_object_object_get(extended, "apn");
-    pdptype = json_object_object_get(extended, "pdp_type");
-    apn = json_object_get_string(apndata);
-    pdp = json_object_get_string(pdptype);
-    LS_LOG_DEBUG("apn_cb apn %s pdp %s ", apn, pdp);
-    // send apn name and type to lower layer
-    struct json_object *data_obj = json_object_new_object();
-    json_object_object_add(data_obj, "network", json_object_new_boolean(priv->network_state));
-    json_object_object_add(data_obj, "apn", json_object_new_string(apn));
-    json_object_object_add(data_obj, "pdptype", json_object_new_string(pdp));
-    priv->gps_plugin->ops.send_network_data(priv->gps_plugin->plugin_handler,
-                                            (gpointer) json_object_to_json_string(data_obj));
-    json_object_put(new_obj);
-    json_object_put(data_obj);
-    return ret;
-}
-gboolean request_data_conn_state(LSHandle *sh, gpointer self, gboolean data)
-{
-    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
-    g_return_val_if_fail(priv, FALSE);
-
-    if (data == TRUE) {
-        LS_LOG_DEBUG("request_data_conn_state");
-        return LSCall(sh, "palm://com.palm.telephony/dataConnectionStatusQuery", "{\"subscribe\":true}", data_conn_cb, self,
-                      &priv->m_telInfoReq, NULL);
-    }
-
-    LS_LOG_DEBUG("request_data_conn_state...1");
-    return LSCall(sh, "palm://com.palm.telephony/getRuntimeSetting", "{}", apn_cb, self, NULL, NULL);
-}
 
 /**
  * <Funciton>       gps_handler_get_gps_satellite_data
@@ -568,7 +423,8 @@ static int gps_handler_get_gps_satellite_data(Handler *self, gboolean enable_sat
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     if (enable_satellite) {
-        if (priv->api_progress_flag & SATELLITE_GET_DATA_ON) return ERROR_DUPLICATE_REQUEST;
+        if (priv->api_progress_flag & SATELLITE_GET_DATA_ON)
+            return ERROR_DUPLICATE_REQUEST;
 
         g_return_val_if_fail(priv->gps_plugin->ops.get_gps_data, ERROR_NOT_AVAILABLE);
         g_return_val_if_fail(sat_cb, ERROR_NOT_AVAILABLE);
@@ -609,15 +465,13 @@ static int gps_handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCa
         g_return_val_if_fail(priv->gps_plugin->ops.get_gps_data, ERROR_NOT_AVAILABLE);
         g_return_val_if_fail(nmea_cb, ERROR_NOT_AVAILABLE);
         priv->nmea_cb = nmea_cb;
-        ret = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable_nmea, gps_handler_nmea_cb,
-                HANDLER_DATA_NMEA);
+        ret = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable_nmea, gps_handler_nmea_cb, HANDLER_DATA_NMEA);
 
         if (ret == ERROR_NONE) {
             priv->api_progress_flag |= NMEA_GET_DATA_ON;
         }
     } else {
-        ret = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable_nmea, gps_handler_nmea_cb,
-                HANDLER_DATA_NMEA);
+        ret = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable_nmea, gps_handler_nmea_cb, HANDLER_DATA_NMEA);
         priv->api_progress_flag &= ~NMEA_GET_DATA_ON;
     }
 
@@ -669,7 +523,8 @@ static void dispose(GObject *gobject)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(gobject);
 
-    if (priv->pos_timer) g_source_remove(priv->pos_timer);
+    if (priv->pos_timer)
+        g_source_remove(priv->pos_timer);
 
     priv->pos_timer = 0;
     G_OBJECT_CLASS(gps_handler_parent_class)->dispose(gobject);
@@ -693,7 +548,6 @@ static void finalize(GObject *gobject)
     }
 
     g_mutex_clear(&priv->mutex);
-
     memset(priv, 0x00, sizeof(GpsHandlerPrivate));
     G_OBJECT_CLASS(gps_handler_parent_class)->finalize(gobject);
 }

@@ -40,8 +40,7 @@
  * @param           <type> <In> <type>
  * @return          void
  */
-typedef void (*PositionCallback)(gboolean enable_cb, Position *position, Accuracy *accuracy, int error,
-                                 gpointer userdata, int type);
+typedef void (*PositionCallback)(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer userdata, int type);
 
 /**
  * <Funciton>       LastPositionCallback
@@ -165,8 +164,7 @@ typedef void (*ExtraCmdCallback)(gboolean enable_cb, int command, gpointer userd
  * @param           <userdata> <In> <Gobject private instance>
  * @return          void
  */
-typedef void (*StartTrackingCallBack)(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error,
-                                      gpointer userdata, int type);
+typedef void (*StartTrackingCallBack)(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error, gpointer userdata, int type);
 
 /**
  * <Funciton>       getTTFF_cb
@@ -187,7 +185,6 @@ typedef struct {
     int (*get_position)(gpointer handle, PositionCallback pos_cb);
     int (*get_gps_data)(gpointer handle, gboolean enable_data, gpointer gps_cb, int data_type);
     int (*send_extra_command)(gpointer handle , char *command);
-    int (*send_network_data)(gpointer handle, gpointer data);
 } GpsPluginOps;
 
 typedef struct {
@@ -211,8 +208,7 @@ typedef struct {
     int (*get_geocode)(gpointer handle, const Address *address, Position *pos, Accuracy *ac);
     int (*get_geocode_freetext)(gpointer handle, const gchar *addrress, Position *pos, Accuracy *ac);
     int (*get_geocode_async)(gpointer handle, const Address *address, GeoCodeCallback geo_callback, gpointer userdata);
-    int (*get_geocode_freetext_async)(gpointer handle, const gchar *address, GeoCodeCallback geo_callback,
-                                      gpointer userdata);
+    int (*get_geocode_freetext_async)(gpointer handle, const gchar *address, GeoCodeCallback geo_callback, gpointer userdata);
     int (*get_reverse_geocode_async)(gpointer handle, Position *position, RevGeocodeCallback rev_cb, gpointer userdata);
 } LbsPluginOps;
 

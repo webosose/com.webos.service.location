@@ -50,10 +50,8 @@ typedef struct _HandlerInterface HandlerInterface;
 
 typedef int (*TYPE_START_FUNC)(Handler *self, int handler_type);
 typedef int (*TYPE_STOP_FUNC)(Handler *self, int handler_type, gboolean forcestop);
-typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj,
-                                 int handlertype, LSHandle *sh);
-typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj,
-                                 int handlertype, LSHandle *sh);
+typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
+typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
 typedef int (*TYPE_GET_LAST_POSITION)(Handler *self, Position *position, Accuracy *accuracy, int handlertype);
 typedef int (*TYPE_GET_VELOCITY)(Handler *self, VelocityCallback vel_cb);
 typedef int (*TYPE_GET_LAST_VELOCITY)(Handler *self, Velocity *velocity, Accuracy *accuracy);
@@ -106,11 +104,9 @@ int handler_start(Handler *self, int handler_type);
 
 int handler_stop(Handler *self, int handler_type, gboolean forcestop);
 
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, int handlertype,
-                         LSHandle *sh);
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, int handlertype, LSHandle *sh);
 
-void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj,
-                            int handlertype, LSHandle *sh);
+void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
 
 int handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy, int handlertype);
 
@@ -128,7 +124,7 @@ int handler_get_gps_satellite_data(Handler *self, gboolean enable_satellite, Sat
 
 int handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
 
-int handler_send_extra_command(Handler *self , char *command);
+int handler_send_extra_command(Handler *self, char *command);
 
 int handler_set_property(Handler *self, GObject *object, guint property_id, const GValue *value, GParamSpec *pspec);
 

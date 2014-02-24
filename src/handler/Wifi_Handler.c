@@ -44,8 +44,7 @@ typedef struct _WifiHandlerPrivate {
 
 static void wifi_handler_interface_init(HandlerInterface *interface);
 
-G_DEFINE_TYPE_WITH_CODE(WifiHandler, wifi_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE,
-                        wifi_handler_interface_init));
+G_DEFINE_TYPE_WITH_CODE(WifiHandler, wifi_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, wifi_handler_interface_init));
 
 /**
  * <Funciton >   wifi_handler_tracking_cb
@@ -107,7 +106,8 @@ static int wifi_handler_start(Handler *handler_data)
 
     ret = priv->wifi_plugin->ops.start(priv->wifi_plugin->plugin_handler, handler_data);
 
-    if (ret == ERROR_NONE) priv->is_started = TRUE;
+    if (ret == ERROR_NONE)
+        priv->is_started = TRUE;
 
     g_mutex_unlock(&priv->mutex);
     return ret;
@@ -129,9 +129,11 @@ static int wifi_handler_stop(Handler *self, int handler_type, gboolean forcestop
     if (priv->is_started == FALSE)
         return ERROR_NOT_STARTED;
 
-    if (forcestop == TRUE) priv->api_progress_flag = 0;
+    if (forcestop == TRUE)
+        priv->api_progress_flag = 0;
 
-    if (priv->api_progress_flag != 0) return ERROR_REQUEST_INPROGRESS;
+    if (priv->api_progress_flag != 0)
+        return ERROR_REQUEST_INPROGRESS;
 
     if (priv->is_started == TRUE) {
         g_return_val_if_fail(priv->wifi_plugin->ops.stop, ERROR_NOT_AVAILABLE);
@@ -160,7 +162,8 @@ static int wifi_handler_get_position(Handler *self, gboolean enable, PositionCal
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     if (enable) {
-        if (priv->api_progress_flag & WIFI_GET_POSITION_ON) return ERROR_DUPLICATE_REQUEST;
+        if (priv->api_progress_flag & WIFI_GET_POSITION_ON)
+            return ERROR_DUPLICATE_REQUEST;
 
         g_return_val_if_fail(pos_cb, ERROR_NOT_AVAILABLE);
         priv->pos_cb = pos_cb;
@@ -169,7 +172,8 @@ static int wifi_handler_get_position(Handler *self, gboolean enable, PositionCal
         LS_LOG_DEBUG("[DEBUG]wifi_handler_get_position value of newof hanlder %u\n", priv->nwhandler);
         result = priv->wifi_plugin->ops.get_position(priv->wifi_plugin->plugin_handler, wifi_handler_position_cb);
 
-        if (result == ERROR_NONE) priv->api_progress_flag |= WIFI_GET_POSITION_ON;
+        if (result == ERROR_NONE)
+            priv->api_progress_flag |= WIFI_GET_POSITION_ON;
 
         LS_LOG_DEBUG("[DEBUG]result : wifi_handler_get_position %d  \n", result);
     } else {
@@ -193,20 +197,23 @@ static void wifi_handler_start_tracking(Handler *self, gboolean enable, StartTra
     int result = ERROR_NONE;
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
 
-    if (priv == NULL ||
-            (priv->wifi_plugin->ops.start_tracking) == NULL) track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
+    if (priv == NULL || (priv->wifi_plugin->ops.start_tracking) == NULL)
+        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
 
     priv->track_cb = NULL;
 
     if (enable) {
-        if (priv->api_progress_flag & WIFI_START_TRACKING_ON) return;
+        if (priv->api_progress_flag & WIFI_START_TRACKING_ON)
+            return;
 
         priv->track_cb = track_cb;
         priv->nwhandler = handlerobj;
         result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler, enable, wifi_handler_tracking_cb);
 
-        if (result == ERROR_NONE) priv->api_progress_flag |= WIFI_START_TRACKING_ON;
-        else track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
+        if (result == ERROR_NONE)
+            priv->api_progress_flag |= WIFI_START_TRACKING_ON;
+        else
+            track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
     } else {
         priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler, enable, wifi_handler_tracking_cb);
         priv->api_progress_flag &= ~WIFI_START_TRACKING_ON;
@@ -274,7 +281,6 @@ static void wifi_handler_finalize(GObject *gobject)
     }
 
     g_mutex_clear(&priv->mutex);
-
     memset(priv, 0x00, sizeof(WifiHandlerPrivate));
     G_OBJECT_CLASS(wifi_handler_parent_class)->finalize(gobject);
 }

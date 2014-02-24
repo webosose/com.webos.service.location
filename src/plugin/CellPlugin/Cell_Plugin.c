@@ -147,21 +147,22 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
     g_return_if_fail(plugin_data->pos_cb);
     Accuracy *ac;
     double hor_acc = DEFAULT_VALUE;
-    double vert_acc = DEFAULT_VALUE;
+    double vert_acc = INVALID_PARAM;
     GeoclueAccuracyLevel level;
-    Position *ret_pos = position_create(timestamp, latitude, longitude, altitude, DEFAULT_VALUE, DEFAULT_VALUE,
-                                        DEFAULT_VALUE, fields);
+    fields = fields | POSITION_FIELDS_ALTITUDE | VELOCITY_FIELDS_SPEED | VELOCITY_FIELDS_DIRECTION | VELOCITY_FIELDS_CLIMB;
+    Position *ret_pos = position_create(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM,
+                                        INVALID_PARAM, fields);
     g_return_if_fail(ret_pos);
 
     if (accuracy != NULL) {
         geoclue_accuracy_get_details(accuracy, &level, &hor_acc, &vert_acc);
-        ac = accuracy_create(ACCURACY_LEVEL_DETAILED, hor_acc, vert_acc);
+        ac = accuracy_create(ACCURACY_LEVEL_DETAILED, hor_acc, INVALID_PARAM);
         /* if(accuracy){
          // Free accuracy object if created
          geoclue_accuracy_free(accuracy);
          }*/
     } else {
-        ac = accuracy_create(ACCURACY_LEVEL_NONE, hor_acc, vert_acc);
+        ac = accuracy_create(ACCURACY_LEVEL_NONE, INVALID_PARAM, INVALID_PARAM);
     }
 
     if (ac == NULL) {
@@ -169,7 +170,7 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
         return;
     }
 
-    set_store_position(latitude, longitude, altitude, 0.0, 0.0, hor_acc, vert_acc, LOCATION_DB_PREF_PATH_CELL);
+    set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_CELLID);
     position_free(ret_pos);
     accuracy_free(ac);
@@ -202,17 +203,18 @@ static void tracking_cb(GeocluePosition *position, GeocluePositionFields fields,
     g_return_if_fail(cellPlugin->track_cb);
     Accuracy *ac;
     double hor_acc = DEFAULT_VALUE;
-    double vert_acc = DEFAULT_VALUE;
+    double vert_acc = INVALID_PARAM;
     GeoclueAccuracyLevel level;
-    Position *ret_pos = position_create(timestamp, latitude, longitude, altitude, DEFAULT_VALUE, DEFAULT_VALUE,
-                                        DEFAULT_VALUE, fields);
+    fields = fields | POSITION_FIELDS_ALTITUDE | VELOCITY_FIELDS_SPEED | VELOCITY_FIELDS_DIRECTION | VELOCITY_FIELDS_CLIMB;
+    Position *ret_pos = position_create(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM,
+                                        INVALID_PARAM, fields);
     g_return_if_fail(ret_pos);
 
     if (accuracy != NULL) {
         geoclue_accuracy_get_details(accuracy, &level, &hor_acc, &vert_acc);
-        ac = accuracy_create(ACCURACY_LEVEL_DETAILED, hor_acc, vert_acc);
+        ac = accuracy_create(ACCURACY_LEVEL_DETAILED, hor_acc, INVALID_PARAM);
     } else {
-        ac = accuracy_create(ACCURACY_LEVEL_NONE, hor_acc, vert_acc);
+        ac = accuracy_create(ACCURACY_LEVEL_NONE, hor_acc, INVALID_PARAM);
     }
 
     if (ac == NULL) {
@@ -220,7 +222,7 @@ static void tracking_cb(GeocluePosition *position, GeocluePositionFields fields,
         return;
     }
 
-    set_store_position(latitude, longitude, altitude, 0.0, 0.0, hor_acc, vert_acc, LOCATION_DB_PREF_PATH_CELL);
+    set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
     (*cellPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, cellPlugin->userdata, HANDLER_CELLID);
     position_free(ret_pos);
     accuracy_free(ac);

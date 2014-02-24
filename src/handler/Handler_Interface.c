@@ -77,8 +77,7 @@ int handler_stop(Handler *self, int handlertype, gboolean forcestop)
  * @param           <pos_cb> <In> <callback function to get result>
  * @return          int
  */
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype,
-                         LSHandle *sh)
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(pos_cb, ERROR_WRONG_PARAMETER);
@@ -95,8 +94,7 @@ int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb
  * @param           <track_cb> <In> <callback function to get result>
  * @return          void
  */
-void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj,
-                            int handlertype, LSHandle *sh)
+void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
 {
     g_return_if_fail(HANDLER_IS_INTERFACE(self));
     g_return_if_fail(track_cb);

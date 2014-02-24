@@ -44,7 +44,8 @@ int get(DBHandle *handle, char *keyVal, xmlChar **result)
         cur = cur->next;
     }
 
-    if (result == NULL) return KEY_NOT_FOUND;
+    if (result == NULL)
+        return KEY_NOT_FOUND;
 
     xmlFreeDoc(docPtr);
     xmlCleanupParser();
@@ -111,8 +112,7 @@ int isFileExists(const char *fname)
 
     return 0;
 }
-int createPreference(char *filename, DBHandle *handle, char *title,
-                     int enablecheck)
+int createPreference(char *filename, DBHandle *handle, char *title, int enablecheck)
 {
     if (!handle || !title || !filename) {
         return NULL_VALUE;

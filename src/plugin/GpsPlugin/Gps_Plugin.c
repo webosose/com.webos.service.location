@@ -163,7 +163,7 @@ static void position_cb(GeocluePositionGps *position, GeocluePositionGpsFields f
 
     Accuracy *ac;
     double hor_acc = DEFAULT_VALUE;
-    double vert_acc = DEFAULT_VALUE;
+    double vert_acc = INVALID_PARAM;
     GeoclueAccuracyLevel level;
     Position *ret_pos = position_create(timestamp, latitude, longitude, altitude, speed, direction, climb, fields);
     g_return_if_fail(ret_pos);
@@ -260,12 +260,12 @@ static void satellite_cb(GeoclueSatellite *satellite, guint64 used_in_fix, int v
         ((used_in_fix & (1 << prn - 1))) == DEFAULT_VALUE ? (used = FALSE) : (used = TRUE);
         ((ephemeris_info & (1 << prn - 1))) == DEFAULT_VALUE ? (hasephemeris = FALSE) : (hasephemeris = TRUE);
         ((almanac_info & (1 << prn - 1))) == DEFAULT_VALUE ? (hasalmanac = FALSE) : (hasalmanac = TRUE);
-        // LS_LOG_DEBUG("[DEBUG]value of satellite prn %d \n snr %f \n elev %f \n  azi %f \n used %d \n hasalmanac %d \n hasephemeris %d\n" , prn, snr,elev,azim,used,hasalmanac,hasephemeris);
         set_satellite_details(sat, index, snr, prn, elev, azim, used, hasalmanac, hasephemeris);
     }
 
     //call satellite cb
-    if (visible_satellites > DEFAULT_VALUE)(*plugin_data->sat_cb)(TRUE, sat, plugin_data->userdata);
+    if (visible_satellites > DEFAULT_VALUE)
+        (*plugin_data->sat_cb)(TRUE, sat, plugin_data->userdata);
 
     satellite_free(sat);
 }
@@ -330,18 +330,6 @@ static int send_extra_command(gpointer handle , char *command)
 
     return ERROR_NONE;
 }
-int send_network_data(gpointer handle, gpointer data)
-{
-    GeoclueGps *geoclueGps = (GeoclueGps *) handle;
-    g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
-    LS_LOG_DEBUG("send_network_data %s", data);
-
-    if (send_geoclue_command(geoclueGps->geoclue_pos , "Network_data", data) == FALSE) {
-        return ERROR_NOT_AVAILABLE;
-    }
-
-    return ERROR_NONE;
-}
 /**
  * <Funciton >   get_position
  * <Description>  Get the position from GPS
@@ -357,8 +345,8 @@ static int get_position(gpointer handle, PositionCallback positionCB)
     g_return_val_if_fail(geoclueGps->geoclue_pos, ERROR_NOT_AVAILABLE);
     geoclueGps->pos_cb = NULL;
 
-    if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE",
-                             "PERIODICUPDATES") == FALSE) return ERROR_NOT_AVAILABLE;
+    if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATES") == FALSE)
+        return ERROR_NOT_AVAILABLE;
 
     if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE", "GPSENABLE") == FALSE) {
         LS_LOG_DEBUG("GPS ENGINE NOT STARTED");
@@ -366,10 +354,8 @@ static int get_position(gpointer handle, PositionCallback positionCB)
     }
 
     geoclueGps->pos_cb = positionCB;
-    geoclue_position_get_position_async(geoclueGps->geoclue_pos, (GeocluePositionGpsCallback) position_cb_async,
-                                        geoclueGps);
-    g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "positiongps-changed", G_CALLBACK(position_cb),
-                     geoclueGps);
+    geoclue_position_get_position_async(geoclueGps->geoclue_pos, (GeocluePositionGpsCallback) position_cb_async, geoclueGps);
+    g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "positiongps-changed", G_CALLBACK(position_cb), geoclueGps);
     return ERROR_NONE;
 }
 
@@ -379,8 +365,8 @@ static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, 
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
 
     if (enable_data == TRUE) {
-        if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE",
-                                 "PERIODICUPDATES") == FALSE) return ERROR_NOT_AVAILABLE;
+        if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATES") == FALSE)
+            return ERROR_NOT_AVAILABLE;
 
         if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE", "GPSENABLE") == FALSE) {
             LS_LOG_DEBUG("GPS ENGINE NOT STARTED");
@@ -393,13 +379,12 @@ static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, 
             g_return_val_if_fail(geoclueGps->geoclue_nmea, ERROR_NOT_AVAILABLE);
             geoclueGps->nmea_cb = NULL;
 
-            if (enable_data) {
-                geoclueGps->nmea_cb = (NmeaCallback) gps_cb;
-                g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_nmea)), "nmea-changed", G_CALLBACK(nmea_callback),
-                                 geoclueGps);
-            } else g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_nmea)),
-                        G_CALLBACK(nmea_callback), geoclueGps);
-        }
+        if (enable_data) {
+            geoclueGps->nmea_cb = (NmeaCallback) gps_cb;
+            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_nmea)), "nmea-changed", G_CALLBACK(nmea_callback), geoclueGps);
+        } else
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_nmea)), G_CALLBACK(nmea_callback), geoclueGps);
+    }
         break;
 
         case HANDLER_DATA_SATELLITE: {
@@ -407,32 +392,30 @@ static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, 
             g_return_val_if_fail(geoclueGps->geoclue_satellite, ERROR_NOT_AVAILABLE);
             geoclueGps->sat_cb = NULL;
 
-            if (enable_data) {
-                geoclueGps->sat_cb = (SatelliteCallback) gps_cb;
-                g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_satellite)), "satellite-changed",
-                                 G_CALLBACK(satellite_cb), geoclueGps);
-            } else g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_satellite)),
-                        G_CALLBACK(satellite_cb), geoclueGps);
-        }
+        if (enable_data) {
+            geoclueGps->sat_cb = (SatelliteCallback) gps_cb;
+            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_satellite)), "satellite-changed", G_CALLBACK(satellite_cb), geoclueGps);
+        } else
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_satellite)), G_CALLBACK(satellite_cb), geoclueGps);
+    }
         break;
 
-        case HANDLER_DATA_POSITION: {
-            //starttracking
-            if (geoclueGps->geoclue_pos == NULL) return ERROR_NOT_AVAILABLE;
+    case HANDLER_DATA_POSITION: {
+        //starttracking
+        if (geoclueGps->geoclue_pos == NULL)
+            return ERROR_NOT_AVAILABLE;
 
             geoclueGps->track_cb = NULL;
             LS_LOG_DEBUG("[DEBUG] start_tracking userdata addr : %d  enableTracking =%d \n", geoclueGps->userdata, enable_data);
 
-            if (enable_data) {
-                geoclueGps->track_cb = (PositionCallback) gps_cb;
-                g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "positiongps-changed", G_CALLBACK(tracking_cb),
-                                 geoclueGps);
-                LS_LOG_DEBUG("[DEBUG] registered position-changed signal \n");
-            } else {
-                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), G_CALLBACK(tracking_cb),
-                                                     geoclueGps);
-            }
+        if (enable_data) {
+            geoclueGps->track_cb = (PositionCallback) gps_cb;
+            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "positiongps-changed", G_CALLBACK(tracking_cb), geoclueGps);
+            LS_LOG_DEBUG("[DEBUG] registered position-changed signal \n");
+        } else {
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), G_CALLBACK(tracking_cb), geoclueGps);
         }
+    }
         break;
     } // switch end
 
@@ -448,10 +431,8 @@ static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, 
 static void unreference_geoclue(GeoclueGps *geoclueGps)
 {
     if (geoclueGps->geoclue_pos) {
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), G_CALLBACK(status_cb),
-                                             geoclueGps);
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), G_CALLBACK(position_cb),
-                                             geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), G_CALLBACK(status_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), G_CALLBACK(position_cb), geoclueGps);
         g_object_unref(geoclueGps->geoclue_pos);
         geoclueGps->geoclue_pos = NULL;
     }
@@ -495,8 +476,7 @@ static gboolean intialize_gps_geoclue_service(GeoclueGps *geoclueGps)
         return FALSE;
     }
 
-    g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "status-changed", G_CALLBACK(status_cb),
-                     geoclueGps);
+    g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "status-changed", G_CALLBACK(status_cb), geoclueGps);
     LS_LOG_DEBUG("[DEBUG] intialize_gps_geoclue_service  done\n");
     return TRUE;
 }
@@ -519,7 +499,8 @@ static int start(gpointer plugin_data, StatusCallback status_cb, gpointer handle
     geoclueGps->userdata = handler_data;
     geoclueGps->status_cb = status_cb;
 
-    if (intialize_gps_geoclue_service(geoclueGps) == FALSE) return ERROR_NOT_AVAILABLE;
+    if (intialize_gps_geoclue_service(geoclueGps) == FALSE)
+        return ERROR_NOT_AVAILABLE;
 
     LS_LOG_DEBUG("[DEBUG] Sucess In start");
     return ERROR_NONE;
@@ -558,7 +539,6 @@ EXPORT_API gpointer init(GpsPluginOps *ops)
     ops->get_position = get_position;
     ops->get_gps_data = get_gps_data;
     ops->send_extra_command = send_extra_command;
-    ops->send_network_data = send_network_data;
     /*
      * Handler for plugin
      */

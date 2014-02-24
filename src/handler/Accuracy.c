@@ -16,7 +16,8 @@ Accuracy *accuracy_create(GpsAccuracyLevel level, gdouble horizontal_accuracy, g
 {
     Accuracy *accuracy = g_slice_new0(Accuracy);
 
-    if (accuracy == NULL) return NULL;
+    if (accuracy == NULL)
+        return NULL;
 
     accuracy->level = level;
     accuracy->horizAccuracy = horizontal_accuracy;

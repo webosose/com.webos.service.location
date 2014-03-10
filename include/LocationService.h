@@ -367,6 +367,7 @@ private:
     bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
     void LSErrorPrintAndFree(LSError *ptrLSError);
     void startWifiHandler(void);
+    bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message);
 
     int m_service_state;
     static bool instanceFlag;

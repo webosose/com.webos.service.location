@@ -214,6 +214,9 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data)
     //LSMessageRef(message); //Not required as the message is not stored
     LSMessagePrint(message, stdout);
 
+    if (isSubscribeTypeValid(sh, message) == false)
+        return true;
+
     if (getHandlerStatus(GPS) == false) {
         LSMessageReplyError(sh, message, TRACKING_LOCATION_OFF,trakingErrorText[TRACKING_LOCATION_OFF]);
         return true;
@@ -297,7 +300,7 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
         LS_LOG_DEBUG("parsing error");
-        LSMessageReplyError(sh, message, TRACKING_UNKNOWN_ERROR,trakingErrorText[TRACKING_UNKNOWN_ERROR]);
+        LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT,trakingErrorText[TRACKING_INVALID_INPUT]);
         LSMessageUnref(message);
         json_object_put(serviceObject);
         return true;
@@ -575,7 +578,9 @@ bool LocationService::readLocationfromCache(LSHandle *sh, LSMessage *message, js
         long long longmaxAge = maxAge * 1000;
 
         //More accurate data return first
-        if (gpsCacheSuccess && (longmaxAge <= currentTime - gpspos.timestamp) && (gpsacc.horizAccuracy <= accuracy)) {
+        if (gpsCacheSuccess && (longmaxAge >= currentTime - gpspos.timestamp) && (gpsacc.horizAccuracy <= accuracy)) {
+            location_util_add_returnValue_json(serviceObject, true);
+            location_util_add_errorCode_json(serviceObject, TRACKING_SUCCESS);
             location_util_add_pos_json(serviceObject, &gpspos);
             location_util_add_acc_json(serviceObject, &gpsacc);
             mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
@@ -584,7 +589,10 @@ bool LocationService::readLocationfromCache(LSHandle *sh, LSMessage *message, js
                 LSErrorPrintAndFree(&mLSError);
             } else
                 return true;
-        } else if (wifiCacheSuccess && (longmaxAge <= currentTime - wifipos.timestamp) && (wifiacc.horizAccuracy <= accuracy)) {
+        } else if (wifiCacheSuccess && (longmaxAge >= currentTime - wifipos.timestamp) && (wifiacc.horizAccuracy <= accuracy)) {
+            LS_LOG_DEBUG("currentTime %lld wifipos.timestamp %lld longmaxAge %lld",currentTime,wifipos.timestamp,longmaxAge);
+            location_util_add_returnValue_json(serviceObject, true);
+            location_util_add_errorCode_json(serviceObject, TRACKING_SUCCESS);
             location_util_add_pos_json(serviceObject, &wifipos);
             location_util_add_acc_json(serviceObject, &wifiacc);
             mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
@@ -594,7 +602,9 @@ bool LocationService::readLocationfromCache(LSHandle *sh, LSMessage *message, js
             }
             else
                 return true;
-        } else if (cellCacheSucess && (longmaxAge <= currentTime - cellidpos.timestamp) && (cellidacc.horizAccuracy <= accuracy)) {
+        } else if (cellCacheSucess && (longmaxAge >= currentTime - cellidpos.timestamp) && (cellidacc.horizAccuracy <= accuracy)) {
+            location_util_add_returnValue_json(serviceObject, true);
+            location_util_add_errorCode_json(serviceObject, TRACKING_SUCCESS);
             location_util_add_pos_json(serviceObject, &cellidpos);
             location_util_add_acc_json(serviceObject, &cellidacc);
             mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
@@ -762,6 +772,10 @@ bool LocationService::startTracking(LSHandle *sh, LSMessage *message, void *data
     LSMessagePrint(message, stdout);
     int ret;
     LSError mLSError;
+    bool mRetVal;
+
+    if (isSubscribeTypeValid(sh, message) == false)
+        return true;
 
     //GPS and NW both are off
     if ((getHandlerStatus(GPS) == HANDLER_STATE_DISABLED) && (getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
@@ -812,7 +826,6 @@ bool LocationService::startTracking(LSHandle *sh, LSMessage *message, void *data
         return true;
     }
 
-    bool mRetVal;
     mRetVal = LSSubscriptionAdd(sh, SUBSC_START_TRACK_KEY, message, &mLSError);
 
     if (mRetVal == false) {
@@ -1246,6 +1259,10 @@ bool LocationService::GetGpsStatus(LSHandle *sh, LSMessage *message, void *data)
     LS_LOG_DEBUG("=======Subscribe for GetGpsStatus=======");
     LSError mLSError;
     LSErrorInit(&mLSError);
+
+    if (isSubscribeTypeValid(sh, message) == false)
+        return true;
+
     int ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS);
 
     if (ret != ERROR_NONE) {
@@ -1302,7 +1319,7 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM,locationErrorText[LOCATION_OUT_OF_MEM]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
         return true;
     }
 
@@ -1374,7 +1391,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     //Read Handler from json
     mRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
 
-    if (mRetVal)
+    if (mRetVal && json_object_is_type(m_JsonSubArgument,json_type_string))
         handler = json_object_get_string(m_JsonSubArgument);
     else {
         LS_LOG_DEBUG("Invalid param:handler");
@@ -1454,7 +1471,7 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
 
     if (json_message == NULL || is_error(json_message)) {
         LS_LOG_DEBUG("SEND_EXTRA_OUT_OF_MEM");
-        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM,locationErrorText[LOCATION_OUT_OF_MEM]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
         return true;
     }
 
@@ -1531,7 +1548,7 @@ bool LocationService::getLocationHandlerDetails(LSHandle *sh, LSMessage *message
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM,locationErrorText[LOCATION_OUT_OF_MEM]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
         return true;
     }
 
@@ -1606,7 +1623,7 @@ bool LocationService::getLocationHandlerDetails(LSHandle *sh, LSMessage *message
         }
     } else {
         LS_LOG_DEBUG("LPAppGetHandle is not created");
-        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR,locationErrorText[LOCATION_UNKNOWN_ERROR]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
     }
 
     json_object_put(m_JsonArgument);
@@ -1619,6 +1636,9 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
     bool mRetVal;
     LSError mLSError;
     LSErrorInit(&mLSError);
+
+    if (isSubscribeTypeValid(sh, message) == false)
+        return true;
 
     if (getHandlerStatus(GPS)) {
         ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_TYPE_GPS);
@@ -1806,15 +1826,40 @@ void LocationService::startTracking_reply(Position *pos, Accuracy *accuracy, int
         location_util_add_errorCode_json(serviceObject, SUCCESS);
         location_util_add_pos_json(serviceObject, pos);
         location_util_add_acc_json(serviceObject, accuracy);
-        mRetVal = LSSubscriptionNonSubscriptionRespond(mServiceHandle, SUBSC_START_TRACK_KEY, json_object_to_json_string(serviceObject), &mLSError);
 
-        if (mRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
+        if (mIsStartFirstReply || accuracy->horizAccuracy < MINIMAL_ACCURACY) {
+            mlastTrackingReplyTime = time(0);
+            mIsStartFirstReply = false;
+            mRetVal = LSSubscriptionNonSubscriptionRespond(mServiceHandle, SUBSC_START_TRACK_KEY, json_object_to_json_string(serviceObject),
+                    &mLSError);
 
-        mRetVal = LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle, SUBSC_START_TRACK_KEY, json_object_to_json_string(serviceObject),
-                &mLSError);
-        if (mRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
+            if (mRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
+            mRetVal = LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle, SUBSC_START_TRACK_KEY, json_object_to_json_string(serviceObject),
+                    &mLSError);
+            if (mRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+        } else {
+
+            long long current_time = time(0);
+            LS_LOG_DEBUG("Accuracy is not 100m current_time = %lld mlastTrackingReplyTime = %lld",current_time,mlastTrackingReplyTime);
+
+            if (current_time - mlastTrackingReplyTime > 60) {
+                mRetVal = LSSubscriptionNonSubscriptionRespond(mServiceHandle, SUBSC_START_TRACK_KEY, json_object_to_json_string(serviceObject),
+                        &mLSError);
+
+                if (mRetVal == false)
+                    LSErrorPrintAndFree(&mLSError);
+
+                mRetVal = LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle, SUBSC_START_TRACK_KEY, json_object_to_json_string(serviceObject),
+                        &mLSError);
+                if (mRetVal == false)
+                    LSErrorPrintAndFree(&mLSError);
+                mlastTrackingReplyTime = time(0);
+
+            }
+        }
 
     } else {
         switch (type) {
@@ -1869,7 +1914,7 @@ void LocationService::get_nmea_reply(int timestamp, char *data, int length)
     LS_LOG_DEBUG("data=%s\n", data);
     location_util_add_returnValue_json(serviceObject, true);
     location_util_add_errorCode_json(serviceObject, SUCCESS);
-    json_object_object_add(serviceObject, "timestamp", json_object_new_int(timestamp));
+    json_object_object_add(serviceObject, "timestamp", json_object_new_double((timestamp*1000)));
 
     if (data != NULL)
         json_object_object_add(serviceObject, "nmea", json_object_new_string(data));
@@ -2346,5 +2391,26 @@ bool LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh, const cha
         stopNonSubcription(key);
 
     return retVal;
+}
+bool LocationService::isSubscribeTypeValid(LSHandle *sh, LSMessage *message)
+{
+    struct json_object *jsonArg;
+    struct json_object *jsonSubArg;
+    bool mRetVal;
+
+    jsonArg = json_tokener_parse((const char *) LSMessageGetPayload(message));
+    if (jsonArg == NULL || is_error(jsonArg)) {
+        LS_LOG_DEBUG("jsonArg parsing error");
+        LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
+        return false;
+    }
+    mRetVal = json_object_object_get_ex(jsonArg, "subscribe", &jsonSubArg);
+    if (mRetVal && !json_object_is_type(jsonSubArg, json_type_boolean)) {
+        LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
+        json_object_put(jsonArg);
+        return false;
+    }
+    json_object_put(jsonArg);
+    return true;
 }
 

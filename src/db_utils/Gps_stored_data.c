@@ -48,8 +48,10 @@ void set_store_position(gdouble latitude,
     handle = (DBHandle *) malloc(sizeof(DBHandle));
 
     if (handle != NULL) {
+
         createPreference(path, handle, "Location\n", FALSE);
-        sprintf(input, "%lld", time(0));
+        guint64 timestamp = (guint64)time(NULL);
+        sprintf(input, "%lld", (timestamp*1000));
         put(handle, "timestamp", input);
         sprintf(input, "%lf", latitude);
         put(handle, "latitude", input);

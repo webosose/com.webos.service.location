@@ -272,9 +272,9 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
 {
     LS_LOG_DEBUG("======getCurrentPosition=======");
     LSMessageRef(message);
-    struct json_object *serviceObject;
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
+    struct json_object *serviceObject = NULL;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
     int accuracyLevel = 0;
     int responseTimeLevel = 0;
     unsigned char reqHandlerType = 0;
@@ -321,7 +321,7 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
 
     if (mRetVal == true) {
         int maximumAge;
-      if(!json_object_is_type(m_JsonSubArgument,json_type_int)) {
+      if(m_JsonSubArgument == NULL || !json_object_is_type(m_JsonSubArgument,json_type_int)) {
         LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT,trakingErrorText[TRACKING_INVALID_INPUT]);
         LSMessageUnref(message);
         json_object_put(serviceObject);
@@ -664,8 +664,8 @@ bool LocationService::handler_Selection(LSHandle *sh, LSMessage *message, void *
     LS_LOG_DEBUG("handler_Selection");
     bool mboolRespose = false;
     bool mboolAcc = false;
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
@@ -675,7 +675,7 @@ bool LocationService::handler_Selection(LSHandle *sh, LSMessage *message, void *
 
     mboolAcc = json_object_object_get_ex(m_JsonArgument, "accuracy", &m_JsonSubArgument);
 
-    if(mboolAcc && !json_object_is_type(m_JsonSubArgument,json_type_int)) {
+    if(m_JsonSubArgument == NULL || (mboolAcc && !json_object_is_type(m_JsonSubArgument,json_type_int))) {
     json_object_put(m_JsonArgument);
     return false;
     }
@@ -683,9 +683,10 @@ bool LocationService::handler_Selection(LSHandle *sh, LSMessage *message, void *
     if (mboolAcc)
        *accuracy = json_object_get_int(m_JsonSubArgument);
 
+    m_JsonSubArgument = NULL;
     mboolRespose = json_object_object_get_ex(m_JsonArgument, "responseTime", &m_JsonSubArgument);
 
-    if(mboolRespose && !json_object_is_type(m_JsonSubArgument,json_type_int)) {
+    if(m_JsonSubArgument == NULL || (mboolRespose && !json_object_is_type(m_JsonSubArgument,json_type_int))) {
     json_object_put(m_JsonArgument);
     return false;
     }
@@ -977,9 +978,9 @@ bool LocationService::test(LSHandle *sh, LSMessage *message, void *data)
 bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void *data)
 {
     int ret;
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
-    struct json_object *serviceObject;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
+    struct json_object *serviceObject = NULL;
     bool mRetVal;
     Position pos;
     Address address;
@@ -994,7 +995,7 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
 
     mRetVal = json_object_object_get_ex(m_JsonArgument, "latitude", &m_JsonSubArgument);
 
-    if (mRetVal == true && json_object_is_type(m_JsonSubArgument,json_type_double)) {
+    if (m_JsonSubArgument != NULL && mRetVal == true && json_object_is_type(m_JsonSubArgument,json_type_double)) {
         pos.latitude = json_object_get_double(m_JsonSubArgument);
     } else {
         LS_LOG_DEBUG("Input parameter is invalid, no latitude in request");
@@ -1002,10 +1003,10 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
         json_object_put(m_JsonArgument);
         return true;
     }
-
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "longitude", &m_JsonSubArgument);
 
-    if (mRetVal == true &&  json_object_is_type(m_JsonSubArgument,json_type_double)) {
+    if (m_JsonSubArgument != NULL && mRetVal == true &&  json_object_is_type(m_JsonSubArgument,json_type_double)) {
         pos.longitude = json_object_get_double(m_JsonSubArgument);
     } else {
         LS_LOG_DEBUG("Input parameter is invalid, no latitude in request");
@@ -1110,8 +1111,8 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
 bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data)
 {
     int ret;
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
     Address addr;
     Accuracy acc;
     Position pos;
@@ -1129,7 +1130,7 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     mRetVal = json_object_object_get_ex(m_JsonArgument, "address", &m_JsonSubArgument);
 
     if (mRetVal == true) {
-     if(!json_object_is_type(m_JsonSubArgument,json_type_string)) {
+     if(m_JsonSubArgument == NULL || !json_object_is_type(m_JsonSubArgument,json_type_string)) {
         LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
         json_object_put(m_JsonArgument);
         return true;
@@ -1189,7 +1190,7 @@ bool LocationService::getAllLocationHandlers(LSHandle *sh, LSMessage *message, v
     struct json_object *handlersArrayItem;
     struct json_object *handlersArrayItem1;
     struct json_object * handlersArray;
-    struct json_object *serviceObject;
+    struct json_object *serviceObject = NULL;
     LSError mLSError;
     bool mhandler = false;
     bool mRetVal;
@@ -1281,7 +1282,7 @@ bool LocationService::GetGpsStatus(LSHandle *sh, LSMessage *message, void *data)
         }
     } else {
         LS_LOG_DEBUG("Not subscription call");
-        struct json_object *serviceObject;
+        struct json_object *serviceObject = NULL;
         serviceObject = json_object_new_object();
 
         if (serviceObject == NULL) {
@@ -1313,9 +1314,9 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
     char *handler;
     LSError mLSError;
     LSErrorInit(&mLSError);
-    struct json_object *serviceObject;
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
+    struct json_object *serviceObject = NULL;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
@@ -1325,7 +1326,7 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
 
     mRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
 
-    if (mRetVal == false || (!json_object_is_type(m_JsonSubArgument,json_type_string))) {
+    if (m_JsonSubArgument == NULL || mRetVal == false || (!json_object_is_type(m_JsonSubArgument,json_type_string))) {
         LS_LOG_DEBUG("handler key not present in  message");
         LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
         json_object_put(m_JsonArgument);
@@ -1377,9 +1378,9 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     bool mRetVal;
     LSError mLSError;
     LSErrorInit(&mLSError);
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
-    struct json_object *serviceObject;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
+    struct json_object *serviceObject = NULL;
     LPAppHandle lpHandle = 0;
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
@@ -1391,7 +1392,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     //Read Handler from json
     mRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
 
-    if (mRetVal && json_object_is_type(m_JsonSubArgument,json_type_string))
+    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument,json_type_string))
         handler = json_object_get_string(m_JsonSubArgument);
     else {
         LS_LOG_DEBUG("Invalid param:handler");
@@ -1401,9 +1402,10 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     }
 
     //Read state from json
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "state", &m_JsonSubArgument);
 
-    if (mRetVal && json_object_is_type(m_JsonSubArgument,json_type_boolean) && ( (strcmp(handler, GPS) == 0) ||  (strcmp(handler, NETWORK)) == 0))
+    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument,json_type_boolean) && ( (strcmp(handler, GPS) == 0) ||  (strcmp(handler, NETWORK)) == 0))
      state = json_object_get_boolean(m_JsonSubArgument);
     else {
         LS_LOG_DEBUG("Invalid param:state");
@@ -1459,9 +1461,9 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *data)
 {
     LS_LOG_DEBUG("=======sendExtraCommand=======");
-    struct json_object *json_message;
-    struct json_object *json_cmd;
-    struct json_object *serviceObject;
+    struct json_object *json_message = NULL;
+    struct json_object *json_cmd = NULL;
+    struct json_object *serviceObject = NULL;
     char *cmdStr = NULL;
     bool mRetVal;
     int ret;
@@ -1477,7 +1479,7 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
 
     mRetVal = json_object_object_get_ex(json_message, "command", &json_cmd);
 
-    if (mRetVal == false ||( !json_object_is_type(json_cmd,json_type_string))) {
+    if (json_cmd == NULL || mRetVal == false ||( !json_object_is_type(json_cmd,json_type_string))) {
         LS_LOG_DEBUG("LOCATION_INVALID_INPUT");
         LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
         json_object_put(json_message);
@@ -1535,7 +1537,7 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
 bool LocationService::getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data)
 {
     char *handler = NULL;
-    struct json_object *serviceObject;
+    struct json_object *serviceObject = NULL;
     int accuracy = 0, powerRequirement = 0;
     bool mRequiresNetwork = false;
     bool mRequiresCell = false;
@@ -1543,8 +1545,8 @@ bool LocationService::getLocationHandlerDetails(LSHandle *sh, LSMessage *message
     LSError mLSError;
     LSErrorInit(&mLSError);
     bool mRetVal;
-    struct json_object *m_JsonArgument;
-    struct json_object *m_JsonSubArgument;
+    struct json_object *m_JsonArgument = NULL;
+    struct json_object *m_JsonSubArgument = NULL;
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
@@ -1554,7 +1556,7 @@ bool LocationService::getLocationHandlerDetails(LSHandle *sh, LSMessage *message
 
     mRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
 
-    if (mRetVal && json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument, json_type_string))
         handler = json_object_get_string(m_JsonSubArgument);
     else {
         LS_LOG_DEBUG("Invalid param:Handler");
@@ -1680,7 +1682,7 @@ bool LocationService::getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *
     char str[MAX_LIMIT];
     sprintf(str, "%lld", mTTFF);
     LS_LOG_DEBUG("get time to first fix %lld\n", mTTFF);
-    struct json_object *serviceObject;
+    struct json_object *serviceObject = NULL;
     serviceObject = json_object_new_object();
 
     location_util_add_returnValue_json(serviceObject, true);
@@ -1810,7 +1812,7 @@ void LocationService::startTrackingBestPosition_reply(struct json_object *servic
 void LocationService::startTracking_reply(Position *pos, Accuracy *accuracy, int error, int type)
 {
     LS_LOG_DEBUG("==========startTracking_reply called============");
-    struct json_object *serviceObject;
+    struct json_object *serviceObject = NULL;
     LSError mLSError;
     LSErrorInit(&mLSError);
     bool mRetVal;
@@ -1900,7 +1902,7 @@ void LocationService::get_nmea_reply(int timestamp, char *data, int length)
 {
     LS_LOG_DEBUG("[DEBUG] get_nmea_reply called");
     bool mRetVal;
-    struct json_object *serviceObject;
+    struct json_object *serviceObject = NULL;
     LSError mLSError;
     LSErrorInit(&mLSError);
     serviceObject = json_object_new_object();
@@ -1937,7 +1939,7 @@ void LocationService::getCurrentPosition_reply(Position *pos, Accuracy *accuracy
 {
     LS_LOG_DEBUG("======getCurrentPosition_reply called=======");
     int count = 0;
-    struct json_object *serviceObject;
+    struct json_object *serviceObject = NULL;
     serviceObject = json_object_new_object();
 
     if (serviceObject == NULL) {
@@ -2034,7 +2036,8 @@ void LocationService::getGpsSatelliteData_reply(Satellite *sat)
     LSError mLSError;
     LSErrorInit(&mLSError);
     /*Creating a json object*/
-    struct json_object *serviceObject = json_object_new_object();
+    struct json_object *serviceObject = NULL;
+    serviceObject = json_object_new_object();
 
     if (sat == NULL) {
         LS_LOG_DEBUG("satallite data NULL");
@@ -2086,12 +2089,13 @@ void LocationService::getGpsSatelliteData_reply(Satellite *sat)
  */
 void LocationService::getGpsStatus_reply(int state)
 {
-    struct json_object *serviceObject = json_object_new_object();
+    struct json_object *serviceObject = NULL;
     LSError mLSError;
     LSErrorInit(&mLSError);
     bool isGpsEngineOn;
     int count = 0;
 
+    serviceObject = json_object_new_object();
     if (state == GPS_STATUS_AVAILABLE)
         isGpsEngineOn = true;
     else
@@ -2395,7 +2399,7 @@ bool LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh, const cha
 bool LocationService::isSubscribeTypeValid(LSHandle *sh, LSMessage *message)
 {
     struct json_object *jsonArg;
-    struct json_object *jsonSubArg;
+    struct json_object *jsonSubArg = NULL;
     bool mRetVal;
 
     jsonArg = json_tokener_parse((const char *) LSMessageGetPayload(message));
@@ -2405,7 +2409,7 @@ bool LocationService::isSubscribeTypeValid(LSHandle *sh, LSMessage *message)
         return false;
     }
     mRetVal = json_object_object_get_ex(jsonArg, "subscribe", &jsonSubArg);
-    if (mRetVal && !json_object_is_type(jsonSubArg, json_type_boolean)) {
+    if (jsonSubArg == NULL || (mRetVal && !json_object_is_type(jsonSubArg, json_type_boolean))) {
         LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
         json_object_put(jsonArg);
         return false;

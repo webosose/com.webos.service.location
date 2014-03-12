@@ -104,68 +104,74 @@ void testjson(struct json_object *serviceObject)
 bool location_util_parsejsonAddress(struct json_object *m_JsonArgument, Address *addr)
 {
     bool mRetVal;
-    struct json_object *m_JsonSubArgument;
+    struct json_object *m_JsonSubArgument = NULL;
 
     if (m_JsonArgument == NULL || addr == NULL)
         return false;
 
     mRetVal = json_object_object_get_ex(m_JsonArgument, "street", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {
         addr->street = json_object_get_string(m_JsonSubArgument);
     }
 
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "country", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {
         addr->country = json_object_get_string(m_JsonSubArgument);
     }
 
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "postcode", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {
         addr->postcode = json_object_get_string(m_JsonSubArgument);
     }
 
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "countrycode", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {
         addr->countrycode = json_object_get_string(m_JsonSubArgument);
     }
 
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "area", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {
         addr->area = json_object_get_string(m_JsonSubArgument);
     }
 
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "locality", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {
         addr->locality = json_object_get_string(m_JsonSubArgument);
     }
 
+    m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "region", &m_JsonSubArgument);
 
-    if (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string))
+    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
         return false;
 
     if (mRetVal == true) {

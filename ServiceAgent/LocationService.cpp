@@ -214,7 +214,7 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data)
     //LSMessageRef(message); //Not required as the message is not stored
     LSMessagePrint(message, stdout);
 
-    if (isSubscribeTypeValid(sh, message) == false)
+    if (isSubscribeTypeValid(sh, message, false, NULL) == false)
         return true;
 
     if (getHandlerStatus(GPS) == false) {
@@ -775,7 +775,7 @@ bool LocationService::startTracking(LSHandle *sh, LSMessage *message, void *data
     LSError mLSError;
     bool mRetVal;
 
-    if (isSubscribeTypeValid(sh, message) == false)
+    if (isSubscribeTypeValid(sh, message, false, NULL) == false)
         return true;
 
     //GPS and NW both are off
@@ -1257,54 +1257,65 @@ bool LocationService::SetGpsStatus(LSHandle *sh, LSMessage *message, void *data)
 }
 bool LocationService::GetGpsStatus(LSHandle *sh, LSMessage *message, void *data)
 {
-    LS_LOG_DEBUG("=======Subscribe for GetGpsStatus=======");
     LSError mLSError;
-    LSErrorInit(&mLSError);
+    bool isSubscription = false;
+    struct json_object *serviceObject = NULL;
 
-    if (isSubscribeTypeValid(sh, message) == false)
+    LS_LOG_DEBUG("=======Subscribe for GetGpsStatus=======\n");
+
+    if (isSubscribeTypeValid(sh, message, false, &isSubscription) == false)
         return true;
 
-    int ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS);
+    LSErrorInit(&mLSError);
 
-    if (ret != ERROR_NONE) {
-        LS_LOG_DEBUG("GPS handler start failed");
-        LSMessageReplyError(sh, message, LOCATION_HANDLER_NOT_AVAILABLE,locationErrorText[LOCATION_HANDLER_NOT_AVAILABLE]);
+    if (handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS) != ERROR_NONE) {
+        LS_LOG_DEBUG("GPS handler start failed\n");
+        LSMessageReplyError(sh, message, LOCATION_HANDLER_NOT_AVAILABLE, locationErrorText[LOCATION_HANDLER_NOT_AVAILABLE]);
+
+        goto DONE_GET_GPS_STATUS;
     }
 
-    if (LSMessageIsSubscription(message)) {
-        bool mRetVal;
-        mRetVal = LSSubscriptionAdd(sh, SUBSC_GPS_ENGINE_STATUS, message, &mLSError);
+    serviceObject = json_object_new_object();
+    if (!serviceObject) {
+        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
+        goto DONE_GET_GPS_STATUS;
+    }
 
-        if (mRetVal == false) {
-            LSErrorPrintAndFree(&mLSError);
-            LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR,locationErrorText[LOCATION_UNKNOWN_ERROR]);
-            return true;
-        }
-    } else {
-        LS_LOG_DEBUG("Not subscription call");
-        struct json_object *serviceObject = NULL;
-        serviceObject = json_object_new_object();
+    if (isSubscription) {
+        LS_LOG_DEBUG("Subscription call\n");
 
-        if (serviceObject == NULL) {
-            LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM,locationErrorText[LOCATION_OUT_OF_MEM]);
-            return true;
+        if (LSSubscriptionAdd(sh, SUBSC_GPS_ENGINE_STATUS, message, &mLSError) == false) {
+            LSErrorPrint(&mLSError, stderr);
+            LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
+
+            goto DONE_GET_GPS_STATUS;
         }
+
         json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
         json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
         json_object_object_add(serviceObject, "state", json_object_new_boolean(mCachedGpsEngineStatus));
-        bool mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
-        if(mRetVal == false)
-           LSErrorPrintAndFree(&mLSError);
+        if (!LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError))
+            LSErrorPrint(&mLSError, stderr);
 
-        json_object_put(serviceObject);
-        return true;
+        handler_get_gps_status((Handler *)handler_array[HANDLER_GPS], wrapper_gpsStatus_cb);
+    } else {
+        LS_LOG_DEBUG("Not subscription call\n");
+
+        json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
+        json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
+        json_object_object_add(serviceObject, "state", json_object_new_boolean(mCachedGpsEngineStatus));
+        if (!LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError))
+           LSErrorPrint(&mLSError, stderr);
     }
 
-    // TODO Reply need to be sent?
-    //mRetVal = LSMessageReplySubscriptionSuccess(sh, message);
-    handler_get_gps_status((Handler *)handler_array[HANDLER_GPS], wrapper_gpsStatus_cb);
+DONE_GET_GPS_STATUS:
+    LSErrorFree(&mLSError);
+    if (serviceObject)
+        json_object_put(serviceObject);
+
     return true;
 }
+
 bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
 {
     LS_LOG_DEBUG("=======getState=======");
@@ -1639,7 +1650,7 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
     LSError mLSError;
     LSErrorInit(&mLSError);
 
-    if (isSubscribeTypeValid(sh, message) == false)
+    if (isSubscribeTypeValid(sh, message, false, NULL) == false)
         return true;
 
     if (getHandlerStatus(GPS)) {
@@ -2396,25 +2407,43 @@ bool LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh, const cha
 
     return retVal;
 }
-bool LocationService::isSubscribeTypeValid(LSHandle *sh, LSMessage *message)
+
+bool LocationService::isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription)
 {
-    struct json_object *jsonArg;
+    struct json_object *jsonArg = NULL;
     struct json_object *jsonSubArg = NULL;
-    bool mRetVal;
+    bool mRetVal = false;
 
     jsonArg = json_tokener_parse((const char *) LSMessageGetPayload(message));
-    if (jsonArg == NULL || is_error(jsonArg)) {
-        LS_LOG_DEBUG("jsonArg parsing error");
+    if (!jsonArg || is_error(jsonArg)) {
         LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
-        return false;
+        goto exit;
     }
-    mRetVal = json_object_object_get_ex(jsonArg, "subscribe", &jsonSubArg);
-    if (jsonSubArg == NULL || (mRetVal && !json_object_is_type(jsonSubArg, json_type_boolean))) {
-        LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
+
+    if (json_object_object_get_ex(jsonArg, "subscribe", &jsonSubArg)) {
+        if (!jsonSubArg || is_error(jsonSubArg) || !json_object_is_type(jsonSubArg, json_type_boolean)) {
+            LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
+            goto exit;
+        }
+
+        if (isSubscription)
+            *isSubscription = json_object_get_boolean(jsonSubArg);
+    } else {
+        if (isMandatory) {
+            LSMessageReplyError(sh, message, TRACKING_INVALID_INPUT, trakingErrorText[TRACKING_INVALID_INPUT]);
+            goto exit;
+        }
+
+        if (isSubscription)
+            *isSubscription = false;
+    }
+
+    mRetVal = true;
+
+exit:
+    if (jsonArg && !is_error(jsonArg))
         json_object_put(jsonArg);
-        return false;
-    }
-    json_object_put(jsonArg);
-    return true;
+
+    return mRetVal;
 }
 

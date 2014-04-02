@@ -59,7 +59,6 @@ LSMethod LocationService::rootMethod[] = {
     { "getGpsStatus", LocationService::_GetGpsStatus },
     { "setState", LocationService::_setState },
     { "getState", LocationService::_getState },
-    { "sendExtraCommand", LocationService::_sendExtraCommand },
     { "getLocationHandlerDetails",LocationService::_getLocationHandlerDetails },
     { "getGpsSatelliteData", LocationService::_getGpsSatelliteData },
     { "getTimeToFirstFix",LocationService::_getTimeToFirstFix },
@@ -67,9 +66,16 @@ LSMethod LocationService::rootMethod[] = {
     { 0, 0 }
 };
 
+LSMethod LocationService::prvMethod[] = {
+    { "sendExtraCommand", LocationService::_sendExtraCommand },
+    { "stopGPS",LocationService::_stopGPS },
+    { "setGPSParameters", LocationService::_setGPSParameters },
+    { 0, 0 }
+};
+
 LocationService *LocationService::locService = NULL;
 int LocationService::method = METHOD_NONE;
-
+#define TIME_SCALE_SEC 1000
 LocationService *LocationService::getInstance()
 {
     if (locService == NULL) {
@@ -143,7 +149,7 @@ bool LocationService::locationServiceRegister(char *srvcname, GMainLoop *mainLoo
     mRetVal = LSGmainAttachPalmService(*msvcHandle, mainLoop, &mLSError);
     LSERROR_CHECK_AND_PRINT(mRetVal);
     // add root category
-    mRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/", rootMethod, NULL, NULL, this, &mLSError);
+    mRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/", rootMethod, prvMethod, NULL, this, &mLSError);
     LSERROR_CHECK_AND_PRINT(mRetVal);
     //Register cancel function cb to publicbus
     mRetVal = LSSubscriptionSetCancelFunction(LSPalmServiceGetPublicConnection(*msvcHandle), LocationService::_cancelSubscription, this, &mLSError);
@@ -356,6 +362,35 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
         return true;
     }
 
+    //Only wifi request, check wifistate
+    if (!(handlerStatus & HANDLER_GPS_BIT) && (handlerStatus & HANDLER_WIFI_BIT) && !(handlerStatus & HANDLER_CELLID_BIT) && wifistate == false) {
+        LS_LOG_DEBUG("wifi disabled");
+
+        LSMessageReplyError(sh, message, TRACKING_WIFI_CONNECTION_OFF, trakingErrorText[TRACKING_WIFI_CONNECTION_OFF]); // data connection off throw error.
+
+        if (serviceObject != NULL)
+            json_object_put(serviceObject);
+
+        json_object_put(m_JsonArgument);
+        LSMessageUnref(message);
+        return true;
+    }
+
+    //Only wifi or cellid request, check dataconnection state
+    if (!(handlerStatus & HANDLER_GPS_BIT) && ((handlerStatus & HANDLER_WIFI_BIT) || (handlerStatus & HANDLER_CELLID_BIT))
+            && (isInternetConnectionAvailable == false && isWifiInternetAvailable == false)) {
+        LS_LOG_DEBUG("No Internet Connection");
+
+        LSMessageReplyError(sh, message, TRACKING_DATA_CONNECTION_OFF, trakingErrorText[TRACKING_DATA_CONNECTION_OFF]); // data connection off throw error.
+
+        if (serviceObject != NULL)
+            json_object_put(serviceObject);
+
+        json_object_put(m_JsonArgument);
+        LSMessageUnref(message);
+        return true;
+    }
+
     /*Handler GPS*/
     if ((handlerStatus & HANDLER_GPS_BIT) && getHandlerStatus(GPS)) {
         LOCATION_ASSERT(pthread_mutex_lock(&pos_lock) == 0);
@@ -364,7 +399,7 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
     }
 
     /*Handler WIFI*/
-    if ((handlerStatus & HANDLER_WIFI_BIT) && getHandlerStatus(NETWORK)) {
+    if ((handlerStatus & HANDLER_WIFI_BIT) && getHandlerStatus(NETWORK) && (wifistate) && (isInternetConnectionAvailable || isWifiInternetAvailable)) {
         LOCATION_ASSERT(pthread_mutex_lock(&pos_nw_lock) == 0);
         isWifiReqSucess = reqLocationToHandler(HANDLER_NW, &reqHandlerType, HANDLER_WIFI, sh);
         LOCATION_ASSERT(pthread_mutex_unlock(&pos_nw_lock) == 0);
@@ -373,7 +408,7 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
     //NETWORK HANDLER start and make request of type cellid
 
     /*Handler CELL-ID*/
-    if ((handlerStatus & HANDLER_CELLID_BIT) && getHandlerStatus(NETWORK)) {
+    if ((handlerStatus & HANDLER_CELLID_BIT) && getHandlerStatus(NETWORK) && (isTelephonyAvailable && (isInternetConnectionAvailable || isWifiInternetAvailable))) {
         LOCATION_ASSERT(pthread_mutex_lock(&pos_nw_lock) == 0);
         isCellIdReqSucess = reqLocationToHandler(HANDLER_NW, &reqHandlerType, HANDLER_CELLID, sh);
         LOCATION_ASSERT(pthread_mutex_unlock(&pos_nw_lock) == 0);
@@ -381,7 +416,8 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
 
     if ((isGpsReqSucess == false) && (isWifiReqSucess == false) && (isCellIdReqSucess == false)) {
         LS_LOG_DEBUG("No handlers started");
-        LSMessageReplyError(sh, message, TRACKING_LOCATION_OFF,trakingErrorText[TRACKING_LOCATION_OFF]);
+
+        LSMessageReplyError(sh, message, TRACKING_LOCATION_OFF, trakingErrorText[TRACKING_LOCATION_OFF]);
 
         if (serviceObject != NULL)
             json_object_put(serviceObject);
@@ -395,7 +431,7 @@ bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void 
         guint timerID = 0;
         //Start Timer
         responseTime = ConvetResponseTimeFromLevel(accuracyLevel, responseTimeLevel);
-        timeinSec = responseTime / 1000;
+        timeinSec = responseTime / TIME_SCALE_SEC;
         timerdata = new(std::nothrow) TimerData(message, sh, reqHandlerType);
 
         if (timerdata == NULL) {
@@ -574,8 +610,8 @@ bool LocationService::readLocationfromCache(LSHandle *sh, LSMessage *message, js
             return FALSE;
     } else {
         long long currentTime = ::time(0);
-        currentTime *= 1000; // milli sec
-        long long longmaxAge = maxAge * 1000;
+        currentTime *= TIME_SCALE_SEC; // milli sec
+        long long longmaxAge = maxAge * TIME_SCALE_SEC;
 
         //More accurate data return first
         if (gpsCacheSuccess && (longmaxAge >= currentTime - gpspos.timestamp) && (gpsacc.horizAccuracy <= accuracy)) {
@@ -798,7 +834,7 @@ bool LocationService::startTracking(LSHandle *sh, LSMessage *message, void *data
     if (getHandlerStatus(NETWORK)) {
         LS_LOG_DEBUG("network is on in Settings");
 
-        if (1) { //wifistate == true)
+        if (wifistate == true) { //wifistate == true)
             ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]), HANDLER_WIFI);
 
             if (ret == ERROR_NONE)
@@ -809,7 +845,7 @@ bool LocationService::startTracking(LSHandle *sh, LSMessage *message, void *data
 
         LS_LOG_DEBUG("value of  handler not started %d %d", isInternetConnectionAvailable, isTelephonyAvailable);
 
-        if (isTelephonyAvailable) {
+        if (isTelephonyAvailable && (isInternetConnectionAvailable || wifistate)) {
             ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]), HANDLER_CELLID);
 
             if (ret == ERROR_NONE)
@@ -899,7 +935,7 @@ bool LocationService::startTrackingBestPosition(LSHandle *sh, LSMessage *message
     if (getHandlerStatus(NETWORK)) {
         LS_LOG_DEBUG("startTrackingBestPosition network is on in Settings");
 
-        if (1) { //wifistate == true)
+        if (wifistate == true) { //wifistate == true)
             ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]), HANDLER_WIFI);
 
             if (ret == ERROR_NONE)
@@ -910,7 +946,7 @@ bool LocationService::startTrackingBestPosition(LSHandle *sh, LSMessage *message
 
         LS_LOG_DEBUG("startTrackingBestPosition value of  handler not started %d %d", isInternetConnectionAvailable, isTelephonyAvailable);
 
-        if (isTelephonyAvailable) {
+        if (isTelephonyAvailable && (isInternetConnectionAvailable || wifistate)  ) {
             ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]), HANDLER_CELLID);
 
             if (ret == ERROR_NONE)
@@ -985,6 +1021,10 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
     Position pos;
     Address address;
     LSError mLSError;
+    if (!isInternetConnectionAvailable && !isWifiInternetAvailable) {
+        LSMessageReplyError(sh, message, LOCATION_DATA_CONNECTION_OFF, locationErrorText[LOCATION_DATA_CONNECTION_OFF]);
+        return true;
+    }
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
@@ -1119,6 +1159,10 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     LSError mLSError;
     struct json_object *serviceObject = NULL;
     bool mRetVal;
+    if (!isInternetConnectionAvailable && !isWifiInternetAvailable) {
+        LSMessageReplyError(sh, message, LOCATION_DATA_CONNECTION_OFF, locationErrorText[LOCATION_DATA_CONNECTION_OFF]);
+        return true;
+    }
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
@@ -1321,7 +1365,8 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
     LS_LOG_DEBUG("=======getState=======");
     int state;
     bool mRetVal;
-    LPAppHandle lpHandle = 0;
+    LPAppHandle lpHandle = NULL;
+    bool isSubscription = false;
     char *handler;
     LSError mLSError;
     LSErrorInit(&mLSError);
@@ -1331,52 +1376,73 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
         return true;
     }
 
     mRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
 
-    if (m_JsonSubArgument == NULL || mRetVal == false || (!json_object_is_type(m_JsonSubArgument,json_type_string))) {
+    if (m_JsonSubArgument == NULL || mRetVal == false || (!json_object_is_type(m_JsonSubArgument, json_type_string))) {
         LS_LOG_DEBUG("handler key not present in  message");
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
         json_object_put(m_JsonArgument);
         return true;
     }
 
     handler = json_object_get_string(m_JsonSubArgument);
-
+    if (!((strcmp(handler, GPS) == 0) || (strcmp(handler, NETWORK)) == 0)) {
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
+        json_object_put(m_JsonArgument);
+        return true;
+    }
+    serviceObject = json_object_new_object();
+    if (serviceObject == NULL) {
+        printf("serviceObject NULL Out of memory");
+        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
+        json_object_put(m_JsonArgument);
+        return true;
+    }
     if (LPAppGetHandle("com.palm.location", &lpHandle) == LP_ERR_NONE) {
         int lpret;
         lpret = LPAppCopyValueInt(lpHandle, handler, &state);
         LPAppFreeHandle(lpHandle, true);
 
         if (lpret != LP_ERR_NONE) {
-            LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
+            json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
+            json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
+            json_object_object_add(serviceObject, "state", json_object_new_int(NULL));
+            LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
             json_object_put(m_JsonArgument);
+            json_object_put(serviceObject);
             return true;
         }
 
-        serviceObject = json_object_new_object();
-
-        if (serviceObject == NULL) {
-            LS_LOG_DEBUG("serviceObject NULL Out of memory");
-            LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM,locationErrorText[LOCATION_OUT_OF_MEM]);
-            json_object_put(m_JsonArgument);
-            return true;
-        }
         json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
         json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
         json_object_object_add(serviceObject, "state", json_object_new_int(state));
 
         LS_LOG_DEBUG("state=%d", state);
         LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+
+        if ((isSubscribeTypeValid(sh, message, false, &isSubscription)) && isSubscription) {
+            //Add to subscription list with handler+method name
+            char subscription_key[strlen(SUBSC_GET_STATE_KEY) + strlen(handler)];
+            strcpy(subscription_key, handler);
+            LS_LOG_DEBUG("handler_key=%s len =%d", subscription_key, (strlen(SUBSC_GET_STATE_KEY) + strlen(handler)));
+            if (LSSubscriptionAdd(sh, strcat(subscription_key, SUBSC_GET_STATE_KEY), message, &mLSError) == false) {
+                LS_LOG_DEBUG("Failed to add to subscription list");
+                LSErrorPrintAndFree(&mLSError);
+                LSMessageReplyError(sh, message, TRACKING_UNKNOWN_ERROR, trakingErrorText[TRACKING_UNKNOWN_ERROR]);
+                return true;
+            }
+            LS_LOG_DEBUG("handler_key=%s", subscription_key);
+        }
         json_object_put(serviceObject);
         json_object_put(m_JsonArgument);
         return true;
     } else {
         LS_LOG_DEBUG("LPAppGetHandle is not created ");
-        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR,locationErrorText[LOCATION_UNKNOWN_ERROR]);
+        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
         json_object_put(m_JsonArgument);
         return true;
     }
@@ -1396,18 +1462,18 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
     if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
         return true;
     }
 
     //Read Handler from json
     mRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
 
-    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument,json_type_string))
+    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument, json_type_string))
         handler = json_object_get_string(m_JsonSubArgument);
     else {
         LS_LOG_DEBUG("Invalid param:handler");
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
         json_object_put(m_JsonArgument);
         return true;
     }
@@ -1416,11 +1482,12 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     m_JsonSubArgument = NULL;
     mRetVal = json_object_object_get_ex(m_JsonArgument, "state", &m_JsonSubArgument);
 
-    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument,json_type_boolean) && ( (strcmp(handler, GPS) == 0) ||  (strcmp(handler, NETWORK)) == 0))
-     state = json_object_get_boolean(m_JsonSubArgument);
+    if (m_JsonSubArgument != NULL && mRetVal && json_object_is_type(m_JsonSubArgument, json_type_boolean)
+            && ((strcmp(handler, GPS) == 0) || (strcmp(handler, NETWORK)) == 0))
+        state = json_object_get_boolean(m_JsonSubArgument);
     else {
         LS_LOG_DEBUG("Invalid param:state");
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT,locationErrorText[LOCATION_INVALID_INPUT]);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
         json_object_put(m_JsonArgument);
         return true;
     }
@@ -1430,7 +1497,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
         serviceObject = json_object_new_object();
 
         if (serviceObject == NULL) {
-            LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR,locationErrorText[LOCATION_UNKNOWN_ERROR]);
+            LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
             json_object_put(m_JsonArgument);
             return true;
         }
@@ -1440,16 +1507,39 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
         json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
         json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
         mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
-
-        if (strcmp(handler, GPS) == 0) {
+        json_object_object_add(serviceObject, "state", json_object_new_int(state));
+        char subscription_key[strlen(handler) + strlen(SUBSC_GET_STATE_KEY)];
+        strcpy(subscription_key, handler);
+        strcat(subscription_key, SUBSC_GET_STATE_KEY);
+        if ((strcmp(handler, GPS) == 0) && mGpsStatus != state) {
             mGpsStatus = state;
+
+            mRetVal = LSSubscriptionRespond(mServiceHandle, subscription_key, json_object_to_json_string(serviceObject), &mLSError);
+
+            if (mRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
+            mRetVal = LSSubscriptionRespond(mlgeServiceHandle, subscription_key, json_object_to_json_string(serviceObject), &mLSError);
+
+            if (mRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
 
             if (state == false)
                 handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, true);
         }
 
-        if (strcmp(handler, NETWORK) == 0) {
+        if ((strcmp(handler, NETWORK) == 0) && mNwStatus != state) {
             mNwStatus = state;
+
+            mRetVal = LSSubscriptionRespond(mServiceHandle, subscription_key, json_object_to_json_string(serviceObject), &mLSError);
+
+            if (mRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
+            mRetVal = LSSubscriptionRespond(mlgeServiceHandle, subscription_key, json_object_to_json_string(serviceObject), &mLSError);
+
+            if (mRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
 
             if (state == false) {
                 handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, true);
@@ -1463,11 +1553,98 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
         json_object_put(serviceObject);
     } else {
         LS_LOG_DEBUG("LPAppGetHandle is not created");
-        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR,locationErrorText[LOCATION_UNKNOWN_ERROR]);
+        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
     }
 
     json_object_put(m_JsonArgument);
     return true;
+}
+bool LocationService::setGPSParameters(LSHandle *sh, LSMessage *message, void *data) {
+    LS_LOG_DEBUG("=======setGPSParameters=======");
+    struct json_object *json_message;
+    struct json_object *json_cmd;
+    struct json_object *serviceObject;
+    char *cmdStr = NULL;
+    bool mRetVal;
+    int ret;
+    LSError mLSError;
+    LSErrorInit(&mLSError);
+    json_message = json_tokener_parse((const char *) LSMessageGetPayload(message));
+    LS_LOG_DEBUG("setGPSParameters %s", json_object_to_json_string(json_message));
+    if (json_message == NULL || is_error(json_message)) {
+        LS_LOG_DEBUG("setGPSParameters_OUT_OF_MEM");
+        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
+        return true;
+    }
+    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_TYPE_GPS);
+    if (ret != ERROR_NONE) {
+        LS_LOG_DEBUG("GPS Handler starting failed");
+        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
+        json_object_put(json_message);
+        return true;
+    }
+    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_TYPE_GPS);
+    if (ret != ERROR_NONE) {
+        LS_LOG_DEBUG("GPS Handler starting failed");
+        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
+        json_object_put(json_message);
+        return true;
+    }
+    LS_LOG_DEBUG("%s", json_object_to_json_string(json_message));
+    int err = handler_set_gps_parameters(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), (gpointer) json_object_to_json_string(json_message));
+    if (err == ERROR_NOT_AVAILABLE) {
+        LS_LOG_DEBUG("Error in %s", cmdStr);
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
+        handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
+        json_object_put(json_message);
+        return true;
+    }
+    handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
+    serviceObject = json_object_new_object();
+    if (serviceObject == NULL) {
+        LS_LOG_DEBUG("Failed to allocate memory to serviceObject");
+        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
+        json_object_put(json_message);
+        return true;
+    }
+    json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
+    json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
+    mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+    if (mRetVal == false)
+        LSErrorPrintAndFree(&mLSError);
+    json_object_put(json_message);
+    json_object_put(serviceObject);
+    return true;
+}
+bool LocationService::stopGPS(LSHandle *sh, LSMessage *message, void *data) {
+    LS_LOG_DEBUG("=======stopGPS=======");
+    bool mRetVal;
+    int ret;
+    LSError mLSError;
+    LSErrorInit(&mLSError);
+    struct json_object *serviceObject = NULL;
+    serviceObject = json_object_new_object();
+
+    if (serviceObject == NULL) {
+        LS_LOG_DEBUG("Failed to allocate memory to serviceObject");
+        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
+        return true;
+    }
+    ret = handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, true);
+    if (ret != ERROR_NONE) {
+        LS_LOG_DEBUG("GPS force stop failed");
+        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
+        json_object_put(serviceObject);
+        return true;
+    } else {
+        json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
+        json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
+        mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+        if (mRetVal == false)
+            LSErrorPrintAndFree(&mLSError);
+        json_object_put(serviceObject);
+        return true;
+    }
 }
 bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *data)
 {
@@ -1614,7 +1791,7 @@ bool LocationService::getLocationHandlerDetails(LSHandle *sh, LSMessage *message
             LSErrorPrintAndFree(&mLSError);
         }
     } else if (strcmp(handler, "network") == 0) {
-        printf("Inside else");
+        LS_LOG_DEBUG("Inside else");
         accuracy = 3;
         powerRequirement = 3;
         mRequiresNetwork = true;
@@ -1914,8 +2091,10 @@ void LocationService::get_nmea_reply(int timestamp, char *data, int length)
     LS_LOG_DEBUG("[DEBUG] get_nmea_reply called");
     bool mRetVal;
     struct json_object *serviceObject = NULL;
+    long long time=0;
     LSError mLSError;
     LSErrorInit(&mLSError);
+    time= (timestamp*1000);
     serviceObject = json_object_new_object();
 
     if (serviceObject == NULL) {
@@ -1927,7 +2106,7 @@ void LocationService::get_nmea_reply(int timestamp, char *data, int length)
     LS_LOG_DEBUG("data=%s\n", data);
     location_util_add_returnValue_json(serviceObject, true);
     location_util_add_errorCode_json(serviceObject, SUCCESS);
-    json_object_object_add(serviceObject, "timestamp", json_object_new_double((timestamp*1000)));
+    json_object_object_add(serviceObject, "timestamp", json_object_new_double((time)));
 
     if (data != NULL)
         json_object_object_add(serviceObject, "nmea", json_object_new_string(data));

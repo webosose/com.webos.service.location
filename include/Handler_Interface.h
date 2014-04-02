@@ -67,7 +67,7 @@ typedef int (*TYPE_COMP_HANDLER)(Handler *self, int handler1, int handler2);
 typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, Position *pos, Accuracy *ac);
 typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, Address *address);
 typedef int (*TYPE_GET_GPS_STATUS)(Handler *self, StatusCallback status_cb);
-
+typedef int (*TYPE_SET_GPS_PARAMETERS)(Handler *self , char *command);
 /**
  * Interface for all Location Handlers
  */
@@ -93,6 +93,7 @@ struct _HandlerInterface {
     TYPE_GEO_CODE get_geo_code;
     TYPE_REV_GEO_CODE get_rev_geocode;
     TYPE_GET_GPS_STATUS get_gps_status;
+    TYPE_SET_GPS_PARAMETERS set_gps_params;
 };
 
 /*
@@ -142,6 +143,7 @@ int handler_get_reverse_geo_code(Handler *self, Position *pos, Address *address)
 
 int handler_get_gps_status(Handler *self, StatusCallback gpsStatus_cb);
 
+int handler_set_gps_parameters(Handler *self, char *command);
 G_END_DECLS
 
 #endif /* _HANDLER_INTERFACE_H_ */

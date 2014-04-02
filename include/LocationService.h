@@ -188,6 +188,12 @@ public:
         return ((LocationService *) data)->sendExtraCommand(sh, message, NULL);
     }
 
+    static bool _setGPSParameters(LSHandle *sh, LSMessage *message, void *data){
+    return ((LocationService *) data)->setGPSParameters(sh, message, NULL);
+    }
+     static bool _stopGPS(LSHandle *sh, LSMessage *message, void *data){
+    return ((LocationService *) data)->stopGPS(sh, message, NULL);
+    }
     static bool _getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getLocationHandlerDetails(sh, message, NULL);
     }
@@ -272,6 +278,15 @@ public:
 
         isTelephonyAvailable = state; //state; for TESTING
     }
+    void updateWifiInternetState(bool state) {
+        if (state == true) {
+            LS_LOG_DEBUG("WIfi Internet connetion available");
+        } else {
+            LS_LOG_DEBUG("WIfi Internet connection not available");
+        }
+
+        isWifiInternetAvailable = state; //state; for TESTING
+    }
 
     void LocationService::Handle_WifiNotification(bool wifi_state) {
         setWifiState(wifi_state);
@@ -282,6 +297,10 @@ public:
     void LocationService::Handle_TelephonyNotification(bool Tele_state) {
         updateTelephonyState(Tele_state);
     }
+    void LocationService::Handle_WifiInternetNotification(bool Internet_state) {
+        updateWifiInternetState(Internet_state);
+    }
+
 
 private:
     bool mGpsStatus;
@@ -297,6 +316,7 @@ private:
     bool wifistate;
     bool isInternetConnectionAvailable;
     bool isTelephonyAvailable;
+    bool isWifiInternetAvailable;
     LocationService();
     //mapped with HandlerTypes
     Handler *handler_array[HANDLER_MAX];
@@ -307,7 +327,8 @@ private:
     "Handler Not Available", //GET_STATE_HANDLER_NOT_AVAILABLE,
     "Invalid input" , //GET_STATE_HANDLER_INVALID_INPUT,
     "Unknown error", //GET_STATE_UNKNOWN_ERROR
-    "Out of Memory" //GET_STATE_OUT_OF_MEM
+    "Out of Memory", //GET_STATE_OUT_OF_MEM
+    "No internet connection"
     };
 
     char* trakingErrorText[TRACKING_MAXIMUM] {
@@ -321,7 +342,9 @@ private:
     "App is blacklisted", //TRACKING_APP_BLACK_LISTED,
     "Handler start failure", //HANDLER_START_FAILURE,
     "state unknown",//STATE_UNKNOWN
-    "Invalid Input"
+    "Invalid Input",
+    "No internet connection",
+    "Wifi is not turned On" //TRACKING_WIFI_CONNECTION_OFF
     };
 
 
@@ -338,6 +361,8 @@ private:
     bool getState(LSHandle *sh, LSMessage *message, void *data);
     bool setState(LSHandle *sh, LSMessage *message, void *data);
     bool sendExtraCommand(LSHandle *sh, LSMessage *message, void *data);
+    bool setGPSParameters(LSHandle * sh, LSMessage * message, void * data);
+    bool stopGPS(LSHandle * sh, LSMessage * message, void * data);
     bool getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data);
     bool getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data);
     bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
@@ -373,6 +398,7 @@ private:
     static bool instanceFlag;
     static LocationService *locService;
     static LSMethod rootMethod[];
+    static LSMethod prvMethod[];
     static LSMethod jsMethod[];
     unsigned char trackhandlerstate;
 

@@ -261,7 +261,21 @@ int handler_send_extra_command(Handler *self , char *command)
     LS_LOG_DEBUG("handler_send_extra_command\n");
     return HANDLER_INTERFACE_GET_INTERFACE(self)->send_extra_cmd(self, command);
 }
-
+/**
+ * <Funciton>       handler_set_gps_parameters
+ * <Description>    set options for GPS,applicable to GPS handler only
+ * @param           <self> <In> <Handler GObject>
+ * @param           <command> <In> <command id>
+ * @param           <extra_cb> <In> <XTRA callback function to get result>
+ * @return          int
+ */
+int handler_set_gps_parameters(Handler *self , char *command)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->set_gps_params, ERROR_NOT_AVAILABLE);
+    LS_LOG_DEBUG("handler_set_gps_parameters\n");
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->set_gps_params(self, command);
+}
 /**
  * <Funciton>       handler_set_property
  * <Description>    set the property value for the given property_id

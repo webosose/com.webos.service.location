@@ -24,6 +24,7 @@
 #define SUBSC_GET_TTFF_KEY "getTimeToFirstFix"
 #define SUBSC_GET_GPS_SATELLITE_DATA "getGpsSatelliteData"
 #define SUBSC_GPS_ENGINE_STATUS "getGpsStatus"
+#define SUBSC_GET_STATE_KEY "getState"
 
 #define GPS "gps"
 #define NETWORK "network"
@@ -42,6 +43,8 @@ enum TrakingErrorCode {
     HANDLER_START_FAILURE,
     STATE_UNKNOWN,
     TRACKING_INVALID_INPUT,
+    TRACKING_DATA_CONNECTION_OFF,
+    TRACKING_WIFI_CONNECTION_OFF,
     TRACKING_MAXIMUM
 };
 
@@ -52,6 +55,7 @@ enum LocationErrorCode {
     LOCATION_INVALID_INPUT,
     LOCATION_UNKNOWN_ERROR,
     LOCATION_OUT_OF_MEM,
+    LOCATION_DATA_CONNECTION_OFF,
     LOCATION_MAXIMUM
 };
 

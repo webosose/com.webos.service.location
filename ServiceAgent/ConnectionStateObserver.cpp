@@ -72,6 +72,13 @@ void ConnectionStateObserver::Notify_WifiStateChange(bool WifiState)
     }
     LS_LOG_DEBUG("Notify_WifiStateChange\n");
 }
+void ConnectionStateObserver::Notify_WifiInternetStateChange(bool WifiInternetState)
+{
+    BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
+        l->Handle_WifiInternetNotification(WifiInternetState);
+    }
+    LS_LOG_DEBUG("Notify_WifiInternetStateChange\n");
+}
 void ConnectionStateObserver::Notify_ConnectivityStateChange(bool ConnState)
 {
     BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
@@ -93,7 +100,7 @@ void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn)
 
 void ConnectionStateObserver::register_connectivity_status(LSHandle *HandleConn)
 {
-    LSCall(HandleConn, "palm://com.palm.connectionmanager/getstatus", "{\"subscribe\":true}", ConnectionStateObserver::connectivity_status_cb, this,
+    LSCall(HandleConn, "palm://com.palm.wan/getstatus", "{\"subscribe\":true}", ConnectionStateObserver::connectivity_status_cb, this,
             NULL, NULL);
 }
 
@@ -164,13 +171,19 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
 
     wifisrvEnable = json_object_get_string(wifi_status_obj);
 
-    if ((strcmp(wifisrvEnable, "serviceEnabled") == 0) || (strcmp(wifisrvEnable, "connectionStateChanged") == 0)) {
+    if ((strcmp(wifisrvEnable, "serviceEnabled") == 0)) {
         wifistatus = true;
+        Notify_WifiStateChange(wifistatus);
     } else if (strcmp(wifisrvEnable, "serviceDisabled") == 0) {
         wifistatus = false;
+        Notify_WifiStateChange(wifistatus);
+    } else if (strcmp(wifisrvEnable, "connectionStateChanged") == 0) {
+        Notify_WifiInternetStateChange(true);
+    } else {
+        Notify_WifiInternetStateChange(true);
+        Notify_WifiStateChange(wifistatus);
     }
 
-    Notify_WifiStateChange(wifistatus);
     json_object_put(root);
     return true;
 }
@@ -184,7 +197,7 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
 {
     bool ret;
     bool found;
-    bool isInternetConnectionAvailable = false;
+    char *isInternetConnectionAvailable = NULL;
     const char *str;
     json_object *root = 0;
     json_object *returnValueobj = 0;
@@ -211,12 +224,12 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
         found = json_object_object_get_ex(root, "isInternetConnectionAvailable", &isConnectedobj);
 
         if (found == false) {
-            Notify_ConnectivityStateChange(isInternetConnectionAvailable);
+            Notify_ConnectivityStateChange(false);
             json_object_put(root);
             return true;
         }
 
-        isInternetConnectionAvailable = json_object_get_boolean(isConnectedobj);
+        isInternetConnectionAvailable = json_object_get_string(isConnectedobj);
     } else {
         int error;
         errorobj = json_object_object_get(root, "errorCode");
@@ -227,9 +240,13 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
         }
 
         json_object_put(root);
+        return true;
     }
-
-    Notify_ConnectivityStateChange(isInternetConnectionAvailable);
+    LS_LOG_DEBUG("isInternetConnectionAvailable %s", isInternetConnectionAvailable);
+    if (isInternetConnectionAvailable && (strcmp(isInternetConnectionAvailable, "yes") == 0))
+        Notify_ConnectivityStateChange(true);
+    else
+        Notify_ConnectivityStateChange(false);
     json_object_put(root);
     return true;
 }

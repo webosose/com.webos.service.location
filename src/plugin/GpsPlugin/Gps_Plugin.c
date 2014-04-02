@@ -330,6 +330,14 @@ static int send_extra_command(gpointer handle , char *command)
 
     return ERROR_NONE;
 }
+static int  set_gps_parameters(gpointer handle , char *command){
+    GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+    g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
+    LS_LOG_DEBUG("set_gps_parameters command= %d", command);
+    if (send_geoclue_command(geoclueGps->geoclue_pos , "SET_GPS_OPTIONS", command) == FALSE)
+        return ERROR_NOT_AVAILABLE;
+    return ERROR_NONE;
+}
 /**
  * <Funciton >   get_position
  * <Description>  Get the position from GPS
@@ -539,6 +547,7 @@ EXPORT_API gpointer init(GpsPluginOps *ops)
     ops->get_position = get_position;
     ops->get_gps_data = get_gps_data;
     ops->send_extra_command = send_extra_command;
+    ops->set_gps_parameters = set_gps_parameters;
     /*
      * Handler for plugin
      */

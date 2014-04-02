@@ -29,4 +29,5 @@ public:
     virtual void Handle_WifiNotification(bool) = 0;
     virtual void Handle_ConnectivityNotification(bool) = 0;
     virtual void Handle_TelephonyNotification(bool) = 0;
+    virtual void Handle_WifiInternetNotification(bool) = 0;
 };

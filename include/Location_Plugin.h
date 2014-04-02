@@ -185,6 +185,7 @@ typedef struct {
     int (*get_position)(gpointer handle, PositionCallback pos_cb);
     int (*get_gps_data)(gpointer handle, gboolean enable_data, gpointer gps_cb, int data_type);
     int (*send_extra_command)(gpointer handle , char *command);
+    int (*set_gps_parameters)(gpointer handle , char *command);
 } GpsPluginOps;
 
 typedef struct {

@@ -33,9 +33,9 @@ class ConnectionStateObserver
 {
 public:
     /*ConnectionStateObserver(LocationService *locSrvcPtr) {
-        m_locSrvcPtr = locSrvcPtr;
-    }
-    LocationService *m_locSrvcPtr;*/
+     m_locSrvcPtr = locSrvcPtr;
+     }
+     LocationService *m_locSrvcPtr;*/
     ~ConnectionStateObserver() {
     }
     void RegisterListener(IConnectivityListener *);
@@ -43,9 +43,7 @@ public:
     void UnregisterListener(IConnectivityListener *);
 
     enum SERVICE_STATE {
-        SERVICE_NOT_RUNNING = 0,
-        SERVICE_GETTING_READY,
-        SERVICE_READY
+        SERVICE_NOT_RUNNING = 0, SERVICE_GETTING_READY, SERVICE_READY
     };
 private:
     // void NotifyStateChange();
@@ -54,10 +52,10 @@ private:
     bool _telephony_status_cb(LSHandle *sh, LSMessage *reply);
     static bool wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx);
     static bool telephony_status_cb(LSHandle *sh, LSMessage *message, void *ctx) {
-        return ((ConnectionStateObserver *)ctx)->_telephony_status_cb(sh, message);
+        return ((ConnectionStateObserver *) ctx)->_telephony_status_cb(sh, message);
     }
     static bool connectivity_status_cb(LSHandle *sh, LSMessage *message, void *ctx) {
-        return ((ConnectionStateObserver *)ctx)->_connectivity_status_cb(sh, message);
+        return ((ConnectionStateObserver *) ctx)->_connectivity_status_cb(sh, message);
     }
     void register_wifi_status(LSHandle *);
     void register_telephony_status(LSHandle *);
@@ -65,8 +63,8 @@ private:
     void Notify_WifiStateChange(bool);
     void Notify_ConnectivityStateChange(bool);
     void Notify_TelephonyStateChange(bool);
+    void Notify_WifiInternetStateChange(bool);
     std::set<IConnectivityListener *> m_listeners;
-
 
 };
 

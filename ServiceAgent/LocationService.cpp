@@ -75,7 +75,6 @@ LSMethod LocationService::prvMethod[] = {
 
 LocationService *LocationService::locService = NULL;
 int LocationService::method = METHOD_NONE;
-#define TIME_SCALE_SEC 1000
 LocationService *LocationService::getInstance()
 {
     if (locService == NULL) {
@@ -1407,6 +1406,20 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
         lpret = LPAppCopyValueInt(lpHandle, handler, &state);
         LPAppFreeHandle(lpHandle, true);
 
+        if ((isSubscribeTypeValid(sh, message, false, &isSubscription)) && isSubscription) {
+            //Add to subscription list with handler+method name
+            char subscription_key[MAX_GETSTATE_PARAM];
+            strcpy(subscription_key, handler);
+            LS_LOG_DEBUG("handler_key=%s len =%d", subscription_key, (strlen(SUBSC_GET_STATE_KEY) + strlen(handler)));
+            if (LSSubscriptionAdd(sh, strcat(subscription_key, SUBSC_GET_STATE_KEY), message, &mLSError) == false) {
+                LS_LOG_DEBUG("Failed to add to subscription list");
+                LSErrorPrintAndFree(&mLSError);
+                LSMessageReplyError(sh, message, TRACKING_UNKNOWN_ERROR, trakingErrorText[TRACKING_UNKNOWN_ERROR]);
+                return true;
+            }
+            LS_LOG_DEBUG("handler_key=%s", subscription_key);
+        }
+
         if (lpret != LP_ERR_NONE) {
             json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
             json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
@@ -1423,20 +1436,6 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data)
 
         LS_LOG_DEBUG("state=%d", state);
         LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
-
-        if ((isSubscribeTypeValid(sh, message, false, &isSubscription)) && isSubscription) {
-            //Add to subscription list with handler+method name
-            char subscription_key[strlen(SUBSC_GET_STATE_KEY) + strlen(handler)];
-            strcpy(subscription_key, handler);
-            LS_LOG_DEBUG("handler_key=%s len =%d", subscription_key, (strlen(SUBSC_GET_STATE_KEY) + strlen(handler)));
-            if (LSSubscriptionAdd(sh, strcat(subscription_key, SUBSC_GET_STATE_KEY), message, &mLSError) == false) {
-                LS_LOG_DEBUG("Failed to add to subscription list");
-                LSErrorPrintAndFree(&mLSError);
-                LSMessageReplyError(sh, message, TRACKING_UNKNOWN_ERROR, trakingErrorText[TRACKING_UNKNOWN_ERROR]);
-                return true;
-            }
-            LS_LOG_DEBUG("handler_key=%s", subscription_key);
-        }
         json_object_put(serviceObject);
         json_object_put(m_JsonArgument);
         return true;
@@ -1508,7 +1507,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
         json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
         mRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
         json_object_object_add(serviceObject, "state", json_object_new_int(state));
-        char subscription_key[strlen(handler) + strlen(SUBSC_GET_STATE_KEY)];
+        char subscription_key[MAX_GETSTATE_PARAM];
         strcpy(subscription_key, handler);
         strcat(subscription_key, SUBSC_GET_STATE_KEY);
         if ((strcmp(handler, GPS) == 0) && mGpsStatus != state) {

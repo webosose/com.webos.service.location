@@ -45,6 +45,8 @@
 #define RESPONSE_LEVEL_MEDIUM 2
 #define RESPONSE_LEVEL_HIGH 3
 #define MAX_RESULT_LENGTH 400
+#define MAX_GETSTATE_PARAM 32
+#define TIME_SCALE_SEC 1000
 #define LSERROR_CHECK_AND_PRINT(ret)\
     if(ret == false) \
     { \

@@ -197,7 +197,7 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
 {
     bool ret;
     bool found;
-    char *isInternetConnectionAvailable = NULL;
+    bool isInternetConnectionAvailable = false;
     const char *str;
     json_object *root = 0;
     json_object *returnValueobj = 0;
@@ -229,7 +229,7 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
             return true;
         }
 
-        isInternetConnectionAvailable = json_object_get_string(isConnectedobj);
+        isInternetConnectionAvailable = json_object_get_boolean(isConnectedobj);
     } else {
         int error;
         errorobj = json_object_object_get(root, "errorCode");
@@ -242,11 +242,10 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
         json_object_put(root);
         return true;
     }
-    LS_LOG_DEBUG("isInternetConnectionAvailable %s", isInternetConnectionAvailable);
-    if (isInternetConnectionAvailable && (strcmp(isInternetConnectionAvailable, "yes") == 0))
-        Notify_ConnectivityStateChange(true);
-    else
-        Notify_ConnectivityStateChange(false);
+    LS_LOG_DEBUG("isInternetConnectionAvailable %d", isInternetConnectionAvailable);
+
+    Notify_ConnectivityStateChange(isInternetConnectionAvailable);
+
     json_object_put(root);
     return true;
 }

@@ -1560,19 +1560,18 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 }
 bool LocationService::setGPSParameters(LSHandle *sh, LSMessage *message, void *data) {
     LS_LOG_DEBUG("=======setGPSParameters=======");
-    struct json_object *json_message;
-    struct json_object *json_cmd;
-    struct json_object *serviceObject;
+    struct json_object *json_message = NULL;
+    struct json_object *json_cmd = NULL;
+    struct json_object *serviceObject = NULL;
     char *cmdStr = NULL;
     bool mRetVal;
     int ret;
     LSError mLSError;
     LSErrorInit(&mLSError);
     json_message = json_tokener_parse((const char *) LSMessageGetPayload(message));
-    LS_LOG_DEBUG("setGPSParameters %s", json_object_to_json_string(json_message));
     if (json_message == NULL || is_error(json_message)) {
-        LS_LOG_DEBUG("setGPSParameters_OUT_OF_MEM");
-        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
+        LS_LOG_DEBUG("setGPSParameters Location Invalid Input");
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
         return true;
     }
     ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_TYPE_GPS);

@@ -13,7 +13,7 @@
  *                All plugins are in /usr/lib/location/plugins/
  *                plugin should implement init & shutdown
  * Platform     : RedRose
- * Author(s)    : Rajesh Gopu I.V
+ * Author(s)    : Rajesh Gopu I.V, Abhishek Srivastava
  * Email ID.    : rajeshgopu.iv@lge.com/ abhishek.srivastava@lge.com
  * Creation Date: 14-02-2013
  *

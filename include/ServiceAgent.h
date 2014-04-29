@@ -17,7 +17,6 @@
  * Key values used to store Luna subscription list
  */
 #define SUBSC_START_TRACK_KEY "startTracking"
-#define SUBSC_BEST_START_TRACK_KEY "startTrackingBestPosition"
 #define SUBSC_GPS_GET_NMEA_KEY "getNmeaData"
 #define SUBSC_GPS_GET_CURR_POSITION_KEY "getCurrentPosition"
 #define SUBSC_SEND_XTRA_CMD_KEY "sendExtraCommand"
@@ -25,6 +24,9 @@
 #define SUBSC_GET_GPS_SATELLITE_DATA "getGpsSatelliteData"
 #define SUBSC_GPS_ENGINE_STATUS "getGpsStatus"
 #define SUBSC_GET_STATE_KEY "getState"
+#define GPS_CRITERIA_KEY "gps/startTrackingCriteriaBased"
+#define NW_CRITERIA_KEY "nw/startTrackingCriteriaBased"
+#define CRITERIA_KEY "startTrackingCriteriaBased"
 
 #define GPS "gps"
 #define NETWORK "network"
@@ -32,46 +34,23 @@
 #define STOP FALSE
 #define MINIMAL_ACCURACY 100 // 100 meter as minimum accuracy for handler to reply
 enum TrakingErrorCode {
-    TRACKING_SUCCESS,
-    TRACKING_TIMEOUT,
-    TRACKING_POS_NOT_AVAILABLE,
-    TRACKING_UNKNOWN_ERROR,
-    TRACKING_GPS_UNAVAILABLE,
-    TRACKING_LOCATION_OFF,
-    TRACKING_PENDING_REQ,
-    TRACKING_APP_BLACK_LISTED,
-    HANDLER_START_FAILURE,
-    STATE_UNKNOWN,
-    TRACKING_INVALID_INPUT,
-    TRACKING_DATA_CONNECTION_OFF,
-    TRACKING_WIFI_CONNECTION_OFF,
-    TRACKING_MAXIMUM
-};
-
-enum LocationErrorCode {
     LOCATION_SUCCESS,
     LOCATION_TIME_OUT,
-    LOCATION_HANDLER_NOT_AVAILABLE,
-    LOCATION_INVALID_INPUT,
+    LOCATION_POS_NOT_AVAILABLE,
     LOCATION_UNKNOWN_ERROR,
-    LOCATION_OUT_OF_MEM,
+    LOCATION_GPS_UNAVAILABLE,
+    LOCATION_LOCATION_OFF,
+    LOCATION_PENDING_REQ,
+    LOCATION_APP_BLACK_LISTED,
+    LOCATION_START_FAILURE,
+    LOCATION_STATE_UNKNOWN,
+    LOCATION_INVALID_INPUT,
     LOCATION_DATA_CONNECTION_OFF,
-    LOCATION_MAXIMUM
+    LOCATION_WIFI_CONNECTION_OFF,
+    LOCATION_OUT_OF_MEM,
+    LOCATION_TRACKING_MAXIMUM
 };
 
-
-enum methodsCode {
-    METHOD_NONE,
-    START_TRACK,
-    GET_POS
-};
-
-
-enum {
-    FORCE_TIME_INJECTION = 1,
-    FORCE_XTRA_INJECTION,
-    DELETE_AIDING_DATA
-};
 /**
  * bitfield representing the
  * API progrees state
@@ -81,23 +60,6 @@ enum RequestState {
     START_TRACKING_REQ_STATE = (1u << 1),
     GET_NMEA_DATA = (1u << 2),
     GET_SATELLITE_DATA = (1u << 3),
-};
-
-/*
- myState |= MAXIMIZED;  // sets that bit
- myState &= ~MAXIMIZED; // resets that bit
- */
-
-struct ServiceAgentProp {
-    Handler *gps_handler;
-    Handler *network_handler;
-    Handler *hybrid_handler;
-    Handler *wifi_handler;
-    Handler *cell_handler; // testing
-    int handlersToStart;
-    gint api_progress_state;
-    gpointer ServiceObjRef;
-    unsigned int REQUEST_STATE;
 };
 
 // Mapped with HandlerTypes

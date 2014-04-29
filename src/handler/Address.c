@@ -24,6 +24,7 @@ Address *address_create(const gchar *street, const gchar *locality, const gchar 
     addr->country = g_strdup(country);
     addr->countrycode = g_strdup(country_code);
     addr->postcode = g_strdup(postalcode);
+
     return addr;
 }
 

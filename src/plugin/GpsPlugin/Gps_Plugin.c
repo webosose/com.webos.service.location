@@ -25,7 +25,6 @@
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Position.h>
-#include <Accuracy.h>
 #include <geoclue/geoclue-positiongps.h>
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-nmea.h>
@@ -61,13 +60,25 @@ typedef struct {
 #define LGE_GPS_SERVICE_NAME    "org.freedesktop.Geoclue.Providers.LgeGpsService"
 #define LGE_GPS_SERVICE_PATH    "/org/freedesktop/Geoclue/Providers/LgeGpsService"
 
-static void position_cb(GeocluePositionGps *position, GeocluePositionGpsFields fields, int timestamp, double latitude,
+static void position_cb(GeocluePositionGps *position,
+                        GeocluePositionGpsFields fields,
+                        int64_t  timestamp,
+                        double latitude,
                         double longitude,
-                        double altitude, double speed, double direction, double climb, GeoclueAccuracy *accuracy, gpointer userdata);
+                        double altitude,
+                        double speed,
+                        double direction,
+                        double climb,
+                        GeoclueAccuracy *accuracy,
+                        gpointer userdata);
 
-static void satellite_cb(GeoclueSatellite *satellite, guint64 used_in_fix, int visible_satellites,
-                         guint64 ephemeris_info, guint64 almanac_info,
-                         GPtrArray *sat_data, gpointer userdata);
+static void satellite_cb(GeoclueSatellite *satellite,
+                         uint32_t used_in_fix,
+                         int visible_satellites,
+                         uint32_t ephemeris_info,
+                         uint32_t almanac_info,
+                         GPtrArray *sat_data,
+                         gpointer userdata);
 
 /**
  * <Funciton >   send_geoclue_command
@@ -80,6 +91,7 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
     GError *error = NULL;
     options = g_hash_table_new(g_str_hash, g_str_equal);
     GValue *gvalue = g_new0(GValue, 1);
+
     g_value_init(gvalue, G_TYPE_STRING);
     g_value_set_string(gvalue, value);
     g_hash_table_insert(options, key, gvalue);
@@ -94,8 +106,10 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
     }
 
     LS_LOG_DEBUG("[DEBUG] Success to geoclue_provider_set_options(%s)", gvalue);
+
     g_free(gvalue);
     g_hash_table_destroy(options);
+
     return TRUE;
 }
 
@@ -114,20 +128,32 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
  * @param     <self> <In> <userdata userdata gpsplugin instance>
  * @return    void
  */
-static void position_cb_async(GeocluePositionGps *position, GeocluePositionGpsFields fields, int timestamp,
-                              double latitude, double longitude,
-                              double altitude, double speed, double direction, double climb, GeoclueAccuracy *accuracy, GError *error,
+static void position_cb_async(GeocluePositionGps *position,
+                              GeocluePositionGpsFields fields,
+                              int64_t timestamp,
+                              double latitude,
+                              double longitude,
+                              double altitude,
+                              double speed,
+                              double direction,
+                              double climb,
+                              GeoclueAccuracy *accuracy,
+                              GError *error,
                               gpointer userdata)
 {
     GeoclueGps *plugin_data = (GeoclueGps *) userdata;
+
     g_return_if_fail(plugin_data);
 
     if (error) {
         LS_LOG_DEBUG("[DEBUG] Aquiring position");
     } else {
         LS_LOG_DEBUG("[DEBUG] Aquired position");
+
         g_return_if_fail(plugin_data->geoclue_pos);
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(plugin_data->geoclue_pos)), G_CALLBACK(position_cb),
+
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(plugin_data->geoclue_pos)),
+                                             G_CALLBACK(position_cb),
                                              plugin_data);
         position_cb(position, fields, timestamp, latitude, longitude, altitude, speed, direction, climb, accuracy, userdata);
     }
@@ -147,12 +173,21 @@ static void position_cb_async(GeocluePositionGps *position, GeocluePositionGpsFi
  * @param     <self> <In> <userdata userdata gpsplugin instance>
  * @return    void
  */
-static void position_cb(GeocluePositionGps *position, GeocluePositionGpsFields fields, int timestamp, double latitude,
+static void position_cb(GeocluePositionGps *position,
+                        GeocluePositionGpsFields fields,
+                        int64_t timestamp,
+                        double latitude,
                         double longitude,
-                        double altitude, double speed, double direction, double climb, GeoclueAccuracy *accuracy, gpointer userdata)
+                        double altitude,
+                        double speed,
+                        double direction,
+                        double climb,
+                        GeoclueAccuracy *accuracy,
+                        gpointer userdata)
 {
     LS_LOG_DEBUG("[DEBUG]position_cb  latitude =%f , longitude =%f \n", latitude, longitude);
     GeoclueGps *plugin_data = (GeoclueGps *) userdata;
+
     g_return_if_fail(plugin_data);
     g_return_if_fail(plugin_data->pos_cb);
 
@@ -166,6 +201,7 @@ static void position_cb(GeocluePositionGps *position, GeocluePositionGpsFields f
     double vert_acc = INVALID_PARAM;
     GeoclueAccuracyLevel level;
     Position *ret_pos = position_create(timestamp, latitude, longitude, altitude, speed, direction, climb, fields);
+
     g_return_if_fail(ret_pos);
 
     if (accuracy) {
@@ -183,6 +219,7 @@ static void position_cb(GeocluePositionGps *position, GeocluePositionGpsFields f
     set_store_position(latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
     //Call the GPS Handler callback
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_GPS);
+
     position_free(ret_pos);
     accuracy_free(ac);
 }
@@ -220,12 +257,15 @@ static void status_cb(GeoclueProvider *provider, gint status, gpointer userdata)
  * <Description>  nmea  callback ,called by gps plugin when
  * it got response for nmea async request
  * */
-static void nmea_callback(GeoclueNmea *nmea, int timestamp, gchar *data, int length, gpointer userdata)
+static void nmea_callback(GeoclueNmea *nmea, int64_t timestamp, gchar *data, int length, gpointer userdata)
 {
     GeoclueGps *plugin_data = (GeoclueGps *) userdata;
+
     g_return_if_fail(plugin_data);
     g_return_if_fail(plugin_data->nmea_cb);
+
     LS_LOG_DEBUG("[DEBUG]value of nmea data %s", data);
+
     (*plugin_data->nmea_cb)(TRUE, timestamp, data, length, plugin_data->userdata);
 }
 
@@ -234,16 +274,19 @@ static void nmea_callback(GeoclueNmea *nmea, int timestamp, gchar *data, int len
  * <Description>  satellite  callback ,called by gps plugin when
  * it got response for satellite async request
  * */
-static void satellite_cb(GeoclueSatellite *satellite, guint64 used_in_fix, int visible_satellites,
-                         guint64 ephemeris_info, guint64 almanac_info,
+static void satellite_cb(GeoclueSatellite *satellite, uint32_t used_in_fix, int visible_satellites,
+                         uint32_t ephemeris_info, uint32_t almanac_info,
                          GPtrArray *sat_data, gpointer userdata)
 {
     GeoclueGps *plugin_data = (GeoclueGps *) userdata;
+
     g_return_if_fail(plugin_data);
     g_return_if_fail(plugin_data->sat_cb);
+
     int index = DEFAULT_VALUE;
     Satellite *sat = NULL;
     sat = satellite_create(visible_satellites);
+
     g_return_if_fail(sat);
     sat->visible_satellites_count = visible_satellites;
     LS_LOG_DEBUG(" number of satellite %d : \n", visible_satellites);
@@ -252,14 +295,17 @@ static void satellite_cb(GeoclueSatellite *satellite, guint64 used_in_fix, int v
         gboolean used = FALSE;
         gboolean hasephemeris = FALSE;
         gboolean hasalmanac = FALSE;
+
         GValueArray *vals = (GValueArray *) g_ptr_array_index(sat_data, index);
         guint prn = g_value_get_uint(g_value_array_get_nth(vals, 0));
         gdouble snr = g_value_get_double(g_value_array_get_nth(vals, 1));
         gdouble elev = g_value_get_double(g_value_array_get_nth(vals, 2));
         gdouble azim = g_value_get_double(g_value_array_get_nth(vals, 3));
+
         ((used_in_fix & (1 << prn - 1))) == DEFAULT_VALUE ? (used = FALSE) : (used = TRUE);
         ((ephemeris_info & (1 << prn - 1))) == DEFAULT_VALUE ? (hasephemeris = FALSE) : (hasephemeris = TRUE);
         ((almanac_info & (1 << prn - 1))) == DEFAULT_VALUE ? (hasalmanac = FALSE) : (hasalmanac = TRUE);
+
         set_satellite_details(sat, index, snr, prn, elev, azim, used, hasalmanac, hasephemeris);
     }
 
@@ -285,21 +331,30 @@ static void satellite_cb(GeoclueSatellite *satellite, guint64 used_in_fix, int v
  * @param     <self> <In> <userdata userdata gpsplugin instance>
  * @return    void
  */
-static void tracking_cb(GeocluePositionGps *position, GeocluePositionGpsFields fields, int timestamp, double latitude,
+static void tracking_cb(GeocluePositionGps *position,
+                        GeocluePositionGpsFields fields,
+                        int64_t timestamp,
+                        double latitude,
                         double longitude,
-                        double altitude, double speed, double direction, double climb, GeoclueAccuracy *accuracy,
-
+                        double altitude,
+                        double speed,
+                        double direction,
+                        double climb,
+                        GeoclueAccuracy *accuracy,
                         gpointer plugin_data)
 {
     LS_LOG_DEBUG("[DEBUG] GPS Plugin CC: tracking_cb  latitude =%f , longitude =%f ", latitude, longitude);
     GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+
     g_return_if_fail(gpsPlugin);
     g_return_if_fail(gpsPlugin->track_cb);
+
     Accuracy *ac;
     double hor_acc = DEFAULT_VALUE;
     double vert_acc = DEFAULT_VALUE;
     GeoclueAccuracyLevel level;
     Position *ret_pos = position_create(timestamp, latitude, longitude, altitude, speed, direction, climb, fields);
+
     g_return_if_fail(ret_pos);
 
     if (accuracy) {
@@ -315,14 +370,19 @@ static void tracking_cb(GeocluePositionGps *position, GeocluePositionGpsFields f
     }
 
     set_store_position(latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
+
     (*gpsPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, gpsPlugin->userdata, HANDLER_GPS);
+
     position_free(ret_pos);
     accuracy_free(ac);
 }
+
 static int send_extra_command(gpointer handle , char *command)
 {
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("send_extra_command command= %d", command);
 
     if (send_geoclue_command(geoclueGps->geoclue_pos , "REQUESTED_STATE", command) == FALSE)
@@ -330,14 +390,19 @@ static int send_extra_command(gpointer handle , char *command)
 
     return ERROR_NONE;
 }
+
 static int  set_gps_parameters(gpointer handle , char *command){
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("set_gps_parameters command= %d", command);
     if (send_geoclue_command(geoclueGps->geoclue_pos , "SET_GPS_OPTIONS", command) == FALSE)
         return ERROR_NOT_AVAILABLE;
+
     return ERROR_NONE;
 }
+
 /**
  * <Funciton >   get_position
  * <Description>  Get the position from GPS
@@ -349,8 +414,10 @@ static int  set_gps_parameters(gpointer handle , char *command){
 static int get_position(gpointer handle, PositionCallback positionCB)
 {
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(geoclueGps->geoclue_pos, ERROR_NOT_AVAILABLE);
+
     geoclueGps->pos_cb = NULL;
 
     if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATES") == FALSE)
@@ -364,12 +431,14 @@ static int get_position(gpointer handle, PositionCallback positionCB)
     geoclueGps->pos_cb = positionCB;
     geoclue_position_get_position_async(geoclueGps->geoclue_pos, (GeocluePositionGpsCallback) position_cb_async, geoclueGps);
     g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "positiongps-changed", G_CALLBACK(position_cb), geoclueGps);
+
     return ERROR_NONE;
 }
 
 static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, int datatype)
 {
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
 
     if (enable_data == TRUE) {
@@ -385,6 +454,7 @@ static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, 
     switch (datatype) {
         case HANDLER_DATA_NMEA: {
             g_return_val_if_fail(geoclueGps->geoclue_nmea, ERROR_NOT_AVAILABLE);
+
             geoclueGps->nmea_cb = NULL;
 
         if (enable_data) {
@@ -398,6 +468,7 @@ static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, 
         case HANDLER_DATA_SATELLITE: {
             // satellite
             g_return_val_if_fail(geoclueGps->geoclue_satellite, ERROR_NOT_AVAILABLE);
+
             geoclueGps->sat_cb = NULL;
 
         if (enable_data) {
@@ -485,7 +556,9 @@ static gboolean intialize_gps_geoclue_service(GeoclueGps *geoclueGps)
     }
 
     g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "status-changed", G_CALLBACK(status_cb), geoclueGps);
+
     LS_LOG_DEBUG("[DEBUG] intialize_gps_geoclue_service  done\n");
+
     return TRUE;
 }
 
@@ -503,7 +576,9 @@ static int start(gpointer plugin_data, StatusCallback status_cb, gpointer handle
 {
     LS_LOG_DEBUG("[DEBUG] gps plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
     GeoclueGps *geoclueGps = (GeoclueGps *) plugin_data;
+
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
+
     geoclueGps->userdata = handler_data;
     geoclueGps->status_cb = status_cb;
 
@@ -511,6 +586,7 @@ static int start(gpointer plugin_data, StatusCallback status_cb, gpointer handle
         return ERROR_NOT_AVAILABLE;
 
     LS_LOG_DEBUG("[DEBUG] Sucess In start");
+
     return ERROR_NONE;
 }
 
@@ -524,6 +600,7 @@ static int stop(gpointer handle)
 {
     LS_LOG_DEBUG("[DEBUG] gps plugin stop\n");
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
 
     if (send_geoclue_command(geoclueGps->geoclue_pos, "REQUESTED_STATE", "GPSDISABLE") == FALSE) {
@@ -553,7 +630,8 @@ EXPORT_API gpointer init(GpsPluginOps *ops)
      */
     GeoclueGps *gpsd = g_new0(GeoclueGps, 1);
 
-    if (gpsd == NULL) return NULL;
+    if (gpsd == NULL)
+        return NULL;
 
     return (gpointer) gpsd;
 }
@@ -568,8 +646,10 @@ EXPORT_API void shutdown(gpointer handle)
 {
     LS_LOG_DEBUG("[DEBUG]gps plugin shutdown\n");
     g_return_if_fail(handle);
+
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
     unreference_geoclue(geoclueGps);
+
     g_free(geoclueGps);
 }
 

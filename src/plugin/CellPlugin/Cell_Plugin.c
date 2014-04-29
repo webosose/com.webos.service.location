@@ -26,7 +26,6 @@
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Position.h>
-#include <Accuracy.h>
 #include <geoclue/geoclue-position.h>
 #include <geoclue/geoclue-velocity.h>
 #include <geoclue/geoclue-accuracy.h>
@@ -56,9 +55,14 @@ typedef struct {
 #define LGE_CELL_SERVICE_NAME "org.freedesktop.Geoclue.Providers.LgeCellService"
 #define LGE_CELL_SERVICE_PATH "/org/freedesktop/Geoclue/Providers/LgeCellService"
 
-static void position_cb(GeocluePosition *position, GeocluePositionFields fields, int timestamp, double latitude,
-                        double longitude, double altitude,
-                        GeoclueAccuracy *accuracy, gpointer userdata);
+static void position_cb(GeocluePosition *position,
+                        GeocluePositionFields fields,
+                        int64_t timestamp,
+                        double latitude,
+                        double longitude,
+                        double altitude,
+                        GeoclueAccuracy *accuracy,
+                        gpointer userdata);
 
 /**
  **
@@ -71,9 +75,11 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     GHashTable *options;
     GError *error = NULL;
     GValue *gvalue = NULL;
+
     options = g_hash_table_new(g_str_hash, g_str_equal);
     LS_LOG_DEBUG(" value of sendgeolcuecommand %s ", value);
     gvalue = g_new0(GValue, 1);
+
     g_value_init(gvalue, G_TYPE_STRING);
     g_value_set_string(gvalue, value);
     g_hash_table_insert(options, key, gvalue);
@@ -91,6 +97,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
 
     g_free(gvalue);
     g_hash_table_destroy(options);
+
     return TRUE;
 }
 
@@ -109,11 +116,18 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
  * @param     <self> <In> <userdata userdata cellplugin instance>
  * @return    void
  */
-static void position_cb_async(GeocluePosition *position, GeocluePositionFields fields, int timestamp, double latitude,
+static void position_cb_async(GeocluePosition *position,
+                              GeocluePositionFields fields,
+                              int64_t timestamp,
+                              double latitude,
                               double longitude,
-                              double altitude, GeoclueAccuracy *accuracy, GError *error, gpointer userdata)
+                              double altitude,
+                              GeoclueAccuracy *accuracy,
+                              GError *error,
+                              gpointer userdata)
 {
     GeoclueCell *plugin_data = (GeoclueCell *) userdata;
+
     g_return_if_fail(plugin_data);
 
     if (error) {
@@ -123,6 +137,7 @@ static void position_cb_async(GeocluePosition *position, GeocluePositionFields f
         position_cb(position, fields, timestamp, latitude, longitude, altitude, accuracy, userdata);
     }
 }
+
 /**
  * <Funciton >   position_cb
  * <Description>  position callback ,called by cell plugin when
@@ -137,18 +152,26 @@ static void position_cb_async(GeocluePosition *position, GeocluePositionFields f
  * @param     <self> <In> <userdata userdata cellplugin instance>
  * @return    void
  */
-static void position_cb(GeocluePosition *position, GeocluePositionFields fields, int timestamp, double latitude,
-                        double longitude, double altitude,
-                        GeoclueAccuracy *accuracy, gpointer userdata)
+static void position_cb(GeocluePosition *position,
+                        GeocluePositionFields fields,
+                        int64_t timestamp,
+                        double latitude,
+                        double longitude,
+                        double altitude,
+                        GeoclueAccuracy *accuracy,
+                        gpointer userdata)
 {
     LS_LOG_DEBUG("[DEBUG] position_cb  latitude =%f , longitude =%f \n", latitude, longitude);
     GeoclueCell *plugin_data = (GeoclueCell *) userdata;
+
     g_return_if_fail(plugin_data);
     g_return_if_fail(plugin_data->pos_cb);
+
     Accuracy *ac;
     double hor_acc = DEFAULT_VALUE;
     double vert_acc = INVALID_PARAM;
     GeoclueAccuracyLevel level;
+
     fields = fields | POSITION_FIELDS_ALTITUDE | VELOCITY_FIELDS_SPEED | VELOCITY_FIELDS_DIRECTION | VELOCITY_FIELDS_CLIMB;
     Position *ret_pos = position_create(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM,
                                         INVALID_PARAM, fields);
@@ -157,10 +180,6 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
     if (accuracy != NULL) {
         geoclue_accuracy_get_details(accuracy, &level, &hor_acc, &vert_acc);
         ac = accuracy_create(ACCURACY_LEVEL_DETAILED, hor_acc, INVALID_PARAM);
-        /* if(accuracy){
-         // Free accuracy object if created
-         geoclue_accuracy_free(accuracy);
-         }*/
     } else {
         ac = accuracy_create(ACCURACY_LEVEL_NONE, INVALID_PARAM, INVALID_PARAM);
     }
@@ -171,7 +190,9 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
     }
 
     set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
+
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_CELLID);
+
     position_free(ret_pos);
     accuracy_free(ac);
 }
@@ -191,23 +212,30 @@ static void position_cb(GeocluePosition *position, GeocluePositionFields fields,
  * @param           <self> <In> <userdata userdata gpsplugin instance>
  * @return          void
  */
-static void tracking_cb(GeocluePosition *position, GeocluePositionFields fields, int timestamp, double latitude,
-                        double longitude, double altitude,
+static void tracking_cb(GeocluePosition *position,
+                        GeocluePositionFields fields,
+                        int64_t timestamp,
+                        double latitude,
+                        double longitude,
+                        double altitude,
                         GeoclueAccuracy *accuracy,
-
                         gpointer plugin_data)
 {
     LS_LOG_DEBUG("[DEBUG] Cell Plugin CC: tracking_cb  latitude =%f , longitude =%f \n", latitude, longitude);
     GeoclueCell *cellPlugin = (GeoclueCell *) plugin_data;
+
     g_return_if_fail(cellPlugin);
     g_return_if_fail(cellPlugin->track_cb);
+
     Accuracy *ac;
     double hor_acc = DEFAULT_VALUE;
     double vert_acc = INVALID_PARAM;
     GeoclueAccuracyLevel level;
+
     fields = fields | POSITION_FIELDS_ALTITUDE | VELOCITY_FIELDS_SPEED | VELOCITY_FIELDS_DIRECTION | VELOCITY_FIELDS_CLIMB;
     Position *ret_pos = position_create(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM,
                                         INVALID_PARAM, fields);
+
     g_return_if_fail(ret_pos);
 
     if (accuracy != NULL) {
@@ -223,7 +251,9 @@ static void tracking_cb(GeocluePosition *position, GeocluePositionFields fields,
     }
 
     set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
+
     (*cellPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, cellPlugin->userdata, HANDLER_CELLID);
+
     position_free(ret_pos);
     accuracy_free(ac);
 }
@@ -240,8 +270,11 @@ static int get_position(gpointer handle, PositionCallback positionCB, gpointer a
 {
     GeoclueCell *geoclueCell = (GeoclueCell *) handle;
     LS_LOG_DEBUG("[DEBUG] enter in plugin callback");
+
     g_return_val_if_fail(geoclueCell, ERROR_NOT_AVAILABLE);
+
     geoclueCell->pos_cb = positionCB;
+
     g_return_val_if_fail(geoclueCell->geoclue_pos, ERROR_NOT_AVAILABLE);
 
     if (send_geoclue_command(geoclueCell->geoclue_pos, "CELLDATA", agent_userdata) == TRUE) {
@@ -250,6 +283,7 @@ static int get_position(gpointer handle, PositionCallback positionCB, gpointer a
         return ERROR_NOT_AVAILABLE;
 
     geoclue_position_get_position_async(geoclueCell->geoclue_pos, (GeocluePositionCallback) position_cb_async, geoclueCell);
+
     return ERROR_NONE;
 }
 
@@ -262,7 +296,8 @@ static int get_position(gpointer handle, PositionCallback positionCB, gpointer a
 static void unreference_geoclue(GeoclueCell *geoclueCell)
 {
     if (geoclueCell->geoclue_pos) {
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)), G_CALLBACK(position_cb),
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)),
+                                             G_CALLBACK(position_cb),
                                              geoclueCell);
         g_object_unref(geoclueCell->geoclue_pos);
         geoclueCell->geoclue_pos = NULL;
@@ -296,6 +331,7 @@ static gboolean intialize_cell_geoclue_service(GeoclueCell *geoclueCell)
     }
 
     LS_LOG_DEBUG("[DEBUG] intialize_cell_geoclue_service  done\n");
+
     return TRUE;
 }
 
@@ -313,6 +349,7 @@ static int start(gpointer plugin_data, gpointer handler_data)
     LS_LOG_DEBUG("[DEBUG] cell plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
     GeoclueCell *geoclueCell = (GeoclueCell *) plugin_data;
     g_return_val_if_fail(geoclueCell, ERROR_NOT_AVAILABLE);
+
     geoclueCell->userdata = handler_data;
 
     if (intialize_cell_geoclue_service(geoclueCell) == FALSE) return ERROR_NOT_AVAILABLE;
@@ -331,21 +368,13 @@ static int start_tracking(gpointer plugin_data, gboolean enableTracking, StartTr
                           gpointer celldata)
 {
     GeoclueCell *geoclueCell = (GeoclueCell *) plugin_data;
+
     g_return_val_if_fail(geoclueCell, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("[DEBUG] Cell Plugin start_tracking ");
     geoclueCell->track_cb = NULL;
 
     if (enableTracking) {
-        if (send_geoclue_command(geoclueCell->geoclue_pos, "CELLDATA", celldata) == TRUE) {
-            if (send_geoclue_command(geoclueCell->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATESON") == FALSE) {
-                LS_LOG_DEBUG("[DEBUG] cell plugin not send\n");
-                handler_tracking_cb(TRUE, NULL, NULL, ERROR_NETWORK_ERROR, geoclueCell->userdata, HANDLER_CELLID);
-                return ERROR_NOT_AVAILABLE;
-            }
-        } else {
-            return ERROR_NOT_AVAILABLE;
-        }
-
         geoclueCell->track_cb = handler_tracking_cb;
 
         if (geoclueCell->track_started == FALSE) {
@@ -353,6 +382,19 @@ static int start_tracking(gpointer plugin_data, gboolean enableTracking, StartTr
                              plugin_data);
             geoclueCell->track_started = TRUE;
             LS_LOG_DEBUG("[DEBUG] registered position-changed signal \n");
+        }
+        if (send_geoclue_command(geoclueCell->geoclue_pos, "CELLDATA", celldata) == TRUE) {
+
+            if (send_geoclue_command(geoclueCell->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATESON") == FALSE) {
+                LS_LOG_DEBUG("[DEBUG] cell plugin not send\n");
+                handler_tracking_cb(TRUE, NULL, NULL, ERROR_NETWORK_ERROR, geoclueCell->userdata, HANDLER_CELLID);
+                return ERROR_NOT_AVAILABLE;
+            }
+        } else {
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)), G_CALLBACK(tracking_cb),
+                                             plugin_data);
+            geoclueCell->track_started = FALSE;
+            return ERROR_NOT_AVAILABLE;
         }
 
         return ERROR_NONE;
@@ -376,8 +418,11 @@ static int stop(gpointer handle)
 {
     LS_LOG_DEBUG("[DEBUG]cell plugin stop\n");
     GeoclueCell *geoclueCell = (GeoclueCell *) handle;
+
     g_return_val_if_fail(geoclueCell, ERROR_NOT_AVAILABLE);
+
     unreference_geoclue(geoclueCell);
+
     return ERROR_NONE;
 }
 
@@ -399,9 +444,11 @@ EXPORT_API gpointer init(CellPluginOps *ops)
      */
     GeoclueCell *celld = g_new0(GeoclueCell, 1);
 
-    if (celld == NULL) return NULL;
+    if (celld == NULL)
+        return NULL;
 
     memset(celld, 0, sizeof(GeoclueCell));
+
     return (gpointer) celld;
 }
 
@@ -414,9 +461,12 @@ EXPORT_API gpointer init(CellPluginOps *ops)
 EXPORT_API void shutdown(gpointer handle)
 {
     LS_LOG_DEBUG("[DEBUG]cell plugin shutdown\n");
+
     g_return_if_fail(handle);
+
     GeoclueCell *geoclueCell = (GeoclueCell *) handle;
     unreference_geoclue(geoclueCell);
+
     g_free(geoclueCell);
 }
 

@@ -51,7 +51,8 @@ GType wifi_handler_get_type(void);
 typedef enum {
     WIFI_PROGRESS_NONE = 0,
     WIFI_GET_POSITION_ON = 1 << 0,
-    WIFI_START_TRACKING_ON = 1 << 1
+    WIFI_START_TRACKING_ON = 1 << 1,
+    WIFI_START_TRACKING_CRITERIA_ON = 1 << 2
 } WifiHandlerStateFlags;
 
 G_END_DECLS

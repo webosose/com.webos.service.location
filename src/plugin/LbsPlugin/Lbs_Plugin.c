@@ -25,7 +25,6 @@
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Address.h>
-#include <Accuracy.h>
 #include <Position.h>
 #include <geoclue/geoclue-geocode.h>
 #include <geoclue/geoclue-reverse-geocode.h>
@@ -71,12 +70,19 @@ static void unreference_geoclue(GeoclueLbs *geoclueLbs)
 int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, Accuracy *ac)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
+
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
     GeoclueAccuracy *geoclue_acc = NULL;
     GError *error = NULL;
     double lat, lon, alt;
-    GeocluePositionFields fields = geoclue_geocode_freeform_address_to_position(geoclueLbs->geocode, addrress, &lat, &lon, &alt, &geoclue_acc,
-            &error);
+    GeocluePositionFields fields = geoclue_geocode_freeform_address_to_position(geoclueLbs->geocode,
+                                                                                addrress,
+                                                                                &lat,
+                                                                                &lon,
+                                                                                &alt,
+                                                                                &geoclue_acc,
+                                                                                &error);
 
     if (error != NULL) {
         LS_LOG_DEBUG(" Error in getting data");
@@ -112,11 +118,13 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
     double lat, lon, alt;
     GeoclueAccuracy *geoclue_acc = NULL;
     GError *error = NULL;
     int err = ERROR_NONE;
     GHashTable *geoclue_addrress = geoclue_address_details_new();
+
     g_return_val_if_fail(geoclue_addrress, ERROR_NOT_AVAILABLE);
 
     if (address->street != NULL)
@@ -134,8 +142,15 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
     if (address->postcode != NULL)
         geoclue_address_details_insert(geoclue_addrress, GEOCLUE_ADDRESS_KEY_POSTALCODE, address->postcode);
 
-    LS_LOG_DEBUG("value of locality  %s region %s country %s country coede %s area %s street %s postcode %s", address->locality, address->region,
-            address->country, address->countrycode, address->area, address->street, address->postcode);
+    LS_LOG_DEBUG("value of locality  %s region %s country %s country coede %s area %s street %s postcode %s",
+                  address->locality,
+                  address->region,
+                  address->country,
+                  address->countrycode,
+                  address->area,
+                  address->street,
+                  address->postcode);
+
     GeocluePositionFields fields = geoclue_geocode_address_to_position(geoclueLbs->geocode, geoclue_addrress, &lat, &lon, &alt, &geoclue_acc, &error);
     g_hash_table_destroy(geoclue_addrress);
 
@@ -176,13 +191,21 @@ int get_reverse_geocode(gpointer handle, Position *pos, Address *address)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
     GeoclueAccuracy *addr_acc = NULL;
     GError *error = NULL;
     GHashTable *geoclue_addr = NULL;
     GeoclueAccuracy *pos_acc = geoclue_accuracy_new(GEOCLUE_ACCURACY_LEVEL_DETAILED, DEFAULT_VALUE, DEFAULT_VALUE);
+
     g_return_val_if_fail(pos_acc, ERROR_NOT_AVAILABLE);
-    gboolean success = geoclue_reverse_geocode_position_to_address(geoclueLbs->reverse_geocode, pos->latitude, pos->longitude, pos_acc, &geoclue_addr,
-            &addr_acc, &error);
+
+    gboolean success = geoclue_reverse_geocode_position_to_address(geoclueLbs->reverse_geocode,
+                                                                    pos->latitude,
+                                                                    pos->longitude,
+                                                                    pos_acc,
+                                                                    &geoclue_addr,
+                                                                    &addr_acc,
+                                                                    &error);
     geoclue_accuracy_free(pos_acc);
 
     if (success == FALSE || error) {
@@ -237,6 +260,7 @@ static gboolean intialize_lbs_geoclue_service(GeoclueLbs *geoclueLbs)
     }
 
     LS_LOG_DEBUG("[DEBUG] intialize_Lbs_geoclue_service  done\n");
+
     return TRUE;
 }
 
@@ -255,6 +279,7 @@ static int start(gpointer plugin_data, gpointer handler_data)
     LS_LOG_DEBUG("[DEBUG] LBS plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) plugin_data;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
     geoclueLbs->userdata = handler_data;
 
     if (intialize_lbs_geoclue_service(geoclueLbs) == FALSE) {
@@ -274,8 +299,11 @@ static int stop(gpointer handle)
 {
     LS_LOG_DEBUG("[DEBUG]lbs plugin stop\n");
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
+
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
     unreference_geoclue(geoclueLbs);
+
     return ERROR_NONE;
 }
 
@@ -298,7 +326,8 @@ EXPORT_API gpointer init(LbsPluginOps *ops)
      */
     GeoclueLbs *lbs = g_new0(GeoclueLbs, 1);
 
-    if (lbs == NULL) return NULL;
+    if (lbs == NULL)
+        return NULL;
 
     return (gpointer) lbs;
 }
@@ -313,8 +342,10 @@ EXPORT_API void shutdown(gpointer handle)
 {
     LS_LOG_DEBUG("[DEBUG]wifi plugin shutdown\n");
     g_return_if_fail(handle);
+
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
     unreference_geoclue(geoclueLbs);
+
     g_free(geoclueLbs);
 }
 

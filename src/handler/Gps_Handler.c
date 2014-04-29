@@ -39,17 +39,17 @@ typedef struct _GpsHandlerPrivate {
     gboolean is_started;
     PositionCallback pos_cb;
     StatusCallback status_cb;
-    VelocityCallback vel_cb;
     SatelliteCallback sat_cb;
 
     NmeaCallback nmea_cb;
     StartTrackingCallBack track_cb;
+    StartTrackingCallBack track_criteria_cb;
 
     guint pos_timer;
     gint api_progress_flag;
-    guint64 fixrequesttime;
-    guint64 ttff;
-    guint64 lastfixtime;
+    gint64 fixrequesttime;
+    gint64 ttff;
+    gint64 lastfixtime;
     gboolean ttffstate;
     GMutex mutex;
 
@@ -65,7 +65,9 @@ static gboolean gps_timeout_cb(gpointer user_data)
 {
     LS_LOG_DEBUG("timeout of gps position update\n");
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
     g_return_val_if_fail(priv, G_SOURCE_REMOVE);
+
     // Post to agent that Gps timeout happend
     LocationFields field = (POSITION_FIELDS_LATITUDE | POSITION_FIELDS_LONGITUDE | POSITION_FIELDS_ALTITUDE);
     Position *position = position_create(0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, field);
@@ -77,8 +79,12 @@ static gboolean gps_timeout_cb(gpointer user_data)
     if (priv->track_cb)
         (*priv->track_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
 
+    if(priv->track_criteria_cb)
+       (*priv->track_criteria_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
+
     position_free(position);
     accuracy_free(accuracy);
+
     return G_SOURCE_REMOVE;
 }
 
@@ -94,8 +100,12 @@ void gps_handler_status_cb(gboolean enable_cb, GPSStatus status, gpointer user_d
 {
     LS_LOG_DEBUG("gps_handler_status_cb status = %d", status);
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
     g_return_if_fail(priv);
-    g_return_if_fail(priv->status_cb);
+
+    if(priv->status_cb == NULL)
+       return;
+
     priv->status_cb(enable_cb, status, user_data);
 
     if (status == GPS_STATUS_AVAILABLE) {
@@ -120,9 +130,10 @@ void gps_handler_status_cb(gboolean enable_cb, GPSStatus status, gpointer user_d
 void gps_handler_satellite_cb(gboolean enable_cb, Satellite *satellite, gpointer user_data)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
     g_return_if_fail(priv);
     g_return_if_fail(priv->sat_cb);
-    LS_LOG_DEBUG("satellite_cb callback called  %d\n", enable_cb);
+
     (*priv->sat_cb)(enable_cb, satellite, user_data);
 }
 
@@ -136,11 +147,13 @@ void gps_handler_satellite_cb(gboolean enable_cb, Satellite *satellite, gpointer
  * @param           <user_data> <In> <instance of handler>
  * @return          void
  */
-void gps_handler_nmea_cb(gboolean enable_cb, int timestamp, char *data, int length, gpointer user_data)
+void gps_handler_nmea_cb(gboolean enable_cb, int64_t timestamp, char *data, int length, gpointer user_data)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
     g_return_if_fail(priv);
     g_return_if_fail(priv->nmea_cb);
+
     (*priv->nmea_cb)(enable_cb, timestamp, data, length, user_data);
 }
 
@@ -152,25 +165,34 @@ void gps_handler_nmea_cb(gboolean enable_cb, int timestamp, char *data, int leng
  * @param           <user_data> <In> <instance of handler>
  * @return          void
  */
-void gps_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer user_data,
+void gps_handler_tracking_cb(gboolean enable_cb,
+                             Position *position,
+                             Accuracy *accuracy,
+                             int error,
+                             gpointer user_data,
                              int type)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
     g_return_if_fail(priv);
-    g_return_if_fail(priv->track_cb);
+
 
     if (priv->ttffstate == FALSE) {
-        priv->lastfixtime = time(0);
+        priv->lastfixtime = time(NULL);
         priv->ttffstate = TRUE;
     }
 
     if (position != NULL) {
-        LS_LOG_DEBUG(
-            "GPS Handler: tracking_cb latitude = %f, longitude = %f, accuracy = %f\n", position->latitude, position->longitude,
-            accuracy->horizAccuracy);
+        LS_LOG_DEBUG("GPS Handler: tracking_cb latitude = %f, longitude = %f, accuracy = %f\n",
+                      position->latitude, position->longitude,
+                      accuracy->horizAccuracy);
     }
 
-    (*priv->track_cb)(enable_cb, position, accuracy, error, user_data, type);
+    if(priv->track_cb != NULL)
+      (*priv->track_cb)(enable_cb, position, accuracy, error, user_data, type);
+
+    if(priv->track_criteria_cb != NULL)
+       (*priv->track_criteria_cb)(enable_cb, position, accuracy, error, user_data, type);
 }
 
 /**
@@ -181,19 +203,26 @@ void gps_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *a
  * @param           <user_data> <In> <instance of handler>
  * @return          void
  */
-void gps_handler_position_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer user_data,
+void gps_handler_position_cb(gboolean enable_cb,
+                             Position *position,
+                             Accuracy *accuracy,
+                             int error,
+                             gpointer user_data,
                              int type)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
     g_return_if_fail(priv);
 
     if (priv->ttffstate == FALSE) {
-        priv->lastfixtime = time(0);
+        priv->lastfixtime = time(NULL);
         priv->ttffstate == TRUE;
     }
 
     g_return_if_fail(priv->pos_cb);
+
     LS_LOG_DEBUG("GPS Handler: position_cb %d\n", enable_cb);
+
     (*priv->pos_cb)(enable_cb, position, accuracy, error, user_data, type); //call SA position callback
 }
 
@@ -207,11 +236,14 @@ static int gps_handler_start(Handler *self)
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin->ops.start, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("gps_handler_start\n");
+
     g_mutex_lock(&priv->mutex);
 
     if (priv->is_started == TRUE) {
@@ -233,6 +265,7 @@ static int gps_handler_start(Handler *self)
     }
 
     g_mutex_unlock(&priv->mutex);
+
     return ret;
 }
 
@@ -246,7 +279,9 @@ static int gps_handler_stop(Handler *self,  int handler_type, gboolean forcestop
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("gps_handler_stop() api progress %d\n", priv->api_progress_flag);
 
     if (priv->is_started == FALSE)
@@ -264,7 +299,9 @@ static int gps_handler_stop(Handler *self,  int handler_type, gboolean forcestop
     }
 
     if (priv->is_started == TRUE) {
+
         g_return_val_if_fail(priv->gps_plugin->ops.stop, ERROR_NOT_AVAILABLE);
+
         ret = priv->gps_plugin->ops.stop(priv->gps_plugin->plugin_handler);
 
         if (ret == ERROR_NONE) {
@@ -283,7 +320,10 @@ static int gps_handler_stop(Handler *self,  int handler_type, gboolean forcestop
  * @param           <self> <In> <Position callback function to get result>
  * @return          int
  */
-static int gps_handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj,
+static int gps_handler_get_position(Handler *self,
+                                    gboolean enable,
+                                    PositionCallback pos_cb,
+                                    gpointer handlerobj,
                                     int handlertype,
                                     LSHandle *sh)
 {
@@ -291,7 +331,9 @@ static int gps_handler_get_position(Handler *self, gboolean enable, PositionCall
     gboolean mRet;
     LSError lserror;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("gps_handler_get_position\n");
 
     if (enable) {
@@ -300,6 +342,7 @@ static int gps_handler_get_position(Handler *self, gboolean enable, PositionCall
 
         g_return_val_if_fail(pos_cb, ERROR_NOT_AVAILABLE);
         g_return_val_if_fail(priv->gps_plugin->ops.get_position, ERROR_NOT_AVAILABLE);
+
         priv->pos_cb = pos_cb;
         result = priv->gps_plugin->ops.get_position(priv->gps_plugin->plugin_handler, gps_handler_position_cb);
 
@@ -328,8 +371,12 @@ static int gps_handler_get_position(Handler *self, gboolean enable, PositionCall
  * @param           <self> <In> <Position callback function to get result>
  * @return          int
  */
-static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype,
-        LSHandle *sh)
+static void gps_handler_start_tracking(Handler *self,
+                                       gboolean enable,
+                                       StartTrackingCallBack track_cb,
+                                       gpointer handlerobj,
+                                       int handlertype,
+                                       LSHandle *sh)
 {
     LS_LOG_DEBUG("GPS handler start Tracking called\n");
     int result = ERROR_NONE;
@@ -342,36 +389,104 @@ static void gps_handler_start_tracking(Handler *self, gboolean enable, StartTrac
         return;
     }
 
-    if (enable) {
-        if (priv->api_progress_flag & START_TRACKING_ON)
-            return;
-    }
+    if (enable == TRUE && priv->api_progress_flag & START_TRACKING_ON)
+        return;
 
-    priv->track_cb = NULL;
 
     if (enable) {
+
         priv->track_cb = track_cb;
         LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_cb %d\n", priv->track_cb);
-        result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
+        if (!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON)) {
+            result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler,
+                                                        enable,
+                                                        gps_handler_tracking_cb,
+                                                        HANDLER_DATA_POSITION);
 
         if (result == ERROR_NONE) {
             if (!priv->pos_timer)
                 priv->pos_timer = g_timeout_add_seconds(
                 GPS_UPDATE_INTERVAL_MAX, gps_timeout_cb, self);
+        }
 
-            priv->api_progress_flag |= START_TRACKING_ON;
         } else {
             track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_GPS);
         }
+        priv->api_progress_flag |= START_TRACKING_ON;
+
     } else {
-        if (priv->pos_timer) {
-            g_source_remove(priv->pos_timer);
-            priv->pos_timer = 0;
+       if (!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON)) {
+           if (priv->pos_timer) {
+              g_source_remove(priv->pos_timer);
+              priv->pos_timer = 0;
+            }
+
+           priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler,
+                                              enable,
+                                              gps_handler_tracking_cb,
+                                              HANDLER_DATA_POSITION);
         }
 
-        priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
+        priv->track_cb = NULL;
         priv->api_progress_flag &= ~START_TRACKING_ON;
         LS_LOG_DEBUG("gps_handler_start_tracking Clearing bit\n");
+    }
+}
+
+static void gps_handler_start_tracking_criteria(Handler *self,
+                                                gboolean enable,
+                                                StartTrackingCallBack track_cb,
+                                                gpointer handlerobj,
+                                                int handlertype,
+                                                LSHandle *sh)
+{
+    LS_LOG_DEBUG("GPS handler start Tracking criteria called\n");
+    int result = ERROR_NONE;
+    gboolean mRet;
+    LSError lserror;
+
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
+    if ((priv == NULL)) {
+        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_GPS);
+        return;
+    }
+
+
+    if ((enable == TRUE)&& (priv->api_progress_flag & START_TRACKING_CRITERIA_ON))
+        return;
+
+
+    if (enable) {
+
+        priv->track_criteria_cb = track_cb;
+        LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_criteria_cb %d\n", priv->track_criteria_cb);
+
+        if (!(priv->api_progress_flag & START_TRACKING_ON)){
+            result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
+
+           if (result == ERROR_NONE) {
+               if (!priv->pos_timer)
+                   priv->pos_timer = g_timeout_add_seconds(GPS_UPDATE_INTERVAL_MAX, gps_timeout_cb, self);
+        }
+        else {
+            track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_GPS);
+          }
+        }
+        priv->api_progress_flag |= START_TRACKING_CRITERIA_ON;
+
+    } else {
+        if (!(priv->api_progress_flag & START_TRACKING_ON)) {
+            if (priv->pos_timer) {
+                g_source_remove(priv->pos_timer);
+                priv->pos_timer = 0;
+            }
+            priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
+        }
+
+        priv->track_criteria_cb = NULL;
+        priv->api_progress_flag &= ~START_TRACKING_CRITERIA_ON;
+        LS_LOG_DEBUG("gps_handler_start_tracking_criteria Clearing bit\n");
     }
 }
 
@@ -426,6 +541,7 @@ static int gps_handler_get_gps_satellite_data(Handler *self, gboolean enable_sat
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     if (enable_satellite) {
@@ -434,6 +550,7 @@ static int gps_handler_get_gps_satellite_data(Handler *self, gboolean enable_sat
 
         g_return_val_if_fail(priv->gps_plugin->ops.get_gps_data, ERROR_NOT_AVAILABLE);
         g_return_val_if_fail(sat_cb, ERROR_NOT_AVAILABLE);
+
         priv->sat_cb = sat_cb;
         ret = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable_satellite, gps_handler_satellite_cb,
                 HANDLER_DATA_SATELLITE);
@@ -461,6 +578,7 @@ static int gps_handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCa
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     if (enable_nmea) {
@@ -470,6 +588,7 @@ static int gps_handler_get_nmea_data(Handler *self, gboolean enable_nmea, NmeaCa
 
         g_return_val_if_fail(priv->gps_plugin->ops.get_gps_data, ERROR_NOT_AVAILABLE);
         g_return_val_if_fail(nmea_cb, ERROR_NOT_AVAILABLE);
+
         priv->nmea_cb = nmea_cb;
         ret = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable_nmea, gps_handler_nmea_cb, HANDLER_DATA_NMEA);
 
@@ -497,11 +616,14 @@ static int gps_handler_send_extra_command(Handler *self , char *command)
     int ret = ERROR_NONE;
     LS_LOG_DEBUG("gps_handler_send_extra_command");
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin->ops.send_extra_command, ERROR_NOT_AVAILABLE);
+
     ret = priv->gps_plugin->ops.send_extra_command(priv->gps_plugin->plugin_handler, command);
     if(strcmp("delete_aiding_data", command) == 0)
        priv->ttffstate = FALSE;
+
     return ret;
 }
 
@@ -517,8 +639,11 @@ static int gps_handler_get_gps_status(Handler *self , StatusCallback status_cb)
 {
     LS_LOG_DEBUG("gps_handler_get_gps_status");
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(status_cb, ERROR_NOT_AVAILABLE);
+
     priv->status_cb = status_cb;
+
     return  ERROR_NONE;
 }
 /**
@@ -534,9 +659,12 @@ static int gps_handler_set_gps_parameters(Handler *self , char *command)
     int ret = ERROR_NONE;
     LS_LOG_DEBUG("gps_handler_set_gps_parameters");
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->gps_plugin->ops.set_gps_parameters, ERROR_NOT_AVAILABLE);
+
     ret = priv->gps_plugin->ops.set_gps_parameters(priv->gps_plugin->plugin_handler, command);
+
     return ret;
 }
 /**
@@ -565,6 +693,7 @@ static void dispose(GObject *gobject)
 static void finalize(GObject *gobject)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(gobject);
+
     g_return_if_fail(priv);
     LS_LOG_DEBUG("finalizing gps handler\n");
 
@@ -574,7 +703,9 @@ static void finalize(GObject *gobject)
     }
 
     g_mutex_clear(&priv->mutex);
+
     memset(priv, 0x00, sizeof(GpsHandlerPrivate));
+
     G_OBJECT_CLASS(gps_handler_parent_class)->finalize(gobject);
 }
 
@@ -595,21 +726,15 @@ static void handler_interface_init(HandlerInterface *iface)
     iface->get_position = (TYPE_GET_POSITION) gps_handler_get_position;
     iface->start_tracking = (TYPE_START_TRACK) gps_handler_start_tracking;
     iface->get_last_position = (TYPE_GET_LAST_POSITION) gps_handler_get_last_position;
-    iface->get_velocity = (TYPE_GET_VELOCITY) gps_handler_function_not_implemented;
-    iface->get_last_velocity = (TYPE_GET_LAST_VELOCITY) gps_handler_function_not_implemented;
-    iface->get_accuracy = (TYPE_GET_ACCURACY) gps_handler_function_not_implemented;
-    iface->get_power_requirement = (TYPE_GET_POWER_REQ) gps_handler_function_not_implemented;
     iface->get_ttfx = (TYPE_GET_TTFF) gps_handler_get_time_to_first_fix;
     iface->get_sat_data = (TYPE_GET_SAT) gps_handler_get_gps_satellite_data;
     iface->get_nmea_data = (TYPE_GET_NMEA) gps_handler_get_nmea_data;
     iface->send_extra_cmd = (TYPE_SEND_EXTRA) gps_handler_send_extra_command;
-    iface->get_cur_handler = (TYPE_GET_CUR_HANDLER) gps_handler_function_not_implemented;
-    iface->set_cur_handler = (TYPE_SET_CUR_HANDLER) gps_handler_function_not_implemented;
-    iface->compare_handler = (TYPE_COMP_HANDLER) gps_handler_function_not_implemented;
     iface->get_geo_code = (TYPE_GEO_CODE) gps_handler_function_not_implemented;
     iface->get_rev_geocode = (TYPE_REV_GEO_CODE) gps_handler_function_not_implemented;
     iface->get_gps_status = (TYPE_GET_GPS_STATUS) gps_handler_get_gps_status;
     iface->set_gps_params = (TYPE_SET_GPS_PARAMETERS) gps_handler_set_gps_parameters;
+    iface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) gps_handler_start_tracking_criteria;
 }
 
 /**
@@ -621,8 +746,11 @@ static void handler_interface_init(HandlerInterface *iface)
 static void gps_handler_init(GpsHandler *self)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
     g_return_if_fail(priv);
+
     memset(priv, 0, sizeof(GpsHandlerPrivate));
+
     priv->gps_plugin = (GpsPlugin *) plugin_new("gps");
 
     if (priv->gps_plugin == NULL) {
@@ -641,7 +769,9 @@ static void gps_handler_init(GpsHandler *self)
 static void gps_handler_class_init(GpsHandlerClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+
     gobject_class->dispose = dispose;
     gobject_class->finalize = finalize;
+
     g_type_class_add_private(klass, sizeof(GpsHandlerPrivate));
 }

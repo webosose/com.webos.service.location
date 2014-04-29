@@ -35,6 +35,8 @@
 #include <cjson/json.h>
 #include <pthread.h>
 #include <LocationService_Log.h>
+#include <LunaCriteriaCategoryHandler.h>
+
 #define SHORT_RESPONSE_TIME  10000;
 #define MEDIUM_RESPONSE_TIME  100000;
 #define LONG_RESPONSE_TIME  150000;
@@ -47,12 +49,17 @@
 #define MAX_RESULT_LENGTH 400
 #define MAX_GETSTATE_PARAM 32
 #define TIME_SCALE_SEC 1000
+#define LOCATION_SERVICE_NAME           "com.palm.location"
+#define LOCATION_SERVICE_ALIAS_LGE_NAME "com.lge.location"
+
 #define LSERROR_CHECK_AND_PRINT(ret)\
-    if(ret == false) \
-    { \
-        LSErrorPrintAndFree(&mLSError);\
-        return false; \
-    }
+    do {                          \
+        if (ret == false) {               \
+            LSErrorPrintAndFree(&mLSError);\
+            return false; \
+        }                 \
+    } while (0)
+
 #define LOCATION_ASSERT(cond) \
     do {                    \
         if (!(cond)) {                      \
@@ -78,15 +85,15 @@ public:
         LSHandle *GetHandle() const {
             return m_sh;
         }
-        ;
+
         LSMessage *GetMessage() const {
             return m_message;
         }
-        ;
+
         unsigned char GetHandlerType() const {
             return m_handlerType;
         }
-        ;
+
     private:
         LSMessage *m_message;
         LSHandle *m_sh;
@@ -106,28 +113,27 @@ public:
         LSHandle *GetHandle() const {
             return m_sh;
         }
-        ;
+
         LSMessage *GetMessage() const {
             return m_msg;
         }
-        ;
         guint GetTimerID() const {
             return m_timerID;
         }
-        ;
+
         TimerData *GetTimerData() {
             return m_timerdata;
         }
-        ;
+
         unsigned char GetReqHandlerType() const {
             return m_handlerType;
         }
-        ;
+
         //Multiple handler started, one failed then wait for other reply [START]
         void UpdateReqHandlerType(unsigned char tmp) {
             m_handlerType = tmp;
         }
-        ;
+
         //Multiple handler started, one failed then wait for other reply [STOP]
         TimerData *m_timerdata;
 
@@ -142,42 +148,45 @@ public:
     bool init(GMainLoop *);
     bool locationServiceRegister(char *srvcname, GMainLoop *mainLoop, LSPalmService **mServiceHandle);
     static LocationService *getInstance();
-    static int method;
 
-    enum SERVICE_STATE {
-        SERVICE_NOT_RUNNING = 0,
-        SERVICE_GETTING_READY,
-        SERVICE_READY
-    };
+    // /**Callback called from Handlers********/
+    static void wrapper_getNmeaData_cb(gboolean enable_cb, int64_t timestamp, char *nmea, int length, gpointer privateIns);
+    static void wrapper_getCurrentPosition_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int handlerType);
+    static void wrapper_startTracking_cb(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error, gpointer privateIns, int type);
+    static void wrappergetReverseLocation_cb(gboolean enable_cb, Address *address, gpointer privateIns);
+    static void wrapper_getGeoCodeLocation_cb(gboolean enable_cb, Position *position, gpointer privateIns);
+    static void wrapper_getGpsSatelliteData_cb(gboolean enable_cb, Satellite *satellite, gpointer privateIns);
+    static void wrapper_sendExtraCommand_cb(gboolean enable_cb, int command, gpointer privateIns);
+    static void wrapper_gpsStatus_cb(gboolean enable_cb, int state, gpointer data);
 
-    void startCellIDHandler();
     static bool _getNmeaData(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getNmeaData(sh, message, NULL);
     }
+
     static bool _getCurrentPosition(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getCurrentPosition(sh, message, NULL);
     }
+
     static bool _startTracking(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->startTracking(sh, message, NULL);
     }
-    static bool _startTrackingBestPosition(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->startTrackingBestPosition(sh, message, NULL);
-    }
+
     static bool _getReverseLocation(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getReverseLocation(sh, message, NULL);
     }
+
     static bool _getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getGeoCodeLocation(sh, message, NULL);
     }
+
     static bool _getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getAllLocationHandlers(sh, message, NULL);
     }
-    static bool _SetGpsStatus(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->SetGpsStatus(sh, message, NULL);
+
+    static bool _getGpsStatus(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->getGpsStatus(sh, message, NULL);
     }
-    static bool _GetGpsStatus(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->GetGpsStatus(sh, message, NULL);
-    }
+
     static bool _setState(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->setState(sh, message, NULL);
     }
@@ -191,11 +200,13 @@ public:
     }
 
     static bool _setGPSParameters(LSHandle *sh, LSMessage *message, void *data){
-    return ((LocationService *) data)->setGPSParameters(sh, message, NULL);
+        return ((LocationService *) data)->setGPSParameters(sh, message, NULL);
     }
-     static bool _stopGPS(LSHandle *sh, LSMessage *message, void *data){
-    return ((LocationService *) data)->stopGPS(sh, message, NULL);
+
+    static bool _stopGPS(LSHandle *sh, LSMessage *message, void *data){
+        return ((LocationService *) data)->stopGPS(sh, message, NULL);
     }
+
     static bool _getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getLocationHandlerDetails(sh, message, NULL);
     }
@@ -203,54 +214,32 @@ public:
     static bool _getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getGpsSatelliteData(sh, message, NULL);
     }
+
     static bool _getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getTimeToFirstFix(sh, message, NULL);
     }
-    static bool _test(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->test(sh, message, NULL);
-    }
+
     static bool _cancelSubscription(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->cancelSubscription(sh, message, NULL);
     }
 
-    /**** Callbacks from C********************************/
-
-    static void start_tracking_cb(Position *pos, Accuracy *accuracy, int error, gpointer privateIns, int type) {
-        getInstance()->startTracking_reply(pos, accuracy, error, type);
-    }
-    static void get_nmea_cb(gboolean enable_cb, int timestamp, char *data, int length, gpointer privateIns) {
-        //((LocationService*)privateIns)->get_nmea_reply(timestamp,data,length);
-        getInstance()->get_nmea_reply(timestamp, data, length);
-    }
-
-    static void getCurrentPosition_cb(Position *pos, Accuracy *accuracy, int error, gpointer privateIns, int handlerType) {
-        getInstance()->getCurrentPosition_reply(pos, accuracy, error, handlerType);
-    }
-
-    static void getGpsSatelliteData_cb(gboolean enable_cb, Satellite *satellite, gpointer privateIns) {
-        getInstance()->getGpsSatelliteData_reply(satellite);
-    }
-
-    static void getGpsStatus_cb(int state) {
-        getInstance()->getGpsStatus_reply(state);
-    }
-
-    static int CreateSharedPref();
-    static bool GetWifiApsList_cb(LSHandle *sh, LSMessage *reply, void *ctx) {
-        return getInstance()->_GetWifiApsList_cb(sh, reply, ctx);
-    }
     static gboolean TimerCallback(void *data) {
         return getInstance()->_TimerCallback(data);
     }
+
     bool getHandlerStatus(const char *);
     bool loadHandlerStatus(const char *handler);
+
     void setServiceState(int state) {
         m_service_state = state;
     }
+
     LSHandle *getPrivatehandle() {
         return LSPalmServiceGetPrivateConnection(mServiceHandle);
     }
+
     void setWifiState(bool state) {
+
         if (state == true) {
             LS_LOG_DEBUG("WIFI turned on");
         } else {
@@ -259,28 +248,40 @@ public:
 
         wifistate = state;
     }
-    void updateConntionManagerState(bool state) {
+    bool getWifiState() {
+        return wifistate;
+    }
+    void updateConnectionManagerState(bool state) {
+
         if (state == true) {
-            LS_LOG_DEBUG("Internet connetion available");
+            LS_LOG_DEBUG("Internet connection available");
         } else {
             LS_LOG_DEBUG("Internet connection not available");
         }
 
         isInternetConnectionAvailable = state; //state; for TESTING
-        //TODO START HANDLER WHEN INTERNET CONNECTION IS ENABLED
-        /*if(isInternetConnectionAvailable && getHandlerStatus(NETWORK))
-         startCellIDHandler();*/
     }
+    bool getConnectionManagerState() {
+        return isInternetConnectionAvailable;
+    }
+
     void updateTelephonyState(bool state) {
+
         if (state == true) {
-            LS_LOG_DEBUG("Telephony connetion available");
+            LS_LOG_DEBUG("Telephony connection available");
         } else {
             LS_LOG_DEBUG("Telephony connection not available");
         }
 
         isTelephonyAvailable = state; //state; for TESTING
     }
+
+    bool getTelephonyState() {
+        return isTelephonyAvailable;
+    }
+
     void updateWifiInternetState(bool state) {
+
         if (state == true) {
             LS_LOG_DEBUG("WIfi Internet connetion available");
         } else {
@@ -290,19 +291,35 @@ public:
         isWifiInternetAvailable = state; //state; for TESTING
     }
 
-    void LocationService::Handle_WifiNotification(bool wifi_state) {
+    bool getWifiInternetState() {
+        return isWifiInternetAvailable;
+    }
+
+    void Handle_WifiNotification(bool wifi_state) {
         setWifiState(wifi_state);
     }
-    void LocationService::Handle_ConnectivityNotification(bool Conn_state) {
-        updateConntionManagerState(Conn_state);
+
+    void Handle_ConnectivityNotification(bool Conn_state) {
+        updateConnectionManagerState(Conn_state);
     }
-    void LocationService::Handle_TelephonyNotification(bool Tele_state) {
+
+    void Handle_TelephonyNotification(bool Tele_state) {
         updateTelephonyState(Tele_state);
     }
-    void LocationService::Handle_WifiInternetNotification(bool Internet_state) {
+
+    void Handle_WifiInternetNotification(bool Internet_state) {
         updateWifiInternetState(Internet_state);
     }
 
+    char* positionErrorText(int errorCode) {
+        return locationErrorText[errorCode];
+    }
+
+    bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
+    bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
+    bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
+    void stopNonSubcription(const char *key);
+    bool isSubscListFilled(LSHandle *sh, const char *key,bool cancelCase);
 
 private:
     bool mGpsStatus;
@@ -319,89 +336,11 @@ private:
     bool isInternetConnectionAvailable;
     bool isTelephonyAvailable;
     bool isWifiInternetAvailable;
-    LocationService();
-    //mapped with HandlerTypes
-    Handler *handler_array[HANDLER_MAX];
-
-    char* locationErrorText[LOCATION_MAXIMUM] {
-    "Success" , //LOCATION_SUCCESS
-    "TimeOut", //LOCATION_TIMEOUT,
-    "Handler Not Available", //GET_STATE_HANDLER_NOT_AVAILABLE,
-    "Invalid input" , //GET_STATE_HANDLER_INVALID_INPUT,
-    "Unknown error", //GET_STATE_UNKNOWN_ERROR
-    "Out of Memory", //GET_STATE_OUT_OF_MEM
-    "No internet connection"
-    };
-
-    char* trakingErrorText[TRACKING_MAXIMUM] {
-    "Success" , //TRACKING_SUCCESS
-    "TimeOut", //TRACKING_TIMEOUT,
-    "Position Not Available", //TRACKING_POS_NOT_AVAILABLE,
-    "Unknown error" , //TRACKING_UNKNOWN_ERROR,
-    "Gps Not supported", //TRACKING_GPS_UNAVAILABLE,
-    "Location Source is off", //TRACKING_LOCATION_OFF,
-    "Request Pending" , //TRACKING_PENDING_REQ,
-    "App is blacklisted", //TRACKING_APP_BLACK_LISTED,
-    "Handler start failure", //HANDLER_START_FAILURE,
-    "state unknown",//STATE_UNKNOWN
-    "Invalid Input",
-    "No internet connection",
-    "Wifi is not turned On" //TRACKING_WIFI_CONNECTION_OFF
-    };
-
-
-    //ServiceAgentProp *service_agent_prop;
-    bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
-    bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);
-    bool startTracking(LSHandle *sh, LSMessage *message, void *data);
-    bool startTrackingBestPosition(LSHandle *sh, LSMessage *message, void *data);
-    bool getReverseLocation(LSHandle *sh, LSMessage *message, void *data);
-    bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
-    bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
-    bool SetGpsStatus(LSHandle *sh, LSMessage *message, void *data);
-    bool GetGpsStatus(LSHandle *sh, LSMessage *message, void *data);
-    bool getState(LSHandle *sh, LSMessage *message, void *data);
-    bool setState(LSHandle *sh, LSMessage *message, void *data);
-    bool sendExtraCommand(LSHandle *sh, LSMessage *message, void *data);
-    bool setGPSParameters(LSHandle * sh, LSMessage * message, void * data);
-    bool stopGPS(LSHandle * sh, LSMessage * message, void * data);
-    bool getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data);
-    bool getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data);
-    bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
-    bool test(LSHandle *sh, LSMessage *message, void *data);
-    bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
-    bool _GetWifiApsList_cb(LSHandle *sh, LSMessage *reply, void *ctx);
-    gboolean _TimerCallback(void *data);
-    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge, int accuracy, unsigned char handlerstatus);
-    bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *);
-    bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
-    int ConvetResponseTimeFromLevel(int accLevel, int responseTimeLevel);
-    bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh);
-    bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc, int type);
-    void getServiceListString(char *);
-    int geocluecall(double *, double *);
-
-    void startTracking_reply(Position *pos, Accuracy *acc, int, int);
-    void startTrackingBestPosition_reply(struct json_object *, Accuracy *acc);
-    void get_nmea_reply(int timestamp, char *data, int length);
-    void getCurrentPosition_reply(Position *, Accuracy *, int, int);
-    void getGpsSatelliteData_reply(Satellite *);
-    void getGpsStatus_reply(int);
-    void stopSubcription(LSHandle *sh, const char *key);
-    void LocationService::stopNonSubcription(const char *key);
-    bool isSubscListEmpty(LSHandle *sh, const char *key);
-    bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
-    bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
-    void LSErrorPrintAndFree(LSError *ptrLSError);
-    void startWifiHandler(void);
-    bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
-
     int m_service_state;
     static bool instanceFlag;
     static LocationService *locService;
     static LSMethod rootMethod[];
     static LSMethod prvMethod[];
-    static LSMethod jsMethod[];
     unsigned char trackhandlerstate;
 
     LSPalmService *mServiceHandle;
@@ -422,6 +361,61 @@ private:
     pthread_mutex_t pos_nw_lock;
     pthread_mutex_t nmea_lock;
     pthread_mutex_t sat_lock;
+    LunaCriteriaCategoryHandler *criteriaCatSvrc;
+    //mapped with HandlerTypes
+    Handler *handler_array[HANDLER_MAX];
+
+
+    char* locationErrorText[LOCATION_TRACKING_MAXIMUM] {
+    "Success" , //TRACKING_SUCCESS
+    "Time out", //TRACKING_TIMEOUT,
+    "Position not available", //TRACKING_POS_NOT_AVAILABLE,
+    "Unknown error" , //TRACKING_UNKNOWN_ERROR,
+    "Gps not supported", //TRACKING_GPS_UNAVAILABLE,
+    "Location source is off", //TRACKING_LOCATION_OFF,
+    "Request pending" , //TRACKING_PENDING_REQ,
+    "Application is blacklisted", //TRACKING_APP_BLACK_LISTED,
+    "Handler start failure", //HANDLER_START_FAILURE,
+    "State unknown",//STATE_UNKNOWN
+    "Invalid input",
+    "No internet connection",
+    "Wifi is not turned on", //TRACKING_WIFI_CONNECTION_OFF
+    "Out of memory" //GET_STATE_OUT_OF_MEM
+    };
+
+    LocationService();
+    bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
+    bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);
+    bool startTracking(LSHandle *sh, LSMessage *message, void *data);
+    bool getReverseLocation(LSHandle *sh, LSMessage *message, void *data);
+    bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
+    bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
+    bool getGpsStatus(LSHandle *sh, LSMessage *message, void *data);
+    bool getState(LSHandle *sh, LSMessage *message, void *data);
+    bool setState(LSHandle *sh, LSMessage *message, void *data);
+    bool sendExtraCommand(LSHandle *sh, LSMessage *message, void *data);
+    bool setGPSParameters(LSHandle * sh, LSMessage * message, void * data);
+    bool stopGPS(LSHandle * sh, LSMessage * message, void * data);
+    bool getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data);
+    bool getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data);
+    bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
+    bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
+    gboolean _TimerCallback(void *data);
+    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge, int accuracy, unsigned char handlerstatus);
+    bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *);
+    bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
+    int  convertResponseTimeFromLevel(int accLevel, int responseTimeLevel);
+    bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh);
+    bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc, int type);
+
+    void startTracking_reply(Position *pos, Accuracy *acc, int, int);
+    void get_nmea_reply(long long timestamp, char *data, int length);
+    void getCurrentPosition_reply(Position *, Accuracy *, int, int);
+    void getGpsSatelliteData_reply(Satellite *);
+    void getGpsStatus_reply(int);
+    void stopSubcription(LSHandle *sh, const char *key);
+    void LSErrorPrintAndFree(LSError *ptrLSError);
+    void criteriaStopSubscription(LSHandle *sh, LSMessage *message);
 };
 
 #endif  //  H_LocationService

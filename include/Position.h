@@ -11,8 +11,8 @@
  * Filename     : Position.h
  * Purpose      : Common location related variables & functions.
  * Platform     : RedRose
- * Author(s)    : Rajesh Gopu I.V
- * Email ID.    : rajeshgopu.iv@lge.com
+ * Author(s)    : Rajesh Gopu I.V, Abhishek Srivastava
+ * Email ID.    : rajeshgopu.iv@lge.com, abhishek.srivastava@lge.com
  * Creation Date: 14-02-2013
  *
  * Modifications:
@@ -51,6 +51,22 @@ typedef enum {
     //accuracy
 } LocationFields;
 
+typedef enum _GpsAccuracyLevel {
+    ACCURACY_LEVEL_NONE = 0,
+    ACCURACY_LEVEL_COUNTRY,
+    ACCURACY_LEVEL_REGION,
+    ACCURACY_LEVEL_LOCALITY,
+    ACCURACY_LEVEL_POSTALCODE,
+    ACCURACY_LEVEL_STREET,
+    ACCURACY_LEVEL_DETAILED,
+} GpsAccuracyLevel;
+
+struct _Accuracy {
+    GpsAccuracyLevel level;
+    gdouble horizAccuracy;
+    gdouble vertAccuracy;
+};
+
 typedef struct {
     guint prn;
     gdouble snr;
@@ -62,7 +78,7 @@ typedef struct {
 } SatelliteInfo;
 
 struct _Position {
-    guint64 timestamp;
+    gint64 timestamp;
     gdouble latitude;
     gdouble longitude;
     gdouble altitude;
@@ -71,18 +87,6 @@ struct _Position {
     gdouble climb;
 };
 
-struct _Velocity {
-    guint timestamp;
-    gdouble speed;
-    gdouble direction;
-    gdouble climb;
-};
-
-struct _Nmea {
-    guint timestamp;
-    guint len;
-    char *data;
-};
 
 struct _Satellite {
     guint num_satellite_used;
@@ -90,19 +94,31 @@ struct _Satellite {
     SatelliteInfo *sat_used;
 };
 
-Position *position_create(guint64 timestamp, gdouble latitude, gdouble longitude, gdouble altitude, gdouble speed,
-                          gdouble direction, gdouble climb,
+Position *position_create(gint64 timestamp,
+                          gdouble latitude,
+                          gdouble longitude,
+                          gdouble altitude,
+                          gdouble speed,
+                          gdouble direction,
+                          gdouble climb,
                           int flags);
 void position_free(Position *position);
 
-Velocity *velocity_create(guint timestamp, gdouble speed, gdouble direction, gdouble climp, int flags);
-void velocity_free(Velocity *velocity);
-
 Satellite *satellite_create(guint visible_satellites_count);
-int set_satellite_details(Satellite *satellite, gint index, gdouble snr, guint prn, gdouble elevation, gdouble azimuth,
+int set_satellite_details(Satellite *satellite,
+                          gint index,
+                          gdouble snr,
+                          guint prn,
+                          gdouble elevation,
+                          gdouble azimuth,
                           gboolean used,
-                          gboolean hasalmanac, gboolean hasephemeris);
+                          gboolean hasalmanac,
+                          gboolean hasephemeris);
 void satellite_free(Satellite *satellite);
+
+
+Accuracy *accuracy_create(GpsAccuracyLevel level, gdouble horizontal_accuracy, gdouble vertical_accuracy);
+void accuracy_free(Accuracy *accuracy);
 
 G_END_DECLS
 

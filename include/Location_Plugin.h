@@ -11,8 +11,8 @@
  * Filename     : Location_Plugin.h
  * Purpose      : Structures & API's common to all plugins
  * Platform     : RedRose
- * Author(s)    : rajeshg gopu
- * Email ID.    : rajeshgopu.iv@lge.com
+ * Author(s)    : rajeshg gopu, Abhishek Srivastava
+ * Email ID.    : rajeshgopu.iv@lge.com , abhishek.srivastava@lge.com
  * Creation Date: 14-02-2013
  *
  * Modifications:
@@ -43,49 +43,6 @@
 typedef void (*PositionCallback)(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer userdata, int type);
 
 /**
- * <Funciton>       LastPositionCallback
- * <Description>    Callback to get Last position
- * @param           <enable_cb> <In> <enable/disable the callback>
- * @param           <Position> <In> <Position info>
- * @param           <Accuracy> <In> <Accuracy info>
- * @param           <userdata> <In> <Gobject private instance>
- * @return          void
- */
-typedef void (*LastPositionCallback)(gboolean enable_cb, Position *lastPosition, Accuracy *accuracy, gpointer userdata);
-
-/**
- * <Funciton >   VelocityCallback
- * <Description>  gCallback to get  Velocity
- * @param     <enable_cb> <In> <enable/disable the callback>
- * @param     <Velocity> <In> <Velocity info>
- * @param     <Accuracy> <In> <Accuracy info>
- * @param     <userdata> <In> <Gobject private instance>
- * @return    int
- */
-typedef void (*VelocityCallback)(gboolean enable_cb, Velocity *velocity, Accuracy *accuracy, gpointer userdata);
-
-/**
- * <Funciton >   handler_stop
- * <Description>  geCallback to get last velocity
- * @param     <enable_cb> <In> <enable/disable the callback>
- * @param     <Velocity> <In> <Velocity info>
- * @param     <Accuracy> <In> <Accuracy info>
- * @param     <userdata> <In> <Gobject private instance>
- * @return    int
- */
-typedef void (*LastVelocityCallback)(gboolean enable_cb, Velocity *velocity, Accuracy *accuracy, gpointer userdata);
-
-/**
- * <Funciton >   handler_stop
- * <Description>  Callback to get Accuracy
- * @param     <enable_cb> <In> <enable/disable the callback>
- * @param     <Accuracy> <In> <Accuracy info>
- * @param     <userdata> <In> <Gobject private instance>
- * @return    int
- */
-typedef void (*AccuracyCallback)(gboolean enable_cb, Accuracy *accuracy, gpointer userdata);
-
-/**
  * <Funciton >   handler_stop
  * <Description>  Callback to get NMEA data
  * @param     <enable_cb> <In> <enable/disable the callback>
@@ -94,7 +51,7 @@ typedef void (*AccuracyCallback)(gboolean enable_cb, Accuracy *accuracy, gpointe
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-typedef void (*NmeaCallback)(gboolean enable_cb, int timestamp, char *data, int length, gpointer userdata);
+typedef void (*NmeaCallback)(gboolean enable_cb, int64_t timestamp, char *data, int length, gpointer userdata);
 
 /**
  * <Funciton >   StatusCallback

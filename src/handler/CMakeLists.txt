@@ -7,18 +7,17 @@
 set(LOCATION_SERVICE_NAME location)
 set(SRC
         ${PROJECT_SOURCE_DIR}/src/Main.cpp
-        ${PROJECT_SOURCE_DIR}/src/LocationManagerService.c
         ${PROJECT_SOURCE_DIR}/ServiceAgent/LocationService.cpp
         ${PROJECT_SOURCE_DIR}/ServiceAgent/ConnectionStateObserver.cpp
         ${PROJECT_SOURCE_DIR}/ServiceAgent/JsonUtility.c
-        ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaLocationService_Util.cpp
+        ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaLocationServiceUtil.cpp
+        ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaCriteriaCategoryHandler.cpp
         Gps_Handler.c
         Wifi_Handler.c
         Handler_Interface.c
         Cell_Handler.c
         Plugin_Loader.c
         Position.c
-        Velocity.c
         Accuracy.c
         Address.c
         Satellite.c

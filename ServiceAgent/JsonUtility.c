@@ -22,7 +22,6 @@
  **********************************************************/
 #include <cjson/json.h>
 #include <Position.h>
-#include <Accuracy.h>
 #include <Address.h>
 #include <glib.h>
 #include <glib-object.h>
@@ -30,12 +29,9 @@
 
 void location_util_add_pos_json(struct json_object *serviceObject, Position *pos)
 {
-    char str[50];
-
     if (!serviceObject || !pos)
         return;
 
-    sprintf(str, "%lld", pos->timestamp);
     json_object_object_add(serviceObject, "timestamp", json_object_new_double(pos->timestamp));
     json_object_object_add(serviceObject, "latitude", json_object_new_double(pos->latitude));
     json_object_object_add(serviceObject, "longitude", json_object_new_double(pos->longitude));
@@ -77,30 +73,6 @@ void location_util_add_acc_json(struct json_object *serviceObject, Accuracy *acc
     json_object_object_add(serviceObject, "vertAccuracy", json_object_new_double(acc->vertAccuracy));
 }
 
-void location_util_add_vel_json(struct json_object *serviceObject, Velocity *velocity)
-{
-    if (!serviceObject || !velocity)
-        return;
-
-    json_object_object_add(serviceObject, "heading", json_object_new_double(velocity->direction));
-    json_object_object_add(serviceObject, "velocity", json_object_new_double(velocity->speed));
-}
-
-void testjson(struct json_object *serviceObject)
-{
-    if (!serviceObject) return;
-
-    json_object_object_add(serviceObject, "altitude", json_object_new_double(0));
-    json_object_object_add(serviceObject, "errorCode", json_object_new_int(0));
-    json_object_object_add(serviceObject, "heading", json_object_new_double(0));
-    json_object_object_add(serviceObject, "horizAccuracy", json_object_new_double(54));
-    json_object_object_add(serviceObject, "latitude", json_object_new_double(12.936127));
-    json_object_object_add(serviceObject, "longitude", json_object_new_double(77.693872));
-    json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
-    json_object_object_add(serviceObject, "timestamp", json_object_new_double(1365568908));
-    json_object_object_add(serviceObject, "velocity", json_object_new_double(0));
-    json_object_object_add(serviceObject, "vertAccuracy", json_object_new_double(0));
-}
 bool location_util_parsejsonAddress(struct json_object *m_JsonArgument, Address *addr)
 {
     bool mRetVal;

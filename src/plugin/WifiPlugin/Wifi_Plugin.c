@@ -25,9 +25,7 @@
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Position.h>
-#include <Accuracy.h>
 #include <geoclue/geoclue-position.h>
-
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-provider.h>
 #include <geoclue/geoclue-types.h>
@@ -67,6 +65,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     GError *error = NULL;
     options = g_hash_table_new(g_str_hash, g_str_equal);
     gvalue = g_new0(GValue, 1);
+
     g_value_init(gvalue, G_TYPE_STRING);
     g_value_set_string(gvalue, value);
     g_hash_table_insert(options, key, gvalue);
@@ -80,14 +79,17 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     }
 
     LS_LOG_DEBUG("[DEBUG] Success to geoclue_provider_set_options(%s)", gvalue);
+
     g_free(gvalue);
     g_hash_table_destroy(options);
+
     return TRUE;
 }
 
 static void status_cb(GeoclueProvider *provider, GeoclueStatus status, gpointer userdata)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) userdata;
+
     g_return_if_fail(geoclueWifi);
 
     switch (status) {
@@ -126,7 +128,7 @@ static void status_cb(GeoclueProvider *provider, GeoclueStatus status, gpointer 
  */
 static void position_cb_async(GeocluePosition *position,
                               GeocluePositionFields fields,
-                              int timestamp,
+                              int64_t timestamp,
                               double latitude,
                               double longitude,
                               double altitude,
@@ -158,6 +160,7 @@ static void position_cb_async(GeocluePosition *position,
         geoclue_accuracy_get_details(accuracy, &level, &hor_acc, &vert_acc);
     else
         hor_acc = INVALID_PARAM;
+
     fields = fields | POSITION_FIELDS_ALTITUDE | VELOCITY_FIELDS_SPEED | VELOCITY_FIELDS_DIRECTION | VELOCITY_FIELDS_CLIMB;
     ret_pos = position_create(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, fields);
     ret_acc = accuracy_create(level, hor_acc, INVALID_PARAM);
@@ -169,7 +172,9 @@ static void position_cb_async(GeocluePosition *position,
 DONE:
 
     if (geoclueWifi && geoclueWifi->position_cb) {
+
         set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_WIFI);
+
         (*(geoclueWifi->position_cb))(TRUE, ret_pos, ret_acc, error_code, geoclueWifi->userdata, HANDLER_WIFI);
     }
 
@@ -195,7 +200,7 @@ DONE:
  */
 static void tracking_cb(GeocluePosition *position,
                         GeocluePositionFields fields,
-                        int timestamp,
+                        int64_t timestamp,
                         double latitude,
                         double longitude,
                         double altitude,
@@ -208,14 +213,17 @@ static void tracking_cb(GeocluePosition *position,
     double hor_acc = DEFAULT_VALUE;
     double vert_acc = DEFAULT_VALUE;
     GeoclueAccuracyLevel level = GEOCLUE_ACCURACY_LEVEL_NONE;
+
     g_return_if_fail(geoclueWifi);
     g_return_if_fail(geoclueWifi->tracking_cb);
+
     LS_LOG_DEBUG("[DEBUG] tracking_cb: latitude = %f, longitude = %f\n", latitude, longitude);
 
     if (accuracy)
         geoclue_accuracy_get_details(accuracy, &level, &hor_acc, &vert_acc);
     else
         hor_acc = INVALID_PARAM;
+
     fields = fields | POSITION_FIELDS_ALTITUDE | VELOCITY_FIELDS_SPEED | VELOCITY_FIELDS_DIRECTION | VELOCITY_FIELDS_CLIMB;
     ret_pos = position_create(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, fields);
     ret_acc = accuracy_create(level, hor_acc, INVALID_PARAM);
@@ -224,7 +232,9 @@ static void tracking_cb(GeocluePosition *position,
         return;
 
     set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_WIFI);
+
     (*(geoclueWifi->tracking_cb))(TRUE, ret_pos, ret_acc, ERROR_NONE, geoclueWifi->userdata, HANDLER_WIFI);
+
     position_free(ret_pos);
     accuracy_free(ret_acc);
 }
@@ -288,7 +298,9 @@ static gboolean intialize_wifi_geoclue_service(GeoclueWifi *geoclueWifi)
 static int start(gpointer handle, gpointer userdata)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) handle;
+
     g_return_val_if_fail(geoclueWifi, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("[DEBUG] start called\n");
     geoclueWifi->userdata = userdata;
 
@@ -308,8 +320,10 @@ static int stop(gpointer handle)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) handle;
     g_return_val_if_fail(geoclueWifi, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("[DEBUG] stop called\n");
     unreference_geoclue(geoclueWifi);
+
     return ERROR_NONE;
 }
 
@@ -324,10 +338,13 @@ static int stop(gpointer handle)
 static int get_position(gpointer handle, PositionCallback pos_cb)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) handle;
+
     g_return_val_if_fail(geoclueWifi, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(geoclueWifi->geoclue_pos, ERROR_NOT_AVAILABLE);
+
     geoclueWifi->position_cb = pos_cb;
     geoclue_position_get_position_async(geoclueWifi->geoclue_pos, (GeocluePositionCallback) position_cb_async, geoclueWifi);
+
     return ERROR_NONE;
 }
 
@@ -341,8 +358,10 @@ static int get_position(gpointer handle, PositionCallback pos_cb)
 static int start_tracking(gpointer handle, gboolean enable, StartTrackingCallBack track_cb)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) handle;
+
     g_return_val_if_fail(geoclueWifi, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(geoclueWifi->geoclue_pos, ERROR_NOT_AVAILABLE);
+
     geoclueWifi->tracking_cb = NULL;
 
     if (enable) {
@@ -379,10 +398,12 @@ EXPORT_API gpointer init(WifiPluginOps *ops)
     LS_LOG_DEBUG("[DEBUG] init called\n");
     geoclueWifi = g_new0(GeoclueWifi, 1);
     g_return_val_if_fail(geoclueWifi, NULL);
+
     ops->start = start;
     ops->stop = stop;
     ops->get_position = get_position;
     ops->start_tracking = start_tracking;
+
     return (gpointer) geoclueWifi;
 }
 
@@ -396,8 +417,10 @@ EXPORT_API void shutdown(gpointer handle)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) handle;
     g_return_if_fail(geoclueWifi);
+
     LS_LOG_DEBUG("[DEBUG] shutdown called\n");
     unreference_geoclue(geoclueWifi);
+
     g_free(geoclueWifi);
 }
 

@@ -38,6 +38,8 @@ typedef struct _NwHandlerPrivate {
     PositionCallback pos_cb_arr[MAX_HANDLER_TYPE];
     PositionCallback nw_cb_arr[MAX_HANDLER_TYPE];
     StartTrackingCallBack track_cb;
+    StartTrackingCallBack track_criteria_cb;
+
 
 } NwHandlerPrivate;
 
@@ -61,7 +63,9 @@ void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accurac
 {
     LS_LOG_DEBUG("[DEBUG]NW  nw_handler_position_wifi_cb callback called  %d , type %d\n", enable_cb, type);
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
+
     g_return_if_fail(priv->pos_cb_arr[type]);
+
     (priv->pos_cb_arr[type])(enable_cb, position, accuracy, error, priv, type); //call SA position callback
 }
 /**
@@ -75,9 +79,13 @@ void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accurac
 void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
+
     g_return_if_fail(priv);
-    g_return_if_fail(priv->track_cb);
-    (*(priv->track_cb))(enable_cb, position, accuracy, error, priv, type);
+    if(priv->track_cb)
+      (*(priv->track_cb))(enable_cb, position, accuracy, error, priv, type);
+
+    if(priv->track_criteria_cb != NULL)
+      (*(priv->track_criteria_cb))(enable_cb, position, accuracy, error, priv, type);
 }
 /**
  * <Funciton >   position_cb
@@ -91,7 +99,9 @@ void nw_handler_position_cell_cb(gboolean enable_cb, Position *position, Accurac
 {
     LS_LOG_DEBUG("[DEBUG]NW  nw_handler_position_cellid_cb callback called  %d \n", enable_cb);
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
+
     g_return_if_fail(priv->pos_cb_arr[type]);
+
     (*priv->pos_cb_arr[type])(enable_cb, position, accuracy, error, priv, type); //call SA position callback
 }
 /**
@@ -105,6 +115,7 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
     LS_LOG_DEBUG("[DEBUG]nw_handler_start Called handler type%d ", handler_type);
     NwHandlerPrivate *priv = GET_PRIVATE(handler_data);
     int ret = ERROR_NOT_AVAILABLE;
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     // This should call cell id start or Wifi start
@@ -133,6 +144,7 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
 
     return ret;
 }
+
 static void intialize_nw_handler(Handler *handler_data, int handler_type)
 {
     NwHandlerPrivate *priv = GET_PRIVATE(handler_data);
@@ -164,6 +176,7 @@ static int nw_handler_stop(Handler *self, int handlertype, gboolean forcestop)
     LS_LOG_DEBUG("[DEBUG]nw_handler_stop() \n");
     NwHandlerPrivate *priv = GET_PRIVATE(self);
     int ret = ERROR_NONE;
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     // This should call cell id stop or Wifi stop
@@ -185,12 +198,18 @@ static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallb
     LS_LOG_DEBUG("[DEBUG]nw_handler_get_position\n");
     int result = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("[DEBUG]nw_handler_get_position hanlder type [%d]\n", handlertype);
     priv->pos_cb_arr[handlertype] = pos_cb;
+
     g_return_val_if_fail(priv->handler_obj[handlertype], ERROR_NOT_AVAILABLE);
+
     result = handler_get_position(priv->handler_obj[handlertype], enable, priv->nw_cb_arr[handlertype], self, handlertype, sh);
+
     LS_LOG_DEBUG("[DEBUG]result : gps_handler_get_position %d  \n", result);
+
     return result;
 }
 /**
@@ -200,8 +219,12 @@ static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallb
  * @param     <self> <In> <Position callback function to get result>
  * @return    int
  */
-static void nw_handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handleobj, int handlertype,
-        LSHandle *sh)
+static void nw_handler_start_tracking(Handler *self,
+                                      gboolean enable,
+                                      StartTrackingCallBack track_cb,
+                                      gpointer handleobj,
+                                      int handlertype,
+                                      LSHandle *sh)
 {
     int result = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
@@ -222,6 +245,28 @@ static void nw_handler_start_tracking(Handler *self, gboolean enable, StartTrack
     LS_LOG_DEBUG("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);
 }
 
+static void nw_handler_start_tracking_criteria(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handleobj, int handlertype,
+        LSHandle *sh)
+{
+    int result = ERROR_NONE;
+    NwHandlerPrivate *priv = GET_PRIVATE(self);
+
+    if (priv == NULL)
+        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
+
+    priv->track_criteria_cb = NULL;
+
+    if (enable) {
+        priv->track_criteria_cb = track_cb;
+        LS_LOG_DEBUG("[DEBUG] nw_handler_start_tracking : priv->track_cb %d \n ", priv->track_criteria_cb);
+        handler_start_tracking_criteria(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
+    } else {
+        handler_start_tracking_criteria(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
+    }
+
+    LS_LOG_DEBUG("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);
+}
+
 /**
  * <Funciton >   handler_stop
  * <Description>  get the last position from the GPS handler
@@ -233,9 +278,12 @@ static int nw_handler_get_last_position(Handler *self, Position *position, Accur
 {
     int ret = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
     intialize_nw_handler(self, handlertype);
     ret = handler_get_last_position(HANDLER_INTERFACE(priv->handler_obj[handlertype]), position, accuracy, handlertype);
+
     return ret;
 }
 
@@ -293,19 +341,13 @@ static void nw_handler_interface_init(HandlerInterface *interface)
     interface->get_position = (TYPE_GET_POSITION) nw_handler_get_position;
     interface->start_tracking = (TYPE_START_TRACK) nw_handler_start_tracking;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) nw_handler_get_last_position;
-    interface->get_velocity = (TYPE_GET_VELOCITY) nw_handler_function_not_implemented;
-    interface->get_last_velocity = (TYPE_GET_LAST_VELOCITY) nw_handler_function_not_implemented;
-    interface->get_accuracy = (TYPE_GET_ACCURACY) nw_handler_function_not_implemented;
-    interface->get_power_requirement = (TYPE_GET_POWER_REQ) nw_handler_function_not_implemented;
     interface->get_ttfx = (TYPE_GET_TTFF) nw_handler_function_not_implemented;
     interface->get_sat_data = (TYPE_GET_SAT) nw_handler_function_not_implemented;
     interface->get_nmea_data = (TYPE_GET_NMEA) nw_handler_function_not_implemented;
     interface->send_extra_cmd = (TYPE_SEND_EXTRA) nw_handler_function_not_implemented;
-    interface->get_cur_handler = (TYPE_GET_CUR_HANDLER) nw_handler_function_not_implemented;
-    interface->set_cur_handler = (TYPE_SET_CUR_HANDLER) nw_handler_function_not_implemented;
-    interface->compare_handler = (TYPE_COMP_HANDLER) nw_handler_function_not_implemented;
     interface->get_geo_code = (TYPE_GEO_CODE) nw_handler_function_not_implemented;
     interface->get_rev_geocode = (TYPE_REV_GEO_CODE) nw_handler_function_not_implemented;
+    interface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) nw_handler_start_tracking_criteria;
 }
 
 /**
@@ -318,6 +360,7 @@ static void nw_handler_init(NwHandler *self)
 {
     NwHandlerPrivate *priv = GET_PRIVATE(self);
     g_return_if_fail(priv);
+
     memset(priv, 0x00, sizeof(NwHandlerPrivate));
 }
 
@@ -331,7 +374,9 @@ static void nw_handler_class_init(NwHandlerClass *klass)
 {
     g_print("nw_handler_class_init() - init object\n");
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+
     gobject_class->dispose = nw_handler_dispose;
     gobject_class->finalize = nw_handler_finalize;
+
     g_type_class_add_private(klass, sizeof(NwHandlerPrivate));
 }

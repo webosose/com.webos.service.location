@@ -58,10 +58,12 @@ static int lbs_handler_start(Handler *handler_data)
     int ret = ERROR_NONE;
     LS_LOG_DEBUG("[DEBUG] lbs_handler_start");
     LbsHandlerPrivate *priv = GET_PRIVATE(handler_data);
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->lbs_plugin, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->lbs_plugin->ops.start, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->lbs_plugin->plugin_handler, ERROR_NOT_AVAILABLE);
+
     g_mutex_lock(&priv->mutex);
 
     if (priv->is_started == TRUE) {
@@ -75,6 +77,7 @@ static int lbs_handler_start(Handler *handler_data)
         priv->is_started = TRUE;
 
     g_mutex_unlock(&priv->mutex);
+
     return ret;
 }
 
@@ -88,7 +91,9 @@ static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     int ret = ERROR_NONE;
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
     LS_LOG_DEBUG("[DEBUG]lbs_handler_stop() api progress %d\n", priv->api_progress_flag);
 
     if (priv->is_started == FALSE)
@@ -101,7 +106,9 @@ static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
         return ERROR_REQUEST_INPROGRESS;
 
     if (priv->is_started == TRUE) {
+
         g_return_val_if_fail(priv->lbs_plugin->ops.stop, ERROR_NOT_AVAILABLE);
+
         ret = priv->lbs_plugin->ops.stop(priv->lbs_plugin->plugin_handler);
 
         if (ret == ERROR_NONE) {
@@ -123,20 +130,26 @@ static int lbs_handler_geo_code(Handler *self, Address *address, Position *pos, 
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     int result = ERROR_NONE;
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     if (priv->api_progress_flag & LBS_GEOCODE_ON)
         return ERROR_DUPLICATE_REQUEST;
 
     if (address->freeform == FALSE) {
+
         g_return_val_if_fail(priv->lbs_plugin->ops.get_geocode, ERROR_NOT_AVAILABLE);
+
         result = priv->lbs_plugin->ops.get_geocode(priv->lbs_plugin->plugin_handler, address, pos, ac); //geocode_handler_cb, self);
     } else {
+
         g_return_val_if_fail(priv->lbs_plugin->ops.get_geocode_freetext, ERROR_NOT_AVAILABLE);
+
         result = priv->lbs_plugin->ops.get_geocode_freetext(priv->lbs_plugin->plugin_handler, address->freeformaddr, pos, ac); //geocode_handler_cb, self);
     }
 
     LS_LOG_DEBUG("[DEBUG]result : lbs_handler_geo_code %d  \n", result);
+
     return result;
 }
 
@@ -153,10 +166,14 @@ static int lbs_handler_reverse_geo_code(Handler *self, Position *pos, Address *a
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     int result = ERROR_NONE;
+
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(priv->lbs_plugin->ops.get_reverse_geocode, ERROR_NOT_AVAILABLE);
+
     result = priv->lbs_plugin->ops.get_reverse_geocode(priv->lbs_plugin->plugin_handler, pos, address); //reverse_geocode_handler_cb, self);
+
     LS_LOG_DEBUG("[DEBUG]result : lbs_handler_geo_code %d  \n", result);
+
     return result;
 }
 
@@ -181,6 +198,7 @@ static void lbs_handler_finalize(GObject *gobject)
 {
     LS_LOG_DEBUG("[DEBUG] lbs_handler_finalize");
     LbsHandlerPrivate *priv = GET_PRIVATE(gobject);
+
     g_return_if_fail(priv);
 
     if (priv->lbs_plugin != NULL) {
@@ -189,6 +207,7 @@ static void lbs_handler_finalize(GObject *gobject)
     }
 
     g_mutex_clear(&priv->mutex);
+
     G_OBJECT_CLASS(lbs_handler_parent_class)->finalize(gobject);
 }
 
@@ -210,17 +229,11 @@ static void lbs_handler_interface_init(HandlerInterface *interface)
     interface->get_position = (TYPE_GET_POSITION) lbs_handler_function_not_implemented;
     interface->start_tracking = (TYPE_START_TRACK) lbs_handler_function_not_implemented;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) lbs_handler_function_not_implemented;
-    interface->get_velocity = (TYPE_GET_VELOCITY) lbs_handler_function_not_implemented;
-    interface->get_last_velocity = (TYPE_GET_LAST_VELOCITY) lbs_handler_function_not_implemented;
-    interface->get_accuracy = (TYPE_GET_ACCURACY) lbs_handler_function_not_implemented;
-    interface->get_power_requirement = (TYPE_GET_POWER_REQ) lbs_handler_function_not_implemented;
+    interface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) lbs_handler_function_not_implemented;
     interface->get_ttfx = (TYPE_GET_TTFF) lbs_handler_function_not_implemented;
     interface->get_sat_data = (TYPE_GET_SAT) lbs_handler_function_not_implemented;
     interface->get_nmea_data = (TYPE_GET_NMEA) lbs_handler_function_not_implemented;
     interface->send_extra_cmd = (TYPE_SEND_EXTRA) lbs_handler_function_not_implemented;
-    interface->get_cur_handler = (TYPE_GET_CUR_HANDLER) lbs_handler_function_not_implemented;
-    interface->set_cur_handler = (TYPE_SET_CUR_HANDLER) lbs_handler_function_not_implemented;
-    interface->compare_handler = (TYPE_COMP_HANDLER) lbs_handler_function_not_implemented;
     interface->get_geo_code = (TYPE_GEO_CODE) lbs_handler_geo_code;
     interface->get_rev_geocode = (TYPE_REV_GEO_CODE) lbs_handler_reverse_geo_code;
 }
@@ -235,7 +248,9 @@ static void lbs_handler_init(LbsHandler *self)
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     g_return_if_fail(priv);
+
     memset(priv, 0x00, sizeof(LbsHandlerPrivate));
+
     priv->lbs_plugin = (LbsPlugin *) plugin_new("lbs");
 
     if (priv->lbs_plugin == NULL) {
@@ -255,7 +270,9 @@ static void lbs_handler_class_init(LbsHandlerClass *klass)
 {
     LS_LOG_DEBUG("[DEBUG] lbs_handler_class_init() - init object\n");
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+
     gobject_class->dispose = lbs_handler_dispose;
     gobject_class->finalize = lbs_handler_finalize;
+
     g_type_class_add_private(klass, sizeof(LbsHandlerPrivate));
 }

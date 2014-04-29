@@ -25,7 +25,6 @@
 #include <glib.h>
 #include "db_util.h"
 #include <Position.h>
-#include <Accuracy.h>
 #include <time.h>
 #include <Location.h>
 #define MAX_LEN 50

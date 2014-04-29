@@ -51,19 +51,46 @@ void ConnectionStateObserver::UnregisterListener(IConnectivityListener *l)
 
 void ConnectionStateObserver::init(LSHandle *ConnHandle)
 {
-    /*  LSHandle *ConnHandle;
-     BOOST_FOREACH(IConnectivityListener *l, m_listeners)
-         {
-         (ConnHandle = l->getPrivatehandle());
-      }*/
+    LSError lserror;
+    LSErrorInit(&lserror);
+    bool result;
+
     LS_LOG_DEBUG("init\n");
 
     if (ConnHandle == NULL)
         return;
 
-    register_wifi_status(ConnHandle);
-    register_telephony_status(ConnHandle);
-    register_connectivity_status(ConnHandle);
+    //Register for status of wifi,wan,telephony service
+    result =  LSRegisterServerStatus(ConnHandle,
+                                     WIFI_SERVICE,
+                                     ConnectionStateObserver::wifi_service_status_cb,
+                                     this,
+                                     &lserror);
+    if (!result)
+    {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
+    result =  LSRegisterServerStatus(ConnHandle,
+                                     WAN_SERVICE,
+                                     ConnectionStateObserver::wan_service_status_cb,
+                                     this,
+                                     &lserror);
+    if (!result)
+    {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
+    result =  LSRegisterServerStatus(ConnHandle,
+                                     TELEPHONY_SERVICE,
+                                     ConnectionStateObserver::tel_service_status_cb,
+                                     this,
+                                     &lserror);
+    if (!result)
+    {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
 }
 void ConnectionStateObserver::Notify_WifiStateChange(bool WifiState)
 {
@@ -95,21 +122,61 @@ void ConnectionStateObserver::Notify_TelephonyStateChange(bool TeleState)
 }
 void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn)
 {
-    LSCall(HandleConn, "palm://com.palm.wifi/getstatus", "{\"subscribe\":true}", ConnectionStateObserver::wifi_status_cb, this, NULL, NULL);
+    LSError lserror;
+    LSErrorInit(&lserror);
+    bool result;
+
+    result = LSCall(HandleConn,
+                    "palm://com.palm.wifi/getstatus",
+                    "{\"subscribe\":true}",
+                    ConnectionStateObserver::wifi_status_cb,
+                    this,
+                    NULL,
+                    &lserror);
+    if (!result) {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
 }
 
 void ConnectionStateObserver::register_connectivity_status(LSHandle *HandleConn)
 {
-    LSCall(HandleConn, "palm://com.palm.wan/getstatus", "{\"subscribe\":true}", ConnectionStateObserver::connectivity_status_cb, this,
-            NULL, NULL);
+    LSError lserror;
+    LSErrorInit(&lserror);
+    bool result;
+
+    result = LSCall(HandleConn,
+                    "palm://com.palm.wan/getstatus",
+                    "{\"subscribe\":true}",
+                    ConnectionStateObserver::connectivity_status_cb,
+                    this,
+                    NULL,
+                    &lserror);
+    if (!result) {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
 }
 
 void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn)
 {
+    LSError lserror;
+    LSErrorInit(&lserror);
+    bool result;
+
     //Check modem status
     //Not implemented, will be implemented in future
-    LSCall(HandleConn, "palm://com.palm.telephony/isTelephonyReady", "{\"subscribe\":true}", ConnectionStateObserver::telephony_status_cb, this, NULL,
-            NULL);
+    result = LSCall(HandleConn,
+                    "palm://com.palm.telephony/isTelephonyReady",
+                    "{\"subscribe\":true}",
+                    ConnectionStateObserver::telephony_status_cb,
+                    this,
+                    NULL,
+                    &lserror);
+    if (!result) {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
 }
 
 bool ConnectionStateObserver::wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx)
@@ -153,8 +220,8 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
         error = json_object_get_int(errorobj);
 
         if (error == -1) {
-            Notify_WifiStateChange(wifistatus);
-            register_wifi_status(sh);
+            LS_LOG_DEBUG("wifi service is not running");
+            Notify_WifiStateChange(false);
         }
 
         json_object_put(root);
@@ -170,14 +237,18 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
     }
 
     wifisrvEnable = json_object_get_string(wifi_status_obj);
-
+    LS_LOG_DEBUG("wifisrvEnable %s", wifisrvEnable);
     if ((strcmp(wifisrvEnable, "serviceEnabled") == 0)) {
         wifistatus = true;
         Notify_WifiStateChange(wifistatus);
     } else if (strcmp(wifisrvEnable, "serviceDisabled") == 0) {
         wifistatus = false;
         Notify_WifiStateChange(wifistatus);
+        Notify_WifiInternetStateChange(false);
     } else if (strcmp(wifisrvEnable, "connectionStateChanged") == 0) {
+        LS_LOG_DEBUG("connectionStateChanged %s", wifisrvEnable);
+        wifistatus = true;
+        Notify_WifiStateChange(wifistatus);
         Notify_WifiInternetStateChange(true);
     } else {
         Notify_WifiInternetStateChange(true);
@@ -236,7 +307,8 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
         error = json_object_get_int(errorobj);
 
         if (error == -1) {
-            register_connectivity_status(sh);
+            LS_LOG_DEBUG("WAN service is not running");
+            Notify_ConnectivityStateChange(false);
         }
 
         json_object_put(root);
@@ -282,7 +354,8 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
         error = json_object_get_int(errorobj);
 
         if (error == -1) {
-            register_telephony_status(sh);
+            LS_LOG_DEBUG("Telephony service is not running");
+            Notify_TelephonyStateChange(false);
         }
 
         json_object_put(root);
@@ -298,5 +371,35 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
 
     Notify_TelephonyStateChange(isTelephonyAvailable);
     json_object_put(root);
+    return true;
+}
+
+bool ConnectionStateObserver::_wifi_service_status_cb(LSHandle*sh, const char *serviceName, bool connected) {
+    if(connected) {
+        LS_LOG_DEBUG("wifi service Name = %s connected",serviceName);
+        register_wifi_status(sh);
+    } else {
+        LS_LOG_DEBUG("wifi service Name = %s disconnected",serviceName);
+    }
+    return true;
+}
+
+bool ConnectionStateObserver::_wan_service_status_cb(LSHandle *sh, const char *serviceName, bool connected) {
+    if(connected) {
+        LS_LOG_DEBUG("WAN service Name = %s connected",serviceName);
+        register_connectivity_status(sh);
+    } else {
+        LS_LOG_DEBUG("WAN service Name = %s disconnected",serviceName);
+    }
+    return true;
+}
+
+bool ConnectionStateObserver::_tel_service_status_cb(LSHandle *sh, const char *serviceName, bool connected) {
+    if(connected) {
+        LS_LOG_DEBUG("telephony service Name = %s connected",serviceName);
+        register_telephony_status(sh);
+    } else {
+        LS_LOG_DEBUG("telephony service Name = %s disconnected",serviceName);
+    }
     return true;
 }

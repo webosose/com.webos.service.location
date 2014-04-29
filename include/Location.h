@@ -11,8 +11,8 @@
  * Filename     : Location.h
  * Purpose      : Common location variables & functions
  * Platform     : RedRose
- * Author(s)    : rajesh gopu
- * Email ID.    : rajeshgopu.iv@lge.com
+ * Author(s)    : rajesh gopu, Abhishek Srivastava
+ * Email ID.    : rajeshgopu.iv@lge.com, abhishek.srivastava@lge.com
  * Creation Date: 14-02-2013
  *
  * Modifications:
@@ -25,6 +25,10 @@
 #define _LOCATION_H_
 
 #include <glib-object.h>
+#include <stdint.h>
+
+#define DEFAULT_VALUE 0
+#define INVALID_PARAM -1.0
 
 typedef enum {
     HANDLER_WIFI = 0,
@@ -68,14 +72,14 @@ typedef enum {
     GPS_STATUS_ACQUIRING,
     GPS_STATUS_AVAILABLE
 } GPSStatus;
+
 enum {
     ERROR_NETWORK_NOT_FOUND = 0,
     ERROR_NO_MEMORY,
     ERROR_NO_RESPONSE,
     ERROR_NO_DATA
 };
-#define DEFAULT_VALUE 0
-#define INVALID_PARAM -1.0
+
 typedef GObject HandlerObject;
 typedef struct _Position Position;
 typedef struct _Status Status;
@@ -84,6 +88,7 @@ typedef struct _Nmea Nmea;
 typedef struct _Satellite Satellite;
 typedef struct _Accuracy Accuracy;
 typedef struct _Address Address;
+
 #define LOCATION_DB_PREF_PATH   "/usr/share/location/location_position.xml"
 #define LOCATION_DB_PREF_PATH_WIFI "/usr/share/location/location_wifi.xml"
 #define LOCATION_DB_PREF_PATH_CELL "/usr/share/location/location_cell.xml"

@@ -11,7 +11,7 @@
  @copyright Copyright (c) 2012 LG Electronics.  All rights reserved.
  */
 
-#include "LunaLocationService_Util.h"
+#include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
 #include <cjson/json.h>
 #include <LocationService_Log.h>

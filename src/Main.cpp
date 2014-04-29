@@ -26,7 +26,6 @@
 #include <lunaservice.h>
 #include <glib.h>
 #include "LocationService.h"
-#include "Conf.h"
 #include <LocationService_Log.h>
 #include <ConnectionStateObserver.h>
 

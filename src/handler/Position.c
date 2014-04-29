@@ -11,8 +11,13 @@
 #include <string.h>
 #include <Position.h>
 
-Position *position_create(guint64 timestamp, gdouble latitude, gdouble longitude, gdouble altitude, gdouble speed,
-                          gdouble direction, gdouble climb,
+Position *position_create(gint64 timestamp,
+                          gdouble latitude,
+                          gdouble longitude,
+                          gdouble altitude,
+                          gdouble speed,
+                          gdouble direction,
+                          gdouble climb,
                           int flags)
 {
     if (latitude < -90 || latitude > 90)
@@ -23,7 +28,7 @@ Position *position_create(guint64 timestamp, gdouble latitude, gdouble longitude
 
     Position *position = g_slice_new0(Position);
     g_return_val_if_fail(position, NULL);
-    position->timestamp = timestamp * 1000;
+    position->timestamp = timestamp;
 
     if (flags & POSITION_FIELDS_NONE)
         return position;

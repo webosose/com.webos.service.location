@@ -120,7 +120,6 @@ int createPreference(char *filename, DBHandle *handle, char *title, int enablech
 
     xmlDocPtr doc_ptr;
     xmlNodePtr root_node = NULL;
-    printf("crating xml\n");
     doc_ptr = xmlNewDoc(BAD_CAST "1.0");
     root_node = xmlNewNode(NULL, BAD_CAST title);
     xmlDocSetRootElement(doc_ptr, root_node);

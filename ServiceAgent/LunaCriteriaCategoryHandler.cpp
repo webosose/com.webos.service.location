@@ -57,7 +57,6 @@ bool LunaCriteriaCategoryHandler::init(LSPalmService *sh, LSPalmService *sh_lge,
     mpalmLgeSrvHandle = sh_lge;
     handler_array = handler1;
 
-    LS_LOG_DEBUG("handler_array[HANDLER_GPS] = %u", handler_array[HANDLER_GPS]);
     LSPalmServiceRegisterCategory(mpalmSrvHandle,
                                   "/criteria",
                                   criteriaCategoryMethods,
@@ -99,7 +98,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
     TrakingErrorCode errorCode = LOCATION_SUCCESS;
 
     LSErrorInit(&mLSError);
-    LS_LOG_DEBUG("======startTrackingCriteriaBased=====");
+    LS_LOG_INFO("======startTrackingCriteriaBased=====");
 
     if (LocationService::getInstance()->isSubscribeTypeValid(sh, message, false, NULL) == false)
         return true;
@@ -165,7 +164,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
 
     if (bRetVal) {
         handlerName = json_object_get_string(m_JsonSubArgument);
-        LS_LOG_DEBUG("handlerName %s", handlerName);
+        LS_LOG_INFO("handlerName %s", handlerName);
 
         if (strcmp(handlerName, GPS) == NULL)
             sel_handler = LunaCriteriaCategoryHandler::CRITERIA_GPS;
@@ -228,7 +227,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
                                                                          LunaCriteriaCategoryHandler::INVALID_LAT );
 
         if (criteriaReq == NULL) {
-            LS_LOG_DEBUG("Criteriareq null Out of memory");
+            LS_LOG_ERROR("Criteriareq null Out of memory");
             errorCode = LOCATION_OUT_OF_MEM;
             goto EXIT;
         }
@@ -265,7 +264,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
                 goto EXIT;
             }
 
-            LS_LOG_DEBUG("startedHandlers %d", startedHandlers);
+            LS_LOG_INFO("startedHandlers %d", startedHandlers);
 
             if (startedHandlers & HANDLER_WIFI_BIT)
                 handler_start_tracking_criteria((Handler *) handler_array[HANDLER_NW],
@@ -287,7 +286,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         }
     } else {
 
-        LS_LOG_DEBUG("Both handler are OFF\n");
+        LS_LOG_ERROR("Both handler are OFF\n");
         if (LocationService::getInstance()->getHandlerStatus(NETWORK)
             || LocationService::getInstance()->getHandlerStatus(GPS)) {
 
@@ -413,12 +412,12 @@ bool LunaCriteriaCategoryHandler::enableNwHandler(unsigned char *startedHandlers
                                 HANDLER_WIFI);
 
             if (ret != ERROR_NONE) {
-                LS_LOG_DEBUG("WIFI handler not started");
+                LS_LOG_ERROR("WIFI handler not started");
             } else
                 *startedHandlers |= HANDLER_WIFI_BIT;
         }
 
-        LS_LOG_DEBUG("isInternetConnectionAvailable %d TelephonyState %d",
+        LS_LOG_INFO("isInternetConnectionAvailable %d TelephonyState %d",
                      LocationService::getInstance()->getConnectionManagerState(),
                      LocationService::getInstance()->getTelephonyState());
 
@@ -430,7 +429,7 @@ bool LunaCriteriaCategoryHandler::enableNwHandler(unsigned char *startedHandlers
                                 HANDLER_CELLID);
 
             if (ret != ERROR_NONE) {
-                LS_LOG_DEBUG("CELLID handler not started");
+                LS_LOG_ERROR("CELLID handler not started");
             } else
                 *startedHandlers |= HANDLER_CELLID_BIT;
         }
@@ -806,7 +805,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
     if (m_JsonSubArgument != NULL && bRetVal && json_object_is_type(m_JsonSubArgument, json_type_string))
         handler = json_object_get_string(m_JsonSubArgument);
     else {
-        LS_LOG_DEBUG("Invalid param:Handler");
+        LS_LOG_ERROR("Invalid param:Handler");
         LSMessageReplyError(sh,
                             message,
                             LOCATION_INVALID_INPUT,
@@ -815,7 +814,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
     }
 
     if (handler == NULL) {
-        LS_LOG_DEBUG("ParamInput is NULL");
+        LS_LOG_ERROR("ParamInput is NULL");
         LSMessageReplyError(sh,
                             message,
                             LOCATION_INVALID_INPUT,
@@ -829,7 +828,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
     serviceObject = json_object_new_object();
 
     if (serviceObject == NULL) {
-        LS_LOG_DEBUG("Failed to allocate memory to serviceObject");
+        LS_LOG_ERROR("Failed to allocate memory to serviceObject");
         LSMessageReplyError(sh,
                             message,
                             LOCATION_OUT_OF_MEM,
@@ -880,7 +879,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
             LSErrorPrintAndFree(&mLSError);
         }
     } else {
-        LS_LOG_DEBUG("LPAppGetHandle is not created");
+        LS_LOG_ERROR("LPAppGetHandle is not created");
         LSMessageReplyError(sh,
                             message,
                             LOCATION_INVALID_INPUT,

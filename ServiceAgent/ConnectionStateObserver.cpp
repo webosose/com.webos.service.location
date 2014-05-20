@@ -55,7 +55,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
     LSErrorInit(&lserror);
     bool result;
 
-    LS_LOG_DEBUG("init\n");
+    LS_LOG_INFO("init\n");
 
     if (ConnHandle == NULL)
         return;
@@ -181,7 +181,6 @@ void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn)
 
 bool ConnectionStateObserver::wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx)
 {
-    g_print("response with payload %s\n", LSMessageGetPayload(message));
     return ((ConnectionStateObserver *) ctx)->_wifi_status_cb(sh, message);
 }
 
@@ -220,7 +219,7 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
         error = json_object_get_int(errorobj);
 
         if (error == -1) {
-            LS_LOG_DEBUG("wifi service is not running");
+            LS_LOG_ERROR("wifi service is not running");
             Notify_WifiStateChange(false);
         }
 
@@ -354,7 +353,7 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
         error = json_object_get_int(errorobj);
 
         if (error == -1) {
-            LS_LOG_DEBUG("Telephony service is not running");
+            LS_LOG_ERROR("Telephony service is not running");
             Notify_TelephonyStateChange(false);
         }
 

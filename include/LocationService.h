@@ -241,9 +241,9 @@ public:
     void setWifiState(bool state) {
 
         if (state == true) {
-            LS_LOG_DEBUG("WIFI turned on");
+            LS_LOG_INFO("WIFI turned on");
         } else {
-            LS_LOG_DEBUG("WIFI turned off");
+            LS_LOG_INFO("WIFI turned off");
         }
 
         wifistate = state;
@@ -254,9 +254,9 @@ public:
     void updateConnectionManagerState(bool state) {
 
         if (state == true) {
-            LS_LOG_DEBUG("Internet connection available");
+            LS_LOG_INFO("Internet connection available");
         } else {
-            LS_LOG_DEBUG("Internet connection not available");
+            LS_LOG_INFO("Internet connection not available");
         }
 
         isInternetConnectionAvailable = state; //state; for TESTING
@@ -268,9 +268,9 @@ public:
     void updateTelephonyState(bool state) {
 
         if (state == true) {
-            LS_LOG_DEBUG("Telephony connection available");
+            LS_LOG_INFO("Telephony connection available");
         } else {
-            LS_LOG_DEBUG("Telephony connection not available");
+            LS_LOG_INFO("Telephony connection not available");
         }
 
         isTelephonyAvailable = state; //state; for TESTING
@@ -283,9 +283,9 @@ public:
     void updateWifiInternetState(bool state) {
 
         if (state == true) {
-            LS_LOG_DEBUG("WIfi Internet connetion available");
+            LS_LOG_INFO("WIfi Internet connetion available");
         } else {
-            LS_LOG_DEBUG("WIfi Internet connection not available");
+            LS_LOG_INFO("WIfi Internet connection not available");
         }
 
         isWifiInternetAvailable = state; //state; for TESTING

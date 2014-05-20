@@ -56,7 +56,7 @@ G_DEFINE_TYPE_WITH_CODE(LbsHandler, lbs_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTE
 static int lbs_handler_start(Handler *handler_data)
 {
     int ret = ERROR_NONE;
-    LS_LOG_DEBUG("[DEBUG] lbs_handler_start");
+    LS_LOG_INFO("[DEBUG] lbs_handler_start");
     LbsHandlerPrivate *priv = GET_PRIVATE(handler_data);
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
@@ -94,7 +94,7 @@ static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
-    LS_LOG_DEBUG("[DEBUG]lbs_handler_stop() api progress %d\n", priv->api_progress_flag);
+    LS_LOG_INFO("[DEBUG]lbs_handler_stop() api progress %d\n", priv->api_progress_flag);
 
     if (priv->is_started == FALSE)
         return ERROR_NOT_STARTED;
@@ -148,7 +148,7 @@ static int lbs_handler_geo_code(Handler *self, Address *address, Position *pos, 
         result = priv->lbs_plugin->ops.get_geocode_freetext(priv->lbs_plugin->plugin_handler, address->freeformaddr, pos, ac); //geocode_handler_cb, self);
     }
 
-    LS_LOG_DEBUG("[DEBUG]result : lbs_handler_geo_code %d  \n", result);
+    LS_LOG_INFO("[DEBUG]result : lbs_handler_geo_code %d  \n", result);
 
     return result;
 }
@@ -172,7 +172,7 @@ static int lbs_handler_reverse_geo_code(Handler *self, Position *pos, Address *a
 
     result = priv->lbs_plugin->ops.get_reverse_geocode(priv->lbs_plugin->plugin_handler, pos, address); //reverse_geocode_handler_cb, self);
 
-    LS_LOG_DEBUG("[DEBUG]result : lbs_handler_geo_code %d  \n", result);
+    LS_LOG_INFO("[DEBUG]result : lbs_handler_geo_code %d  \n", result);
 
     return result;
 }
@@ -254,7 +254,7 @@ static void lbs_handler_init(LbsHandler *self)
     priv->lbs_plugin = (LbsPlugin *) plugin_new("lbs");
 
     if (priv->lbs_plugin == NULL) {
-        LS_LOG_DEBUG("[DEBUG] Lbs plugin loading failed\n");
+        LS_LOG_WARNING("[DEBUG] Lbs plugin loading failed\n");
     }
 
     g_mutex_init(&priv->mutex);
@@ -268,7 +268,7 @@ static void lbs_handler_init(LbsHandler *self)
  */
 static void lbs_handler_class_init(LbsHandlerClass *klass)
 {
-    LS_LOG_DEBUG("[DEBUG] lbs_handler_class_init() - init object\n");
+    LS_LOG_INFO("[DEBUG] lbs_handler_class_init() - init object\n");
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->dispose = lbs_handler_dispose;

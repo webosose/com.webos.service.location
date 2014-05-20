@@ -85,7 +85,7 @@ int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, 
                                                                                 &error);
 
     if (error != NULL) {
-        LS_LOG_DEBUG(" Error in getting data");
+        LS_LOG_ERROR(" Error in getting data");
         g_error_free(error);
         return ERROR_NOT_AVAILABLE;
     }
@@ -99,7 +99,7 @@ int get_geocode_freeform(gpointer handle, const gchar *addrress, Position *pos, 
         else
             pos->altitude = DEFAULT_VALUE;
     } else {
-        LS_LOG_DEBUG(" latitude logtyude not present");
+        LS_LOG_WARNING(" latitude longitutde not present");
         return ERROR_NOT_AVAILABLE;
     }
 
@@ -156,7 +156,7 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
 
     if (error != NULL) {
         g_error_free(error);
-        LS_LOG_DEBUG(" Error in return geocode");
+        LS_LOG_ERROR(" Error in return geocode");
         pos->latitude = DEFAULT_VALUE;
         pos->longitude = DEFAULT_VALUE;
         pos->altitude = DEFAULT_VALUE;
@@ -172,7 +172,7 @@ int get_geocode(gpointer handle, const Address *address, Position *pos, Accuracy
         else
             pos->altitude = DEFAULT_VALUE;
     } else {
-        LS_LOG_DEBUG(" Error in return geocode no data avaible");
+        LS_LOG_WARNING(" Error in return geocode no data avaible");
         err = ERROR_NOT_AVAILABLE;
     }
 
@@ -254,12 +254,12 @@ static gboolean intialize_lbs_geoclue_service(GeoclueLbs *geoclueLbs)
     geoclueLbs->reverse_geocode = geoclue_reverse_geocode_new(LGE_NOMINATIM_SERVICE_NAME, LGE_NOMINATIM_SERVICE_PATH);
 
     if (geoclueLbs->geocode == NULL || geoclueLbs->reverse_geocode == NULL) {
-        LS_LOG_DEBUG("[DEBUG] Error while creating LG Lbs geoclue object !!");
+        LS_LOG_ERROR("[DEBUG] Error while creating LG Lbs geoclue object !!");
         unreference_geoclue(geoclueLbs);
         return FALSE;
     }
 
-    LS_LOG_DEBUG("[DEBUG] intialize_Lbs_geoclue_service  done\n");
+    LS_LOG_INFO("[DEBUG] intialize_Lbs_geoclue_service  done\n");
 
     return TRUE;
 }
@@ -276,7 +276,7 @@ static gboolean intialize_lbs_geoclue_service(GeoclueLbs *geoclueLbs)
  */
 static int start(gpointer plugin_data, gpointer handler_data)
 {
-    LS_LOG_DEBUG("[DEBUG] LBS plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
+    LS_LOG_INFO("[DEBUG] LBS plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) plugin_data;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
 
@@ -297,7 +297,7 @@ static int start(gpointer plugin_data, gpointer handler_data)
  */
 static int stop(gpointer handle)
 {
-    LS_LOG_DEBUG("[DEBUG]lbs plugin stop\n");
+    LS_LOG_INFO("[DEBUG]lbs plugin stop\n");
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
 
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
@@ -315,7 +315,7 @@ static int stop(gpointer handle)
  */
 EXPORT_API gpointer init(LbsPluginOps *ops)
 {
-    LS_LOG_DEBUG("[DEBUG]Lbs plugin init\n");
+    LS_LOG_INFO("[DEBUG]Lbs plugin init\n");
     ops->start = start;
     ops->stop = stop;
     ops->get_geocode = get_geocode;
@@ -340,7 +340,7 @@ EXPORT_API gpointer init(LbsPluginOps *ops)
  */
 EXPORT_API void shutdown(gpointer handle)
 {
-    LS_LOG_DEBUG("[DEBUG]wifi plugin shutdown\n");
+    LS_LOG_INFO("[DEBUG]lbs plugin shutdown\n");
     g_return_if_fail(handle);
 
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;

@@ -109,7 +109,7 @@ static void unref_plugin(Plugin_Prop *plugin)
 gboolean plugin_init(void)
 {
     if (!g_module_supported()) {
-        LS_LOG_DEBUG("Plugin not supported ..!");
+        LS_LOG_ERROR("Plugin not supported ..!");
         return FALSE;
     }
 
@@ -130,14 +130,14 @@ static gboolean load_plugin_symbols(Plugin_Prop *plugin_prop, gpointer *init_fun
     g_stpcpy(sym, "init");
 
     if (!g_module_symbol(plugin_prop->gmodule, sym, init_func)) {
-        LS_LOG_DEBUG("symbol not found: %s", sym);
+        LS_LOG_ERROR("symbol not found: %s", sym);
         return FALSE;
     }
 
     g_stpcpy(sym, "shutdown");
 
     if (!g_module_symbol(plugin_prop->gmodule, sym, shutdown_func)) {
-        LS_LOG_DEBUG("symbol not found: %s", sym);
+        LS_LOG_ERROR("symbol not found: %s", sym);
         return FALSE;
     }
 
@@ -163,12 +163,12 @@ static gpointer load_plugin(const char *plugin_name)
     plugin_prop = fill_plugin_property(plugin_name, TRUE);
 
     if (!plugin_prop) {
-        LS_LOG_DEBUG("plugin (%s) new failed\n", plugin_name);
+        LS_LOG_ERROR("plugin (%s) new failed\n", plugin_name);
         return NULL;
     }
 
     if (!load_plugin_symbols(plugin_prop, &init_symb, &shutdown_symb)) {
-        LS_LOG_DEBUG("symbol (init, shutdown) finding failed\n");
+        LS_LOG_ERROR("symbol (init, shutdown) finding failed\n");
         unref_plugin(plugin_prop);
         return NULL;
     }
@@ -182,7 +182,7 @@ static gpointer load_plugin(const char *plugin_name)
         gps_plugin->plugin_handler = gps_plugin->init(&(gps_plugin->ops));
 
         if (!gps_plugin->plugin_handler) {
-            LS_LOG_DEBUG(" GPS plugin init failed\n");
+            LS_LOG_WARNING(" GPS plugin init failed\n");
             unref_plugin(gps_plugin->plugin_prop);
             ret_plugin = NULL;
         } else
@@ -196,7 +196,7 @@ static gpointer load_plugin(const char *plugin_name)
         wifi_plugin->plugin_handler = wifi_plugin->init(&(wifi_plugin->ops));
 
         if (!wifi_plugin->plugin_handler) {
-            LS_LOG_DEBUG(" Wifi plugin init failed\n");
+            LS_LOG_WARNING(" Wifi plugin init failed\n");
             unref_plugin(wifi_plugin->plugin_prop);
             ret_plugin = NULL;
         } else
@@ -210,7 +210,7 @@ static gpointer load_plugin(const char *plugin_name)
         cell_plugin->plugin_handler = cell_plugin->init(&(cell_plugin->ops));
 
         if (!cell_plugin->plugin_handler) {
-            LS_LOG_DEBUG(" Cell plugin init failed\n");
+            LS_LOG_WARNING(" Cell plugin init failed\n");
             unref_plugin(cell_plugin->plugin_prop);
             ret_plugin = NULL;
         } else
@@ -224,13 +224,13 @@ static gpointer load_plugin(const char *plugin_name)
         lbs_plugin->plugin_handler = lbs_plugin->init(&(lbs_plugin->ops));
 
         if (lbs_plugin->plugin_handler == NULL) {
-            LS_LOG_DEBUG(" LBS plugin init failed\n");
+            LS_LOG_WARNING(" LBS plugin init failed\n");
             unref_plugin(lbs_plugin->plugin_prop);
             ret_plugin = NULL;
         } else
             ret_plugin = (gpointer) lbs_plugin;
     } else {
-        LS_LOG_DEBUG("module name (%s) is wrong", plugin_name);
+        LS_LOG_WARNING("module name (%s) is wrong", plugin_name);
         ret_plugin = NULL;
     }
 
@@ -254,9 +254,9 @@ gpointer plugin_new(const char *plugin_name)
     mod = load_plugin(name);
 
     if (mod) {
-        LS_LOG_DEBUG("plugin (%s) open success\n", name);
+        LS_LOG_INFO("plugin (%s) open success\n", name);
     } else {
-        LS_LOG_DEBUG("plugin (%s) open failed\n", name);
+        LS_LOG_INFO("plugin (%s) open failed\n", name);
     }
 
     return mod;
@@ -323,7 +323,7 @@ static void unload_plugin(gpointer plugin, const char *plugin_name)
         unref_plugin(lbs_plugin->plugin_prop);
         lbs_plugin->plugin_prop = NULL;
     } else {
-        LS_LOG_DEBUG("plugin  name (%s) not found or not configured in loader\n", plugin_name);
+        LS_LOG_INFO("plugin  name (%s) not found or not configured in loader\n", plugin_name);
     }
 
     g_free(plugin);

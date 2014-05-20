@@ -89,7 +89,7 @@ static void cell_handler_tracking_cb(gboolean enable_cb, Position *position, Acc
  */
 static void cell_handler_position_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
-    LS_LOG_DEBUG("[DEBUG]cell position_cb callback called  %d \n", enable_cb);
+    LS_LOG_INFO("[DEBUG]cell position_cb callback called  %d \n", enable_cb);
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(privateIns);
 
     g_return_if_fail(priv);
@@ -108,7 +108,7 @@ static void cell_handler_position_cb(gboolean enable_cb, Position *position, Acc
  */
 static int cell_handler_start(Handler *handler_data)
 {
-    LS_LOG_DEBUG("[DEBUG]cell_handler_start Called");
+    LS_LOG_INFO("[DEBUG]cell_handler_start Called");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(handler_data);
     int ret = ERROR_NONE;
 
@@ -142,7 +142,7 @@ static int cell_handler_start(Handler *handler_data)
  */
 static int cell_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 {
-    LS_LOG_DEBUG("[DEBUG]cell_handler_stop() \n");
+    LS_LOG_INFO("[DEBUG]cell_handler_stop() \n");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
     int ret = ERROR_NONE;
 
@@ -213,7 +213,7 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
         error = json_object_get_int(error_code);
 
         if (error == -1 ) {
-            LS_LOG_ERROR("Telephony error Happened\n", ret);
+            LS_LOG_ERROR("Cell handler:Telephony error Happened\n", ret);
         }
 
         json_object_put(new_obj);
@@ -223,7 +223,7 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     cell_data_obj = json_object_object_get(new_obj, "data");
 
     if ((priv->api_progress_flag & CELL_START_TRACKING_ON) || (priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON)) {
-        LS_LOG_DEBUG("send start tracking indication\n");
+        LS_LOG_INFO("Cell handler:send start tracking indication\n");
         track_ret = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler,
                                                           TRUE,
                                                           cell_handler_tracking_cb,
@@ -254,7 +254,7 @@ static gboolean tel_service_status_cb(LSHandle *sh, const char *serviceName, boo
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(ctx);
 
     if(connected) {
-        LS_LOG_DEBUG("telephony service Name = %s connected",serviceName);
+        LS_LOG_DEBUG("Cell handler:Telephony  service Name = %s connected",serviceName);
         if (priv->susbcribe) {
             // cuurnetly only on method later of we can request other method for subscription
                 return LSCall(sh, "palm://com.palm.telephony/getCellLocUpdate", "{\"subscribe\":true}", cell_data_cb, ctx, &priv->m_cellInfoReq, NULL);
@@ -269,7 +269,7 @@ static gboolean tel_service_status_cb(LSHandle *sh, const char *serviceName, boo
             (*priv->pos_cb)(TRUE , NULL, NULL, ERROR_NETWORK_ERROR, priv->nwhandler, HANDLER_CELLID);//call SA position callback
              priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
         }
-        LS_LOG_DEBUG("telephony service Name = %s disconnected",serviceName);
+        LS_LOG_DEBUG("Cell handler:Telephony service Name = %s disconnected",serviceName);
     }
     return true;
 }
@@ -330,7 +330,7 @@ static int cell_handler_get_position(Handler *self, gboolean enable, PositionCal
         }
     }
 
-    LS_LOG_DEBUG("[DEBUG]result : cell_handler_get_position %d  \n", result);
+    LS_LOG_INFO("[DEBUG]result : cell_handler_get_position %d  \n", result);
 
     return result;
 }
@@ -350,7 +350,7 @@ static void cell_handler_start_tracking(Handler *self,
                                         LSHandle *sh,
                                         LSMessage *msg)
 {
-    LS_LOG_DEBUG("[DEBUG]Cell handler start Tracking called ");
+    LS_LOG_INFO("[DEBUG]Cell handler start Tracking called ");
     gboolean mRet;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
@@ -404,7 +404,7 @@ static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable,
                                         gpointer handlerobj, int handlertype,
                                         LSHandle *sh, LSMessage *msg)
 {
-    LS_LOG_DEBUG("[DEBUG]Cell handler start Tracking called ");
+    LS_LOG_INFO("[DEBUG]Cell handler start Tracking called ");
     gboolean mRet;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
@@ -459,7 +459,7 @@ static int cell_handler_get_last_position(Handler *self, Position *position, Acc
         return ERROR_NOT_AVAILABLE;
     }
 
-    LS_LOG_DEBUG("get last poistion success\n");
+    LS_LOG_INFO("cell get last poistion success\n");
 
     return ERROR_NONE;
 }
@@ -530,7 +530,7 @@ static void cell_handler_interface_init(HandlerInterface *interface)
  */
 static void cell_handler_init(CellHandler *self)
 {
-    LS_LOG_DEBUG("[DEBUG]cell_handler_init");
+    LS_LOG_INFO("[DEBUG]cell_handler_init");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
     g_return_if_fail(priv);
@@ -539,7 +539,7 @@ static void cell_handler_init(CellHandler *self)
     priv->cell_plugin = (CellPlugin *) plugin_new("cell");
 
     if (priv->cell_plugin == NULL) {
-        LS_LOG_ERROR("[DEBUG]cell plugin loading failed\n");
+        LS_LOG_WARNING("[DEBUG]cell plugin loading failed\n");
     }
 
     g_mutex_init(&priv->mutex);
@@ -553,7 +553,7 @@ static void cell_handler_init(CellHandler *self)
  */
 static void cell_handler_class_init(CellHandlerClass *klass)
 {
-    LS_LOG_DEBUG("[DEBUG]cell_handler_class_init() - init object\n");
+    LS_LOG_INFO("[DEBUG]cell_handler_class_init() - init object\n");
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->dispose = cell_handler_dispose;

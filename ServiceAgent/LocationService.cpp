@@ -1050,44 +1050,50 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
 bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data)
 {
     int ret;
-    struct json_object *m_JsonArgument = NULL;
-    struct json_object *m_JsonSubArgument = NULL;
-    Address addr;
-    Accuracy acc;
+    Address addr = {0};
+    Accuracy acc = {0};
     Position pos;
     LSError mLSError;
-    struct json_object *serviceObject = NULL;
+    jvalue_ref serviceObject = NULL;
     bool bRetVal;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+    int errorCode = LOCATION_SUCCESS;
 
     if (!isInternetConnectionAvailable && !isWifiInternetAvailable) {
         LSMessageReplyError(sh, message, LOCATION_DATA_CONNECTION_OFF, locationErrorText[LOCATION_DATA_CONNECTION_OFF]);
         return true;
     }
-    m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
 
-    if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LS_LOG_ERROR("getGeoCodeLocation m_JsonArgument Memory allocation failed");
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
-        return true;
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer(JSCHEMA_GET_GEOCODE_LOCATION_1), DOMOPT_NOOPT, NULL);
+
+    if (!input_schema)
+        return false;
+
+    JSchemaInfo schemaInfo;
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+
+    if (jis_null(parsedObj)) {
+        if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_GEOCODE_LOCATION_2, &parsedObj))
+            return true;
     }
 
-    bRetVal = json_object_object_get_ex(m_JsonArgument, "address", &m_JsonSubArgument);
+    bRetVal = jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject);
 
     if (bRetVal == true) {
-     if(m_JsonSubArgument == NULL || !json_object_is_type(m_JsonSubArgument, json_type_string)) {
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
-        json_object_put(m_JsonArgument);
-        return true;
-     }
-        addr.freeformaddr = json_object_get_string(m_JsonSubArgument);
+        raw_buffer nameBuf = jstring_get(jsonSubObject);
+        addr.freeformaddr = g_strdup(nameBuf.m_str); // free the memory occupied
+        jstring_free_buffer(nameBuf);
         addr.freeform = true;
     } else {
         LS_LOG_ERROR("Not free form");
         addr.freeform = false;
-        if(location_util_parsejsonAddress(m_JsonArgument, &addr) == false) {
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, locationErrorText[LOCATION_INVALID_INPUT]);
-        json_object_put(m_JsonArgument);
-        return true;
+
+        if (location_util_parsejsonAddress(&parsedObj, &addr) == false) {
+            LS_LOG_ERROR ("value of no freeform failed");
+            errorCode = LOCATION_INVALID_INPUT;
+            goto EXIT;
         }
 
     }
@@ -1096,39 +1102,74 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), HANDLER_LBS);
 
     if (ret == ERROR_NONE) {
+        LS_LOG_ERROR ("value of addr.freeformaddr %s", addr.freeformaddr);
         ret = handler_get_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), &addr, &pos, &acc);
         handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
 
         if (ret != ERROR_NONE) {
-            json_object_put(m_JsonArgument);
-            LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR, locationErrorText[LOCATION_UNKNOWN_ERROR]);
-            return true;
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            goto EXIT;
         }
 
         LS_LOG_INFO("value of lattitude %f longitude %f atitude %f", pos.latitude, pos.longitude, pos.altitude);
-        serviceObject = json_object_new_object();
+        serviceObject = jobject_create();
 
-        if (serviceObject == NULL) {
-            LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM, locationErrorText[LOCATION_OUT_OF_MEM]);
-            json_object_put(m_JsonArgument);
-            return true;
+        if (jis_null(serviceObject)) {
+            LS_LOG_INFO("value of lattitude..1");
+            errorCode = LOCATION_OUT_OF_MEM;
+            goto EXIT;
         }
 
-        location_util_add_returnValue_json(serviceObject, true);
-        location_util_add_errorCode_json(serviceObject,LOCATION_SUCCESS);
-        json_object_object_add(serviceObject, "latitude", json_object_new_double(pos.latitude));
-        json_object_object_add(serviceObject, "longitude", json_object_new_double(pos.longitude));
+        location_util_form_json_reply(&serviceObject, true, LOCATION_SUCCESS);
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("latitude"), jnumber_create_f64(pos.latitude));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("longitude"), jnumber_create_f64(pos.longitude));
 
-        LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
-        json_object_put(serviceObject);
+        LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
+        j_release(&serviceObject);
     } else {
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
-        LSMessageReplyError(sh, message, LOCATION_START_FAILURE, locationErrorText[LOCATION_START_FAILURE]);
+        errorCode = LOCATION_START_FAILURE;
+        LS_LOG_INFO("value of lattitude..2");
     }
 
-    json_object_put(m_JsonArgument);
+EXIT:
 
+    if (addr.freeformaddr != NULL)
+        g_free(addr.freeformaddr);
+
+
+    if (errorCode != LOCATION_SUCCESS)
+        LSMessageReplyError(sh, message, errorCode, locationErrorText[errorCode]);
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    if (addr.freeform = false) {
+
+        if (addr.street)
+            g_free(addr.street);
+
+        if (addr.country)
+            g_free(addr.country);
+
+        if (addr.postcode)
+            g_free(addr.postcode);
+
+        if (addr.countrycode)
+            g_free(addr.countrycode);
+
+        if (addr.area)
+            g_free(addr.area);
+
+        if (addr.locality)
+            g_free(addr.locality);
+
+        if (addr.region)
+            g_free(addr.region);
+    }
+
+    jschema_release(&input_schema);
     return true;
 }
 

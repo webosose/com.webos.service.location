@@ -186,57 +186,72 @@ bool ConnectionStateObserver::wifi_status_cb(LSHandle *sh, LSMessage *message, v
 
 bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
 {
-    bool ret;
-    bool found;
-    const char *str;
-    char *wifisrvEnable;
-    json_object *root = 0;
-    json_object *returnValueobj = 0;
-    json_object *wifi_status_obj = 0;
-    json_object *errorobj = 0;
+    bool ret = false;
+    bool found = false;
+    char *wifisrvEnable = NULL;
     bool wifistatus = false;
-    str = LSMessageGetPayload(message);
-    root = json_tokener_parse(str);
+    jvalue_ref jsonSubObj = NULL;
+    jvalue_ref parsedObj = NULL;
 
-    if (root == NULL || is_error(root)) {
+    JSchemaInfo schemaInfo;
+
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+    if (!input_schema)
+        return true;
+
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL); // no external refs & no error handlers
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+    jschema_release(&input_schema);
+
+    if (jis_null(parsedObj)){
         return true;
     }
 
-    found = json_object_object_get_ex(root, "returnValue", &returnValueobj);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)){
+        jboolean_get(jsonSubObj, &ret);
+        found = true;
+    }
 
     if (found == false) {
         Notify_WifiStateChange(wifistatus);
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     }
 
-    //passing NULL to json_object_get_boolean will return false
-    ret = json_object_get_boolean(returnValueobj);
+    found = false;
 
     if (ret == false) {
-        int error;
-        errorobj = json_object_object_get(root, "errorCode");
-        error = json_object_get_int(errorobj);
+        int error = -1;
+
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)){
+            jnumber_get_i32(jsonSubObj, &error);
+        }
 
         if (error == -1) {
             LS_LOG_ERROR("wifi service is not running");
             Notify_WifiStateChange(false);
         }
 
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     }
 
-    found = json_object_object_get_ex(root, "status", &wifi_status_obj);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("status"), &jsonSubObj)){
+        raw_buffer buf = jstring_get(jsonSubObj);
+        wifisrvEnable = strdup(buf.m_str);
+        jstring_free_buffer(buf);
+        if(wifisrvEnable != NULL)
+           found = true;
+    }
 
     if (found == false) {
         Notify_WifiStateChange(wifistatus);
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     }
 
-    wifisrvEnable = json_object_get_string(wifi_status_obj);
     LS_LOG_DEBUG("wifisrvEnable %s", wifisrvEnable);
+
     if ((strcmp(wifisrvEnable, "serviceEnabled") == 0)) {
         wifistatus = true;
         Notify_WifiStateChange(wifistatus);
@@ -254,7 +269,7 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
         Notify_WifiStateChange(wifistatus);
     }
 
-    json_object_put(root);
+    j_release(&parsedObj);
     return true;
 }
 
@@ -265,111 +280,131 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
 
 bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *message)
 {
-    bool ret;
-    bool found;
+    bool ret = false;
+    bool found = false;
     bool isInternetConnectionAvailable = false;
-    const char *str;
-    json_object *root = 0;
-    json_object *returnValueobj = 0;
-    json_object *isConnectedobj = 0;
-    json_object *errorobj = 0;
-    str = LSMessageGetPayload(message);
-    root = json_tokener_parse(str);
+    jvalue_ref jsonSubObj = NULL;
+    jvalue_ref parsedObj = NULL;
+    JSchemaInfo schemaInfo;
 
-    if (root == NULL || is_error(root)) {
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+    if(!input_schema)
+       return false;
+
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL); // no external refs & no error handlers
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+    jschema_release(&input_schema);
+
+    if (jis_null(parsedObj)){
         return true;
     }
 
-    found = json_object_object_get_ex(root, "returnValue", &returnValueobj);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)){
+        jboolean_get(jsonSubObj, &ret);
+        found = true;
+    }
 
     if (found == false) {
         Notify_ConnectivityStateChange(isInternetConnectionAvailable);
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     }
 
-    ret = json_object_get_boolean(returnValueobj);
+    found = false;
 
     if (ret) {
-        found = json_object_object_get_ex(root, "isInternetConnectionAvailable", &isConnectedobj);
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("isInternetConnectionAvailable"), &jsonSubObj)){
+            jboolean_get(jsonSubObj, &isInternetConnectionAvailable);
+            found=true;
+        }
 
         if (found == false) {
             Notify_ConnectivityStateChange(false);
-            json_object_put(root);
+            j_release(&parsedObj);
             return true;
         }
 
-        isInternetConnectionAvailable = json_object_get_boolean(isConnectedobj);
     } else {
-        int error;
-        errorobj = json_object_object_get(root, "errorCode");
-        error = json_object_get_int(errorobj);
+        int error = -1;
+
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)){
+            jnumber_get_i32(jsonSubObj, &error);
+        }
 
         if (error == -1) {
             LS_LOG_DEBUG("WAN service is not running");
             Notify_ConnectivityStateChange(false);
         }
 
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     }
     LS_LOG_DEBUG("isInternetConnectionAvailable %d", isInternetConnectionAvailable);
 
     Notify_ConnectivityStateChange(isInternetConnectionAvailable);
 
-    json_object_put(root);
+    j_release(&parsedObj);
     return true;
 }
 bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *message)
 {
-    bool ret;
-    bool found;
+    bool ret = false;
+    bool found = false;
     bool isTelephonyAvailable = false;
-    const char *str;
-    json_object *root = 0;
-    json_object *returnValueobj = 0;
-    json_object *errorobj = 0;
-    json_object *extendedobj = 0;
-    str = LSMessageGetPayload(message);
-    root = json_tokener_parse(str);
+    jvalue_ref extendedobj = NULL;
+    jvalue_ref jsonSubObj = NULL;
+    jvalue_ref parsedObj = NULL;
+    JSchemaInfo schemaInfo;
 
-    if (root == NULL || is_error(root)) {
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+
+    if (!input_schema)
+        return true;
+
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL); // no external refs & no error handlers
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+    jschema_release(&input_schema);
+
+    if (jis_null(parsedObj)){
         return true;
     }
 
-    found = json_object_object_get_ex(root, "returnValue", &returnValueobj);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)){
+        jboolean_get(jsonSubObj, &ret);
+        found = true;
+    }
 
     if (found == false) {
         Notify_TelephonyStateChange(isTelephonyAvailable);
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     }
 
-    ret = json_object_get_boolean(returnValueobj);
-
     if (ret == false) {
-        int error;
-        errorobj = json_object_object_get(root, "errorCode");
-        error = json_object_get_int(errorobj);
+        int error = -1;
+
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)){
+            jnumber_get_i32(jsonSubObj, &error);
+        }
 
         if (error == -1) {
             LS_LOG_ERROR("Telephony service is not running");
             Notify_TelephonyStateChange(false);
         }
 
-        json_object_put(root);
+        j_release(&parsedObj);
         return true;
     } else {
-        extendedobj = json_object_object_get(root, "extended");
 
-        if (json_object_array_length(extendedobj) > 0) {
-            LS_LOG_DEBUG("extendedobj reading power state %s", json_object_to_json_string(extendedobj));
-            isTelephonyAvailable = json_object_object_get(extendedobj, "power");
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("extended"), &extendedobj)){
+            LS_LOG_DEBUG("extendedobj reading power state %s", jvalue_tostring_simple(extendedobj));
+            isTelephonyAvailable = jobject_get_exists(extendedobj,  J_CSTR_TO_BUF("power"), &jsonSubObj);
         }
+
     }
 
     Notify_TelephonyStateChange(isTelephonyAvailable);
-    json_object_put(root);
+    j_release(&parsedObj);
     return true;
 }
 

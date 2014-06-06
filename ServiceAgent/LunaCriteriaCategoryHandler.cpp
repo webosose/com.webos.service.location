@@ -79,23 +79,22 @@ bool LunaCriteriaCategoryHandler::init(LSPalmService *sh, LSPalmService *sh_lge,
 bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
                                                              LSMessage *message)
 {
-    struct json_object *serviceObject = NULL;
-    struct json_object *m_JsonArgument = NULL;
-    struct json_object *m_JsonSubArgument = NULL;
-    int minInterval;
-    int minDistance;
+    int minInterval = 0;
+    int minDistance = 0;
     int accLevel = LunaCriteriaCategoryHandler::NO_REQUIREMENT;
     int powLevel = LunaCriteriaCategoryHandler::NO_REQUIREMENT;
-    char *handlerName;
-    bool bRetVal;
-    int sel_handler;
+    char *handlerName = NULL;
+    bool bRetVal = false;
+    int sel_handler = 0;
     unsigned char startedHandlers = 0;
     char sub_key_gps[KEY_MAX] = { 0x00 };
     char sub_key_nw[KEY_MAX] = { 0x00 };
     Position pos;
     Accuracy acc;
     LSError mLSError;
+    jvalue_ref serviceObj = NULL;
     TrakingErrorCode errorCode = LOCATION_SUCCESS;
+    jvalue_ref parsedObj = NULL;
 
     LSErrorInit(&mLSError);
     LS_LOG_INFO("======startTrackingCriteriaBased=====");
@@ -111,41 +110,25 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         goto EXIT;
     }
 
-    m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
-
-    if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LS_LOG_ERROR("parsing error");
-        errorCode = LOCATION_INVALID_INPUT;
-        goto EXIT;
+    if (!LSMessageValidateSchema(sh, message, JSCHEMA_START_TRACKING_CRITERIA_BASED, &parsedObj)) {
+        LS_LOG_ERROR("Schema Error in StartTracking Criteria");
+        return true;
     }
 
-    bRetVal = json_object_object_get_ex(m_JsonArgument, "minimumInterval", &m_JsonSubArgument);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumInterval"), &serviceObj)) {
+        jnumber_get_i32(serviceObj,&minInterval);
 
-    if (bRetVal) {
-        if(!json_object_is_type(m_JsonSubArgument, json_type_int)) {
-            LS_LOG_ERROR("minInteval is not integer type");
-            errorCode = LOCATION_INVALID_INPUT;
-            goto EXIT;
-        }
-
-        minInterval = json_object_get_int(m_JsonSubArgument);
         LS_LOG_DEBUG("minimumInterval %d", minInterval);
+
         if ((minInterval < LunaCriteriaCategoryHandler::MIN_RANGE || minInterval > LunaCriteriaCategoryHandler::MAX_RANGE)) {
             errorCode = LOCATION_INVALID_INPUT;
             goto EXIT;
         }
     }
-    bRetVal = json_object_object_get_ex(m_JsonArgument, "minimumDistance", &m_JsonSubArgument);
 
-    if (bRetVal) {
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &serviceObj)) {
+        jnumber_get_i32(serviceObj,&minDistance);
 
-        if (!json_object_is_type(m_JsonSubArgument, json_type_int)) {
-            LS_LOG_ERROR("minDistance is not integer type");
-            errorCode = LOCATION_INVALID_INPUT;
-            goto EXIT;
-        }
-
-        minDistance = json_object_get_int(m_JsonSubArgument);
         LS_LOG_DEBUG("minimumInterval %d", minInterval);
 
         if (minDistance > LunaCriteriaCategoryHandler::MAX_RANGE) {
@@ -154,16 +137,11 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         }
     }
 
-    bRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("Handler"), &serviceObj)) {
+        raw_buffer nameBuf = jstring_get(serviceObj);
+        handlerName = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
 
-    if (bRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)) {
-        LS_LOG_ERROR("Invalid handler name");
-        errorCode = LOCATION_INVALID_INPUT;
-        goto EXIT;
-    }
-
-    if (bRetVal) {
-        handlerName = json_object_get_string(m_JsonSubArgument);
         LS_LOG_INFO("handlerName %s", handlerName);
 
         if (strcmp(handlerName, GPS) == NULL)
@@ -176,16 +154,9 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         }
 
     } else {
-        bRetVal = json_object_object_get_ex(m_JsonArgument, "accuracyLevel", &m_JsonSubArgument);
 
-        if (bRetVal && !json_object_is_type(m_JsonSubArgument, json_type_int)) {
-            LS_LOG_ERROR("Invalid accuracy");
-            errorCode = LOCATION_INVALID_INPUT;
-            goto EXIT;
-        }
-
-        if (bRetVal) {
-            accLevel = json_object_get_int(m_JsonSubArgument);
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("accuracyLevel"), &serviceObj)) {
+            jnumber_get_i32(serviceObj, &accLevel);
 
             if (accLevel <= 0 || accLevel >= 3) {
                 errorCode = LOCATION_INVALID_INPUT;
@@ -193,16 +164,9 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
             }
         }
 
-        bRetVal = json_object_object_get_ex(m_JsonArgument, "powerLevel", &m_JsonSubArgument);
 
-        if (bRetVal && !json_object_is_type(m_JsonSubArgument, json_type_int)) {
-            LS_LOG_ERROR("Invalid powerlevel");
-            errorCode = LOCATION_INVALID_INPUT;
-            goto EXIT;
-        }
-
-        if (bRetVal) {
-            powLevel = json_object_get_int(m_JsonSubArgument);
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("powerLevel"), &serviceObj)) {
+            jnumber_get_i32(serviceObj, &powLevel);
 
             if (powLevel <= 0 || powLevel >= 3) {
                 errorCode = LOCATION_INVALID_INPUT;
@@ -304,8 +268,8 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
 
 EXIT:
 
-    if (m_JsonArgument)
-        json_object_put(m_JsonArgument);
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
 
     if (errorCode != LOCATION_SUCCESS) {
         LSMessageReplyError(sh,
@@ -314,6 +278,8 @@ EXIT:
                             LocationService::getInstance()->positionErrorText(errorCode));
     }
 
+    if (handlerName != NULL)
+        g_free(handlerName);
 
     return true;
 }
@@ -476,37 +442,25 @@ void LunaCriteriaCategoryHandler::LSErrorPrintAndFree(LSError *ptrLSError)
 void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos, Accuracy *accuracy, int error, int type)
 {
     LS_LOG_DEBUG("===startTrackingCriteriaBased_reply called error %d===",error);
-    struct json_object *serviceObject = NULL;
     char *key = NULL;
     LSError mLSError;
     LSErrorInit(&mLSError);
     bool bRetVal;
+    char *errorString = NULL;
+    jvalue_ref serviceObject = NULL;
 
-    serviceObject = json_object_new_object();
+    serviceObject = jobject_create();
 
-    if (serviceObject == NULL) {
-        LS_LOG_ERROR("No memory");
-        return;
-    }
+    if (jis_null(serviceObject)) {
 
-    if (error == ERROR_NONE) {
-        location_util_add_returnValue_json(serviceObject, true);
-        location_util_add_errorCode_json(serviceObject, SUCCESSFUL);
-        location_util_add_pos_json(serviceObject, pos);
-        location_util_add_acc_json(serviceObject, accuracy);
+        LS_LOG_ERROR("Out of memory");
+        errorString = g_strdup_printf("{\"returnValue\":false,\"errorText\":\"%s\",\"errorCode\":%d}",
+                                      "Out of memory", LOCATION_OUT_OF_MEM);
 
-
-        if (type == HANDLER_GPS)
-            key = GPS_CRITERIA_KEY;
-        else
-            key = NW_CRITERIA_KEY;
-
-        LS_LOG_DEBUG("key %s", key);
-
-         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
+        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmSrvHandle,
                                                            key,
-                                                           json_object_to_json_string(serviceObject),
+                                                           errorString,
                                                            &mLSError);
 
         if (bRetVal == false)
@@ -515,7 +469,42 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmLgeSrvHandle,
                                                            key,
-                                                           json_object_to_json_string(serviceObject),
+                                                           errorString,
+                                                           &mLSError);
+
+        if (bRetVal == false)
+            LSErrorPrintAndFree(&mLSError);
+
+        g_free(errorString);
+
+        return;
+    }
+
+    if (error == ERROR_NONE) {
+        location_util_form_json_reply(&serviceObject, true, SUCCESSFUL);
+        location_util_add_pos_json(&serviceObject, pos);
+        location_util_add_acc_json(&serviceObject,accuracy);
+
+        if (type == HANDLER_GPS)
+            key = GPS_CRITERIA_KEY;
+        else
+            key = NW_CRITERIA_KEY;
+
+        LS_LOG_DEBUG("key %s", key);
+
+        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
+                                                           mpalmSrvHandle,
+                                                           key,
+                                                           jvalue_tostring_simple(serviceObject),
+                                                           &mLSError);
+
+        if (bRetVal == false)
+            LSErrorPrintAndFree(&mLSError);
+
+        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
+                                                           mpalmLgeSrvHandle,
+                                                           key,
+                                                           jvalue_tostring_simple(serviceObject),
                                                            &mLSError);
 
         if (bRetVal == false)
@@ -542,14 +531,13 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         }
 
         if (trackhandlerstate == 0) {
-            location_util_add_returnValue_json(serviceObject, false);
-            location_util_add_errorCode_json(serviceObject, LOCATION_TIME_OUT);
-            location_util_add_errorText_json(serviceObject,LocationService::getInstance()->positionErrorText(LOCATION_TIME_OUT));
+            location_util_form_json_reply(&serviceObject, false, LOCATION_TIME_OUT);
+            location_util_add_errorText_json(&serviceObject, LocationService::getInstance()->positionErrorText(LOCATION_TIME_OUT));
 
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
                                                                GPS_CRITERIA_KEY,
-                                                               json_object_to_json_string(serviceObject),
+                                                               jvalue_tostring_simple(serviceObject),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -558,7 +546,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                GPS_CRITERIA_KEY,
-                                                               json_object_to_json_string(serviceObject),
+                                                               jvalue_tostring_simple(serviceObject),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -567,7 +555,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
                                                                NW_CRITERIA_KEY,
-                                                               json_object_to_json_string(serviceObject),
+                                                               jvalue_tostring_simple(serviceObject),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -576,7 +564,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                NW_CRITERIA_KEY,
-                                                               json_object_to_json_string(serviceObject),
+                                                               jvalue_tostring_simple(serviceObject),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -584,7 +572,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         }
     }
 
-    json_object_put(serviceObject);
+    j_release(&serviceObject);
 }
 
 bool LunaCriteriaCategoryHandler::LSSubscriptionNonSubMeetsCriteriaRespond(Position *pos,
@@ -615,8 +603,10 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
     LSSubscriptionIter *iter = NULL;
     bool retVal;
     bool isNonSubscibePresent = false;
-    struct json_object *jsonObject = NULL;
-    struct json_object *jsonSubObject = NULL;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+    jschema_ref input_schema = NULL ;
+    JSchemaInfo schemaInfo;
     int minDist;
     int minInterval;
     LS_LOG_DEBUG("key = %s", key);
@@ -627,25 +617,30 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
         do {
             LSMessage *msg = LSSubscriptionNext(iter);
             //parse message to get minDistance
-            jsonObject = json_tokener_parse((const char *) LSMessageGetPayload(msg));
+            input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY), DOMOPT_NOOPT, NULL);
 
-            if (jsonObject == NULL || is_error(jsonObject)) {
+            if(!input_schema)
+               return false;
+
+            jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+            parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(msg)), DOMOPT_NOOPT, &schemaInfo);
+
+            if (jis_null(parsedObj)) {
                 LS_LOG_ERROR("parsing error");
-                return;
+                return false;
             }
 
             //Check Minimum Interval
-            retVal = json_object_object_get_ex(jsonObject, "minimumInterval", &jsonSubObject);
-
-            if (retVal) {
+            if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumInterval"), &jsonSubObject)) {
                 //check for criteria meets minimumDistance
-                minInterval = json_object_get_int(jsonSubObject);
+                jnumber_get_i32(jsonSubObject, &minInterval);
                 LS_LOG_DEBUG("minInterval in message = %d", minInterval);
 
                 if (meetsCriteria(msg, pos, minInterval, NULL, true, false)) {
-                    retVal = json_object_object_get_ex(jsonObject, "minimumDistance", &jsonSubObject);
-                    if (retVal) {
-                        minDist = json_object_get_int(jsonSubObject);
+
+                    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &jsonSubObject)) {
+                        jnumber_get_i32(jsonSubObject, &minDist);
+
                         if (meetsCriteria(msg, pos, NULL, minDist, false, true)) {
                             LSMessageReplyCriteria(msg, pos, sh, key, payload, iter, lserror);
                         }
@@ -655,11 +650,9 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
                 }
             } else {
                 //Check minimum Distance
-                retVal = json_object_object_get_ex(jsonObject, "minimumDistance", &jsonSubObject);
-
-                if (retVal) {
+                if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &jsonSubObject)) {
                     //check for criteria meets minimumDistance
-                    minDist = json_object_get_int(jsonSubObject);
+                    jnumber_get_i32(jsonSubObject, &minDist);
 
                     if (meetsCriteria(msg, pos, NULL, minDist, false, true))
                         LSMessageReplyCriteria(msg, pos, sh, key, payload, iter, lserror);
@@ -668,10 +661,12 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
                     LSMessageReplyCriteria(msg, pos, sh, key, payload, iter, lserror);
                 }
             }
-            json_object_put(jsonObject);
-        } while (LSSubscriptionHasNext(iter));
+
+            j_release(&parsedObj);
+          } while (LSSubscriptionHasNext(iter));
     }
     LSSubscriptionRelease(iter);
+    jschema_release(&input_schema);
 
     if (LocationService::getInstance()->isSubscListFilled(sh, key, false) == false)
         LocationService::getInstance()->stopNonSubcription(key);
@@ -783,33 +778,31 @@ bool LunaCriteriaCategoryHandler::minDistance(int minimumDistance, double latitu
 bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh, LSMessage *message)
 {
     char *handler = NULL;
-    struct json_object *serviceObject = NULL;
+    jvalue_ref serviceObject = NULL;
     LSError mLSError;
     LSErrorInit(&mLSError);
     bool bRetVal;
-    struct json_object *m_JsonArgument = NULL;
-    struct json_object *m_JsonSubArgument = NULL;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
 
-    m_JsonArgument = json_tokener_parse((const char *) LSMessageGetPayload(message));
-
-    if (m_JsonArgument == NULL || is_error(m_JsonArgument)) {
-        LSMessageReplyError(sh,
-                            message,
-                            LOCATION_INVALID_INPUT,
-                            LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
+    if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_LOCATION_CRITERIA_HANDLER_DETAILS, &parsedObj)) {
+        LS_LOG_ERROR("Schema Error in StartTracking Criteria");
         return true;
     }
 
-    bRetVal = json_object_object_get_ex(m_JsonArgument, "Handler", &m_JsonSubArgument);
-
-    if (m_JsonSubArgument != NULL && bRetVal && json_object_is_type(m_JsonSubArgument, json_type_string))
-        handler = json_object_get_string(m_JsonSubArgument);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("Handler"), &jsonSubObject)) {
+        raw_buffer nameBuf = jstring_get(jsonSubObject);
+        handler = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
+    }
     else {
         LS_LOG_ERROR("Invalid param:Handler");
         LSMessageReplyError(sh,
                             message,
                             LOCATION_INVALID_INPUT,
                             LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
+
+        j_release(&parsedObj);
         return true;
     }
 
@@ -820,21 +813,21 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
                             LOCATION_INVALID_INPUT,
                             LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
 
-        json_object_put(m_JsonArgument);
-
+        j_release(&parsedObj);
         return true;
     }
 
-    serviceObject = json_object_new_object();
+    serviceObject = jobject_create();
 
-    if (serviceObject == NULL) {
+    if (jis_null(serviceObject)) {
         LS_LOG_ERROR("Failed to allocate memory to serviceObject");
         LSMessageReplyError(sh,
                             message,
                             LOCATION_OUT_OF_MEM,
                             LocationService::getInstance()->positionErrorText(LOCATION_OUT_OF_MEM));
 
-        json_object_put(m_JsonArgument);
+        g_free(handler);
+        j_release(&parsedObj);
 
         return true;
     }
@@ -842,38 +835,38 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
     if (strcmp(handler, "gps") == 0) {
 
         LS_LOG_DEBUG("getHandlerStatus(GPS)");
-        json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
-        json_object_object_add(serviceObject, "accuracyLevel", json_object_new_int(LunaCriteriaCategoryHandler::ACCURACY_FINE));
-        json_object_object_add(serviceObject, "powerLevel", json_object_new_int(LunaCriteriaCategoryHandler::POWER_HIGH));
-        json_object_object_add(serviceObject, "requiresNetwork", json_object_new_boolean(false));
-        json_object_object_add(serviceObject, "requiresCell", json_object_new_boolean(false));
-        json_object_object_add(serviceObject, "monetaryCost", json_object_new_boolean(false));
-        json_object_object_add(serviceObject, "provideAltitude", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "provideLongitude", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "provideLatitude", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "provideSpeed", json_object_new_boolean(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("returnValue"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("errorCode"), jnumber_create_i32(LOCATION_SUCCESS));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("accuracyLevel"), jnumber_create_i32(LunaCriteriaCategoryHandler::ACCURACY_FINE));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("powerLevel"), jnumber_create_i32(LunaCriteriaCategoryHandler::POWER_HIGH));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("requiresNetwork"), jboolean_create(false));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("requiresCell"), jboolean_create(false));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("monetaryCost"), jboolean_create(false));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideAltitude"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideLongitude"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideLatitude"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideSpeed"), jboolean_create(true));
 
-        bRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+        bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
 
         if (bRetVal == false) {
             LSErrorPrintAndFree(&mLSError);
         }
     } else if (strcmp(handler, "network") == 0) {
         LS_LOG_DEBUG("Network details");
-        json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "errorCode", json_object_new_int(LOCATION_SUCCESS));
-        json_object_object_add(serviceObject, "accuracyLevel", json_object_new_int(LunaCriteriaCategoryHandler::ACCURACY_COARSE));
-        json_object_object_add(serviceObject, "powerLevel", json_object_new_int(LunaCriteriaCategoryHandler::POWER_LOW));
-        json_object_object_add(serviceObject, "requiresNetwork", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "requiresCell", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "monetaryCost", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "provideAltitude", json_object_new_boolean(false));
-        json_object_object_add(serviceObject, "provideLongitude", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "provideLatitude", json_object_new_boolean(true));
-        json_object_object_add(serviceObject, "provideSpeed", json_object_new_boolean(false));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("returnValue"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("errorCode"), jnumber_create_i32(LOCATION_SUCCESS));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("accuracyLevel"), jnumber_create_i32(LunaCriteriaCategoryHandler::ACCURACY_COARSE));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("powerLevel"), jnumber_create_i32(LunaCriteriaCategoryHandler::POWER_LOW));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("requiresNetwork"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("requiresCell"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("monetaryCost"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideAltitude"), jboolean_create(false));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideLongitude"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideLatitude"), jboolean_create(true));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("provideSpeed"), jboolean_create(false));
 
-        bRetVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &mLSError);
+        bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
 
         if (bRetVal == false) {
             LSErrorPrintAndFree(&mLSError);
@@ -886,8 +879,9 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
                             LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
     }
 
-    json_object_put(m_JsonArgument);
-    json_object_put(serviceObject);
+    g_free(handler);
+    j_release(&parsedObj);
+    j_release(&serviceObject);
 
     return true;
 }

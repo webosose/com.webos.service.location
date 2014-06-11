@@ -20,135 +20,131 @@
  * Sl No        Modified by     Date        Version Description
  *
  **********************************************************/
-#include <cjson/json.h>
 #include <Position.h>
 #include <Address.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <geoclue/geoclue-position.h>
+#include "LunaLocationServiceUtil.h"
+#include "ServiceAgent.h"
+#include <LocationService_Log.h>
+#include <JsonUtility.h>
 
-void location_util_add_pos_json(struct json_object *serviceObject, Position *pos)
+void location_util_add_pos_json(jvalue_ref *serviceObject, Position *pos)
 {
-    if (!serviceObject || !pos)
+    if (jis_null(*serviceObject) || (pos == NULL))
         return;
 
-    json_object_object_add(serviceObject, "timestamp", json_object_new_double(pos->timestamp));
-    json_object_object_add(serviceObject, "latitude", json_object_new_double(pos->latitude));
-    json_object_object_add(serviceObject, "longitude", json_object_new_double(pos->longitude));
-    json_object_object_add(serviceObject, "altitude", json_object_new_double(pos->altitude));
-    json_object_object_add(serviceObject, "heading", json_object_new_double(pos->direction));
-    json_object_object_add(serviceObject, "velocity", json_object_new_double(pos->speed));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("timestamp"), jnumber_create_i64(pos->timestamp));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("latitude"), jnumber_create_f64(pos->latitude));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("longitude"), jnumber_create_f64(pos->longitude));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("altitude"), jnumber_create_f64(pos->altitude));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("direction"), jnumber_create_f64(pos->direction));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("speed"), jnumber_create_f64(pos->speed));
 }
 
-void location_util_add_errorText_json(struct json_object *serviceObject, char *errorText)
+void location_util_add_errorText_json(jvalue_ref *serviceObject, char *errorText)
 {
-    if (!serviceObject)
+    if (jis_null(*serviceObject) )
         return;
 
-    json_object_object_add(serviceObject, "errorText", json_object_new_string(errorText));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("errorText"), jstring_create(errorText));
 }
 
-void location_util_add_returnValue_json(struct json_object *serviceObject, bool returnValue)
+void location_util_form_json_reply(jvalue_ref *serviceObject, bool returnValue, int errorCode)
 {
-    if (!serviceObject)
+    if (jis_null(*serviceObject) )
         return;
 
-    json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(returnValue));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("returnValue"), jboolean_create(returnValue));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("errorCode"), jnumber_create_i32(errorCode));
 }
 
-void location_util_add_errorCode_json(struct json_object *serviceObject, int errorCode)
+void location_util_add_acc_json(jvalue_ref *serviceObject, Accuracy *acc)
 {
-    if (!serviceObject)
+    if (jis_null(*serviceObject) || (acc == NULL))
         return;
 
-    json_object_object_add(serviceObject, "errorCode", json_object_new_int(errorCode));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("horizAccuracy"), jnumber_create_f64(acc->horizAccuracy));
+    jobject_put(*serviceObject, J_CSTR_TO_JVAL("vertAccuracy"), jnumber_create_f64(acc->vertAccuracy));
 }
 
-void location_util_add_acc_json(struct json_object *serviceObject, Accuracy *acc)
-{
-    if (!serviceObject || !acc)
-        return;
-
-    json_object_object_add(serviceObject, "horizAccuracy", json_object_new_double(acc->horizAccuracy));
-    json_object_object_add(serviceObject, "vertAccuracy", json_object_new_double(acc->vertAccuracy));
-}
-
-bool location_util_parsejsonAddress(struct json_object *m_JsonArgument, Address *addr)
+bool location_util_parsejsonAddress(jvalue_ref *m_JsonArgument, Address *addr)
 {
     bool mRetVal;
-    struct json_object *m_JsonSubArgument = NULL;
+    jvalue_ref m_JsonSubArgument = NULL;
+    char *tempStr = NULL;
+    raw_buffer nameBuf;
 
-    if (m_JsonArgument == NULL || addr == NULL)
+    if (jis_null(*m_JsonArgument)  || addr == NULL) {
+        printf("error in geocode");
         return false;
-
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "street", &m_JsonSubArgument);
-
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
+    }
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF( "street"), &m_JsonSubArgument);
 
     if (mRetVal == true) {
-        addr->street = json_object_get_string(m_JsonSubArgument);
+        raw_buffer nameBuf = jstring_get(m_JsonSubArgument);
+        addr->street = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     m_JsonSubArgument = NULL;
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "country", &m_JsonSubArgument);
 
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF("country"), &m_JsonSubArgument);
+
 
     if (mRetVal == true) {
-        addr->country = json_object_get_string(m_JsonSubArgument);
+        nameBuf = jstring_get(m_JsonSubArgument);
+        addr->country = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     m_JsonSubArgument = NULL;
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "postcode", &m_JsonSubArgument);
-
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF("postcode"), &m_JsonSubArgument);
 
     if (mRetVal == true) {
-        addr->postcode = json_object_get_string(m_JsonSubArgument);
+        nameBuf = jstring_get(m_JsonSubArgument);
+        addr->postcode = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     m_JsonSubArgument = NULL;
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "countrycode", &m_JsonSubArgument);
-
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF( "countrycode"), &m_JsonSubArgument);
 
     if (mRetVal == true) {
-        addr->countrycode = json_object_get_string(m_JsonSubArgument);
+        nameBuf = jstring_get(m_JsonSubArgument);
+        addr->countrycode = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     m_JsonSubArgument = NULL;
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "area", &m_JsonSubArgument);
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF("area"), &m_JsonSubArgument);
 
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
 
     if (mRetVal == true) {
-        addr->area = json_object_get_string(m_JsonSubArgument);
+        nameBuf = jstring_get(m_JsonSubArgument);
+        addr->area = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     m_JsonSubArgument = NULL;
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "locality", &m_JsonSubArgument);
-
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF("locality"), &m_JsonSubArgument);
 
     if (mRetVal == true) {
-        addr->locality = json_object_get_string(m_JsonSubArgument);
+        nameBuf = jstring_get(m_JsonSubArgument);
+        addr->locality = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     m_JsonSubArgument = NULL;
-    mRetVal = json_object_object_get_ex(m_JsonArgument, "region", &m_JsonSubArgument);
-
-    if (m_JsonSubArgument == NULL || (mRetVal && !json_object_is_type(m_JsonSubArgument, json_type_string)))
-        return false;
+    mRetVal = jobject_get_exists(m_JsonArgument, J_CSTR_TO_BUF("region"), &m_JsonSubArgument);
 
     if (mRetVal == true) {
-        addr->region = json_object_get_string(m_JsonSubArgument);
+        nameBuf = jstring_get(m_JsonSubArgument);
+        addr->region = g_strdup(nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
     }
 
     return true;
 }
+

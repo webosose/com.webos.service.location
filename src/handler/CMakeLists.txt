@@ -30,7 +30,7 @@ set(LIBRARIES
         ${GMOD_LDFLAGS}
         ${LUNASERVICE_LDFLAGS}
         ${LUNAPREFS_LDFLAGS}
-        ${CJSON_LDFLAGS}
+        ${LIBPBNJSON_LDFLAGS}
         ${PMLOGLIB_LDFLAGS}
 )
 

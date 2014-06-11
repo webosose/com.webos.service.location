@@ -31,8 +31,8 @@ add_definitions(${LUNASERVICE_CFLAGS})
 pkg_check_modules(LUNAPREFS REQUIRED luna-prefs)
 add_definitions(${LUNAPREFS_CFLAGS})
 
-pkg_check_modules(CJSON REQUIRED cjson)
-add_definitions(${CJSON_CFLAGS})
+pkg_check_modules(LIBPBNJSON REQUIRED pbnjson_c)
+add_definitions(${LIBPBNJSON_CFLAGS})
 
 pkg_check_modules(LIB2XML REQUIRED libxml-2.0)
 add_definitions(${LIB2XML_CFLAGS})

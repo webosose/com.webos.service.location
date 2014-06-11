@@ -32,10 +32,10 @@
 #include "boost/shared_ptr.hpp"
 #include "boost/array.hpp"
 #include <vector>
-#include <cjson/json.h>
 #include <pthread.h>
 #include <LocationService_Log.h>
 #include <LunaCriteriaCategoryHandler.h>
+#include <pbnjson.h>
 
 #define SHORT_RESPONSE_TIME  10000;
 #define MEDIUM_RESPONSE_TIME  100000;
@@ -67,6 +67,7 @@
             assert(!#cond);                 \
         }                                   \
     } while (0)
+
 /**
  * @brief CONSTANT DEFINITIONS
  */
@@ -401,8 +402,8 @@ private:
     bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
     bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
     gboolean _TimerCallback(void *data);
-    bool readLocationfromCache(LSHandle *sh, LSMessage *message, json_object *serviceObject, int maxAge, int accuracy, unsigned char handlerstatus);
-    bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *);
+    bool readLocationfromCache(LSHandle *sh, LSMessage *message, jvalue_ref serviceObject, int maxAge,int accuracylevel, unsigned char handlerstatus);
+    bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *,jvalue_ref );
     bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
     int  convertResponseTimeFromLevel(int accLevel, int responseTimeLevel);
     bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh);

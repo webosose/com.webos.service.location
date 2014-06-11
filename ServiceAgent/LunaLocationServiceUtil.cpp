@@ -13,35 +13,53 @@
 
 #include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
-#include <cjson/json.h>
 #include <LocationService_Log.h>
 
+bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj)  {
 
-bool LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode,char *errorText)
+    bool ret = false;
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer(schema), DOMOPT_NOOPT, NULL);
+
+    if(!input_schema)
+       return false;
+
+    JSchemaInfo schemaInfo;
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+    *parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+
+    if (jis_null(*parsedObj)) {
+        input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY), DOMOPT_NOOPT, NULL);
+        jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+        *parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+
+        if(!jis_null(*parsedObj))
+           j_release(parsedObj);
+
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT, "Invalid input");
+    }
+    else
+      ret = true;
+
+    jschema_release(&input_schema);
+    return ret;
+}
+
+void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode, char *errorText)
 {
     LSError lserror;
-    struct json_object *serviceObject = json_object_new_object();
+    LSErrorInit(&lserror);
+    char *errorString;
 
-    if (serviceObject == NULL) {
-        return true;
-    }
+    errorString = g_strdup_printf("{\"returnValue\":false,\"errorText\":\"%s\",\"errorCode\":%d}", errorText, errorCode);
 
-    json_object_object_add(serviceObject, "returnValue", json_object_new_boolean(false));
-    json_object_object_add(serviceObject, "errorCode", json_object_new_int(errorCode));
-    json_object_object_add(serviceObject, "errorText", json_object_new_string(errorText));
-    //json_object_object_add(serviceObject, "errorText", json_object_new_string("Location General error"));
-    bool retVal = LSMessageReply(sh, message, json_object_to_json_string(serviceObject), &lserror);
-    //bool retVal = LSMessageRespond(message, json_object_to_json_string(serviceObject), &lserror);
-
-    if (retVal == false) {
+    bool retVal = LSMessageReply(sh, message, errorString, &lserror);
+    if (!retVal)
+    {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
-        json_object_put(serviceObject);
-        return false;
     }
 
-    json_object_put(serviceObject);
-    return true;
+    g_free(errorString);
 }
 
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message)

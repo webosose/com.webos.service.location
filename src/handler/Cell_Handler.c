@@ -27,8 +27,8 @@
 #include <Handler_Interface.h>
 #include <Cell_Handler.h>
 #include <Plugin_Loader.h>
-#include <cjson/json.h>
 #include <LocationService_Log.h>
+#include <pbnjson.h>
 
 typedef struct _CellHandlerPrivate {
     CellPlugin *cell_plugin;
@@ -178,15 +178,12 @@ static int cell_handler_stop(Handler *self, int handler_type, gboolean forcestop
 
 static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 {
-    struct json_object *new_obj = NULL;
-    struct json_object *return_value = NULL;
-    struct json_object *error_code = NULL;
-    struct json_object *cid_obj = NULL;
-    int cid;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref error_obj = NULL;
     int track_ret = ERROR_NONE;
     int pos_ret = ERROR_NONE;
     int error = ERROR_NONE;
-    struct json_object *cell_data_obj = NULL ;
+    jvalue_ref cell_data_obj = NULL ;
     gboolean ret;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE((Handler *) ctx);
 
@@ -195,48 +192,48 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     if (priv->is_started == FALSE)
         return TRUE;
 
-    /*Creating a json array*/
-    const char *str = LSMessageGetPayload(reply);
-    LS_LOG_DEBUG("message=%s \n \n", str);
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
 
-    new_obj = json_tokener_parse(str);
+    if(!input_schema)
+       return TRUE;
 
-    if (new_obj == NULL) {
+    JSchemaInfo schemaInfo;
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(reply)), DOMOPT_NOOPT, &schemaInfo);
+    LS_LOG_DEBUG("message=%s \n \n", LSMessageGetPayload(reply));
+
+    if (jis_null(parsedObj)) {
+        jschema_release(&input_schema);
         return TRUE;
     }
 
-    return_value = json_object_object_get(new_obj, "returnValue");
-    ret = json_object_get_boolean(return_value);
+    jboolean_get(jobject_get(parsedObj, J_CSTR_TO_BUF("returnValue")), &ret);
 
     if (ret == FALSE) { // For time being // failure case when telephony return error
-        error_code = json_object_object_get(new_obj, "errorCode");
-        error = json_object_get_int(error_code);
+        jnumber_get_i32(jobject_get(parsedObj, J_CSTR_TO_BUF("errorCode")), &error);
 
         if (error == -1 ) {
             LS_LOG_ERROR("Cell handler:Telephony error Happened\n", ret);
         }
 
-        json_object_put(new_obj);
-        return TRUE;
+        goto CLEANUP;
     }
 
-    cell_data_obj = json_object_object_get(new_obj, "data");
+    cell_data_obj = jobject_get(parsedObj, J_CSTR_TO_BUF("data"));
 
     if ((priv->api_progress_flag & CELL_START_TRACKING_ON) || (priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON)) {
         LS_LOG_INFO("Cell handler:send start tracking indication\n");
         track_ret = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler,
                                                           TRUE,
                                                           cell_handler_tracking_cb,
-                                                          (gpointer) json_object_to_json_string(cell_data_obj));
+                                                          (gpointer) jvalue_tostring_simple(cell_data_obj));
     }
 
     if (priv->api_progress_flag & CELL_GET_POSITION_ON) {
         pos_ret = priv->cell_plugin->ops.get_position(priv->cell_plugin->plugin_handler,
                                                       cell_handler_position_cb,
-                                                      (gpointer) json_object_to_json_string(cell_data_obj));
+                                                      (gpointer) jvalue_tostring_simple(cell_data_obj));
     }
-
-    json_object_put(new_obj);
 
     if (track_ret == ERROR_NOT_AVAILABLE) {
         priv->api_progress_flag &= ~CELL_START_TRACKING_ON;
@@ -246,6 +243,13 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 
     if (pos_ret == ERROR_NOT_AVAILABLE)
         priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
+
+CLEANUP:
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    jschema_release(&input_schema);
 
     return TRUE;
 }
@@ -257,7 +261,7 @@ static gboolean tel_service_status_cb(LSHandle *sh, const char *serviceName, boo
         LS_LOG_DEBUG("Cell handler:Telephony  service Name = %s connected",serviceName);
         if (priv->susbcribe) {
             // cuurnetly only on method later of we can request other method for subscription
-                return LSCall(sh, "palm://com.palm.telephony/getCellLocUpdate", "{\"subscribe\":true}", cell_data_cb, ctx, &priv->m_cellInfoReq, NULL);
+            return LSCall(sh, "palm://com.palm.telephony/getCellLocUpdate", "{\"subscribe\":true}", cell_data_cb, ctx, &priv->m_cellInfoReq, NULL);
         }
 
         return LSCall(sh, "palm://com.palm.telephony/getCellLocUpdate", "{}", cell_data_cb, ctx, NULL, NULL);
@@ -319,6 +323,7 @@ static int cell_handler_get_position(Handler *self, gboolean enable, PositionCal
         if (priv->api_progress_flag & CELL_GET_POSITION_ON)
             return ERROR_DUPLICATE_REQUEST;
 
+        priv->sh = sh;
         priv->pos_cb = pos_cb;
         priv->nwhandler = handler;
         LS_LOG_DEBUG("[DEBUG]cell_handler_get_position value of newof hanlder %u\n", priv->nwhandler);

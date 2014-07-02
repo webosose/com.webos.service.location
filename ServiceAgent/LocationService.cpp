@@ -1909,15 +1909,12 @@ void LocationService::startTracking_reply(Position *pos, Accuracy *accuracy, int
         if (mIsStartFirstReply || accuracy->horizAccuracy < MINIMAL_ACCURACY) {
             mlastTrackingReplyTime = time(0);
             mIsStartFirstReply = false;
-            goto EXIT;
-
         } else {
             long long current_time = time(0);
             LS_LOG_DEBUG("Accuracy is not 100m current_time = %lld mlastTrackingReplyTime = %lld",current_time,mlastTrackingReplyTime);
 
             if (current_time - mlastTrackingReplyTime > 60) {
                 mlastTrackingReplyTime = time(0);
-                goto EXIT;
             }
         }
 

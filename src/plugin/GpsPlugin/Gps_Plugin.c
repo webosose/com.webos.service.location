@@ -113,51 +113,6 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
     return TRUE;
 }
 
-/**
- * <Funciton >   position_cb_async
- * <Description>  position callback ,called by gps plugin when
- * it got response for position request
- * @param     <self> <In> <GeocluePosition position structure of geoclue>
- * @param     <self> <In> <GeocluePositionFields tells which fields are set>
- * @param     <self> <In> <timestamp timestamp of location>
- * @param     <self> <In> <latitude latitude value>
- * @param     <self> <In> <longitude longitude value>
- * @param     <self> <In> <altitude altitude value>
- * @param     <self> <In> <accuracy accuracy value>
- * @param     <self> <In> <error if any error sets the error code>
- * @param     <self> <In> <userdata userdata gpsplugin instance>
- * @return    void
- */
-static void position_cb_async(GeocluePositionGps *position,
-                              GeocluePositionGpsFields fields,
-                              int64_t timestamp,
-                              double latitude,
-                              double longitude,
-                              double altitude,
-                              double speed,
-                              double direction,
-                              double climb,
-                              GeoclueAccuracy *accuracy,
-                              GError *error,
-                              gpointer userdata)
-{
-    GeoclueGps *plugin_data = (GeoclueGps *) userdata;
-
-    g_return_if_fail(plugin_data);
-
-    if (error) {
-        LS_LOG_DEBUG("[DEBUG] GPS plugin: Aquiring position");
-    } else {
-        LS_LOG_DEBUG("[DEBUG] GPS plugin: Aquired position");
-
-        g_return_if_fail(plugin_data->geoclue_pos);
-
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(plugin_data->geoclue_pos)),
-                                             G_CALLBACK(position_cb),
-                                             plugin_data);
-        position_cb(position, fields, timestamp, latitude, longitude, altitude, speed, direction, climb, accuracy, userdata);
-    }
-}
 
 /**
  * <Funciton >   position_cb
@@ -297,7 +252,7 @@ static void satellite_cb(GeoclueSatellite *satellite, uint32_t used_in_fix, int 
         gboolean hasalmanac = FALSE;
 
         GValueArray *vals = (GValueArray *) g_ptr_array_index(sat_data, index);
-        guint prn = g_value_get_uint(g_value_array_get_nth(vals, 0));
+        gint prn = g_value_get_int(g_value_array_get_nth(vals, 0));
         gdouble snr = g_value_get_double(g_value_array_get_nth(vals, 1));
         gdouble elev = g_value_get_double(g_value_array_get_nth(vals, 2));
         gdouble azim = g_value_get_double(g_value_array_get_nth(vals, 3));
@@ -429,7 +384,6 @@ static int get_position(gpointer handle, PositionCallback positionCB)
     }
 
     geoclueGps->pos_cb = positionCB;
-    geoclue_position_get_position_async(geoclueGps->geoclue_pos, (GeocluePositionGpsCallback) position_cb_async, geoclueGps);
     g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_pos)), "positiongps-changed", G_CALLBACK(position_cb), geoclueGps);
 
     return ERROR_NONE;

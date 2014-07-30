@@ -85,7 +85,7 @@ public:
     }
 
     static LunaCriteriaCategoryHandler *getInstance();
-    void LSMessageReplyCriteria(LSMessage *msg,
+    bool LSMessageReplyCriteria(LSMessage *msg,
                                 Position *pos,
                                 LSHandle *sh,
                                 const char *key,
@@ -93,7 +93,7 @@ public:
                                 LSSubscriptionIter *iter,
                                 LSError *lserror);
 
-    bool LunaCriteriaCategoryHandler::meetsCriteria(LSMessage *,Position *,int,int,bool,bool);
+    bool meetsCriteria(LSMessage *,Position *,int,int,bool,bool);
 
     class CriteriaRequest
     {
@@ -144,8 +144,8 @@ private:
     std::vector<CriteriaRequestPtr> m_criteria_req_list;
     double mlastLat;
     double mlastLong;
-    LSPalmService *mpalmSrvHandle = NULL;
-    LSPalmService *mpalmLgeSrvHandle = NULL;
+    LSPalmService *mpalmSrvHandle;
+    LSPalmService *mpalmLgeSrvHandle;
     Handler **handler_array;
     unsigned char trackhandlerstate;
 

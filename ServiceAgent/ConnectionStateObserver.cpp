@@ -61,31 +61,34 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
         return;
 
     //Register for status of wifi,wan,telephony service
-    result =  LSRegisterServerStatus(ConnHandle,
-                                     WIFI_SERVICE,
-                                     ConnectionStateObserver::wifi_service_status_cb,
-                                     this,
-                                     &lserror);
+    result =  LSRegisterServerStatusEx(ConnHandle,
+                                       WIFI_SERVICE,
+                                       ConnectionStateObserver::wifi_service_status_cb,
+                                       this,
+                                       NULL,
+                                       &lserror);
     if (!result)
     {
         LSErrorPrint (&lserror, stderr);
         LSErrorFree (&lserror);
     }
-    result =  LSRegisterServerStatus(ConnHandle,
-                                     WAN_SERVICE,
-                                     ConnectionStateObserver::wan_service_status_cb,
-                                     this,
-                                     &lserror);
+    result =  LSRegisterServerStatusEx(ConnHandle,
+                                       WAN_SERVICE,
+                                       ConnectionStateObserver::wan_service_status_cb,
+                                       this,
+                                       NULL,
+                                       &lserror);
     if (!result)
     {
         LSErrorPrint (&lserror, stderr);
         LSErrorFree (&lserror);
     }
-    result =  LSRegisterServerStatus(ConnHandle,
-                                     TELEPHONY_SERVICE,
-                                     ConnectionStateObserver::tel_service_status_cb,
-                                     this,
-                                     &lserror);
+    result =  LSRegisterServerStatusEx(ConnHandle,
+                                       TELEPHONY_SERVICE,
+                                       ConnectionStateObserver::tel_service_status_cb,
+                                       this,
+                                       NULL,
+                                       &lserror);
     if (!result)
     {
         LSErrorPrint (&lserror, stderr);
@@ -268,6 +271,9 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
         Notify_WifiInternetStateChange(true);
         Notify_WifiStateChange(wifistatus);
     }
+
+    if (wifisrvEnable != NULL)
+        g_free(wifisrvEnable);
 
     j_release(&parsedObj);
     return true;

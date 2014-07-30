@@ -129,7 +129,7 @@
  *                                [int suplport], [int fixinterval])
  */
 #define JSCHEMA_SET_GPS_PARAMETERS                          STRICT_SCHEMA(\
-        PROPS_4(ENUM_PROP(posmode, integer, 1, 2, 3), PROP(supladdress, string), \
+        PROPS_4(ENUM_PROP(posmode, integer, 0, 1, 2), PROP(supladdress, string), \
         PROP(suplport, integer), PROP(fixinterval, integer)))
 
 /*
@@ -150,7 +150,13 @@
  */
 #define JSCHEMA_STOP_GPS                                    SCHEMA_ANY
 
-void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode, char *errorText);
+bool LSMessageInitErrorReply();
+
+void LSMessageReleaseErrorReply();
+
+char *LSMessageGetErrorReply(int errorCode);
+
+void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSMessageReplySuccess(LSHandle *sh, LSMessage *message);
 bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);

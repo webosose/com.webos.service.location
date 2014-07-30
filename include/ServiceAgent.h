@@ -33,7 +33,7 @@
 #define START TRUE
 #define STOP FALSE
 #define MINIMAL_ACCURACY 100 // 100 meter as minimum accuracy for handler to reply
-enum TrakingErrorCode {
+enum LocationErrorCode {
     LOCATION_SUCCESS,
     LOCATION_TIME_OUT,
     LOCATION_POS_NOT_AVAILABLE,
@@ -48,7 +48,7 @@ enum TrakingErrorCode {
     LOCATION_DATA_CONNECTION_OFF,
     LOCATION_WIFI_CONNECTION_OFF,
     LOCATION_OUT_OF_MEM,
-    LOCATION_TRACKING_MAXIMUM
+    LOCATION_ERROR_MAX
 };
 
 /**

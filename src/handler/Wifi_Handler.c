@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <Handler_Interface.h>
 #include <Wifi_Handler.h>
 #include <Plugin_Loader.h>
@@ -212,8 +213,11 @@ static void wifi_handler_start_tracking(Handler *self,
     int result = ERROR_NONE;
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
 
-    if (priv == NULL || (priv->wifi_plugin->ops.start_tracking) == NULL)
+
+    if ((priv == NULL) || (priv->wifi_plugin->ops.start_tracking == NULL)) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
+        return;
+    }
 
     if ((enable == TRUE) && (priv->api_progress_flag & WIFI_START_TRACKING_ON))
         return;
@@ -261,8 +265,10 @@ static void wifi_handler_start_tracking_criteria(Handler *self, gboolean enable,
     int result = ERROR_NONE;
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
 
-    if (priv == NULL || (priv->wifi_plugin->ops.start_tracking) == NULL)
+    if ((priv == NULL) || (priv->wifi_plugin->ops.start_tracking == NULL)) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_WIFI);
+        return;
+    }
 
     if ((enable == TRUE) && (priv->api_progress_flag & WIFI_START_TRACKING_CRITERIA_ON))
         return;

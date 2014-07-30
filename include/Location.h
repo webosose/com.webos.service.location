@@ -89,8 +89,8 @@ typedef struct _Satellite Satellite;
 typedef struct _Accuracy Accuracy;
 typedef struct _Address Address;
 
-#define LOCATION_DB_PREF_PATH   "/usr/share/location/location_position.xml"
-#define LOCATION_DB_PREF_PATH_WIFI "/usr/share/location/location_wifi.xml"
-#define LOCATION_DB_PREF_PATH_CELL "/usr/share/location/location_cell.xml"
+#define LOCATION_DB_PREF_PATH   "/var/location/location_position.xml"
+#define LOCATION_DB_PREF_PATH_WIFI "/var/location/location_wifi.xml"
+#define LOCATION_DB_PREF_PATH_CELL "/var/location/location_cell.xml"
 
 #endif /* _LOCATION_H_ */

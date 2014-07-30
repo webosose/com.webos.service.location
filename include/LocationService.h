@@ -37,9 +37,9 @@
 #include <LunaCriteriaCategoryHandler.h>
 #include <pbnjson.h>
 
-#define SHORT_RESPONSE_TIME  10000;
-#define MEDIUM_RESPONSE_TIME  100000;
-#define LONG_RESPONSE_TIME  150000;
+#define SHORT_RESPONSE_TIME                 10000
+#define MEDIUM_RESPONSE_TIME                100000
+#define LONG_RESPONSE_TIME                  150000
 #define ACCURACY_LEVEL_HIGH 1
 #define ACCURACY_LEVEL_MEDIUM 2
 #define ACCURACY_LEVEL_LOW 3
@@ -312,10 +312,6 @@ public:
         updateWifiInternetState(Internet_state);
     }
 
-    char* positionErrorText(int errorCode) {
-        return locationErrorText[errorCode];
-    }
-
     bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
     bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
     bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
@@ -366,23 +362,6 @@ private:
     //mapped with HandlerTypes
     Handler *handler_array[HANDLER_MAX];
 
-
-    char* locationErrorText[LOCATION_TRACKING_MAXIMUM] {
-    "Success" , //TRACKING_SUCCESS
-    "Time out", //TRACKING_TIMEOUT,
-    "Position not available", //TRACKING_POS_NOT_AVAILABLE,
-    "Unknown error" , //TRACKING_UNKNOWN_ERROR,
-    "Gps not supported", //TRACKING_GPS_UNAVAILABLE,
-    "Location source is off", //TRACKING_LOCATION_OFF,
-    "Request pending" , //TRACKING_PENDING_REQ,
-    "Application is blacklisted", //TRACKING_APP_BLACK_LISTED,
-    "Handler start failure", //HANDLER_START_FAILURE,
-    "State unknown",//STATE_UNKNOWN
-    "Invalid input",
-    "No internet connection",
-    "Wifi is not turned on", //TRACKING_WIFI_CONNECTION_OFF
-    "Out of memory" //GET_STATE_OUT_OF_MEM
-    };
 
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);

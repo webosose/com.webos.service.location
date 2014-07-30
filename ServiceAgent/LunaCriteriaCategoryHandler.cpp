@@ -20,8 +20,12 @@ LSMethod LunaCriteriaCategoryHandler::criteriaCategoryMethods[] = {
 
 LunaCriteriaCategoryHandler::LunaCriteriaCategoryHandler()
 {
-    mlastLat = NULL;
-    mlastLong = NULL;
+    mpalmSrvHandle = NULL;
+    mpalmLgeSrvHandle = NULL;
+    mlastLat = 0;
+    mlastLong = 0;
+    trackhandlerstate = 0;
+    handler_array = NULL;
     LS_LOG_DEBUG("CriteriaCategoryLunaService object created");
 }
 
@@ -93,7 +97,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
     Accuracy acc;
     LSError mLSError;
     jvalue_ref serviceObj = NULL;
-    TrakingErrorCode errorCode = LOCATION_SUCCESS;
+    LocationErrorCode errorCode = LOCATION_SUCCESS;
     jvalue_ref parsedObj = NULL;
 
     LSErrorInit(&mLSError);
@@ -144,9 +148,9 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
 
         LS_LOG_INFO("handlerName %s", handlerName);
 
-        if (strcmp(handlerName, GPS) == NULL)
+        if (strcmp(handlerName, GPS) == 0)
             sel_handler = LunaCriteriaCategoryHandler::CRITERIA_GPS;
-        else if (strcmp(handlerName, NETWORK) == NULL)
+        else if (strcmp(handlerName, NETWORK) == 0)
             sel_handler = LunaCriteriaCategoryHandler::CRITERIA_NW;
         else {
             errorCode = LOCATION_INVALID_INPUT;
@@ -199,7 +203,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         boost::shared_ptr<CriteriaRequest> req(criteriaReq);
         m_criteria_req_list.push_back(req);
 
-        if (strcmp(sub_key_gps, GPS_CRITERIA_KEY) == NULL) {
+        if (strcmp(sub_key_gps, GPS_CRITERIA_KEY) == 0) {
             bRetVal = LSSubscriptionAdd(sh, sub_key_gps, message, &mLSError);
 
             if (bRetVal == false) {
@@ -219,7 +223,7 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
             trackhandlerstate = startedHandlers;
         }
 
-        if (strcmp(sub_key_nw, NW_CRITERIA_KEY) == NULL) {
+        if (strcmp(sub_key_nw, NW_CRITERIA_KEY) == 0) {
             bRetVal = LSSubscriptionAdd(sh, sub_key_nw, message, &mLSError);
 
             if (bRetVal == false) {
@@ -272,10 +276,7 @@ EXIT:
         j_release(&parsedObj);
 
     if (errorCode != LOCATION_SUCCESS) {
-        LSMessageReplyError(sh,
-                            message,
-                            errorCode,
-                            LocationService::getInstance()->positionErrorText(errorCode));
+        LSMessageReplyError(sh, message, errorCode);
     }
 
     if (handlerName != NULL)
@@ -367,7 +368,7 @@ int LunaCriteriaCategoryHandler::enableHandlers(int sel_handler,
 
 bool LunaCriteriaCategoryHandler::enableNwHandler(unsigned char *startedHandlers)
 {
-    bool ret;
+    bool ret = false;
 
     if (LocationService::getInstance()->getHandlerStatus(NETWORK)) {
         LS_LOG_DEBUG("network is on in Settings");
@@ -412,9 +413,9 @@ bool LunaCriteriaCategoryHandler::enableNwHandler(unsigned char *startedHandlers
 bool LunaCriteriaCategoryHandler::enableGpsHandler(unsigned char *startedHandlers)
 {
     LS_LOG_DEBUG("handler[HANDLER_GPS] = %u", handler_array[HANDLER_GPS]);
-    bool ret;
 
     if (LocationService::getInstance()->getHandlerStatus(GPS)) {
+        bool ret = false;
         LS_LOG_DEBUG("gps is on in Settings");
         ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]),
                             HANDLER_GPS);
@@ -446,21 +447,15 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
     LSError mLSError;
     LSErrorInit(&mLSError);
     bool bRetVal;
-    char *errorString = NULL;
     jvalue_ref serviceObject = NULL;
 
     serviceObject = jobject_create();
 
     if (jis_null(serviceObject)) {
-
-        LS_LOG_ERROR("Out of memory");
-        errorString = g_strdup_printf("{\"returnValue\":false,\"errorText\":\"%s\",\"errorCode\":%d}",
-                                      "Out of memory", LOCATION_OUT_OF_MEM);
-
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmSrvHandle,
                                                            key,
-                                                           errorString,
+                                                           LSMessageGetErrorReply(LOCATION_OUT_OF_MEM),
                                                            &mLSError);
 
         if (bRetVal == false)
@@ -469,21 +464,19 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmLgeSrvHandle,
                                                            key,
-                                                           errorString,
+                                                           LSMessageGetErrorReply(LOCATION_OUT_OF_MEM),
                                                            &mLSError);
 
         if (bRetVal == false)
             LSErrorPrintAndFree(&mLSError);
 
-        g_free(errorString);
-
         return;
     }
 
     if (error == ERROR_NONE) {
-        location_util_form_json_reply(&serviceObject, true, SUCCESSFUL);
-        location_util_add_pos_json(&serviceObject, pos);
-        location_util_add_acc_json(&serviceObject,accuracy);
+        location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+        location_util_add_pos_json(serviceObject, pos);
+        location_util_add_acc_json(serviceObject,accuracy);
 
         if (type == HANDLER_GPS)
             key = GPS_CRITERIA_KEY;
@@ -531,13 +524,10 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         }
 
         if (trackhandlerstate == 0) {
-            location_util_form_json_reply(&serviceObject, false, LOCATION_TIME_OUT);
-            location_util_add_errorText_json(&serviceObject, LocationService::getInstance()->positionErrorText(LOCATION_TIME_OUT));
-
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
                                                                GPS_CRITERIA_KEY,
-                                                               jvalue_tostring_simple(serviceObject),
+                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -546,7 +536,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                GPS_CRITERIA_KEY,
-                                                               jvalue_tostring_simple(serviceObject),
+                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -555,7 +545,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
                                                                NW_CRITERIA_KEY,
-                                                               jvalue_tostring_simple(serviceObject),
+                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -564,7 +554,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                NW_CRITERIA_KEY,
-                                                               jvalue_tostring_simple(serviceObject),
+                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
 
             if (bRetVal == false)
@@ -602,7 +592,6 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
 {
     LSSubscriptionIter *iter = NULL;
     bool retVal;
-    bool isNonSubscibePresent = false;
     jvalue_ref parsedObj = NULL;
     jvalue_ref jsonSubObject = NULL;
     jschema_ref input_schema = NULL ;
@@ -636,12 +625,12 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
                 jnumber_get_i32(jsonSubObject, &minInterval);
                 LS_LOG_DEBUG("minInterval in message = %d", minInterval);
 
-                if (meetsCriteria(msg, pos, minInterval, NULL, true, false)) {
+                if (meetsCriteria(msg, pos, minInterval, 0, true, false)) {
 
                     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &jsonSubObject)) {
                         jnumber_get_i32(jsonSubObject, &minDist);
 
-                        if (meetsCriteria(msg, pos, NULL, minDist, false, true)) {
+                        if (meetsCriteria(msg, pos, 0, minDist, false, true)) {
                             LSMessageReplyCriteria(msg, pos, sh, key, payload, iter, lserror);
                         }
                     } else {
@@ -654,7 +643,7 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
                     //check for criteria meets minimumDistance
                     jnumber_get_i32(jsonSubObject, &minDist);
 
-                    if (meetsCriteria(msg, pos, NULL, minDist, false, true))
+                    if (meetsCriteria(msg, pos, 0, minDist, false, true))
                         LSMessageReplyCriteria(msg, pos, sh, key, payload, iter, lserror);
                 } else {
                     //No critria, just reply
@@ -674,7 +663,7 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
     return retVal;
 }
 
-void LunaCriteriaCategoryHandler::LSMessageReplyCriteria(LSMessage *msg,
+bool LunaCriteriaCategoryHandler::LSMessageReplyCriteria(LSMessage *msg,
                                                          Position *pos,
                                                          LSHandle *sh,
                                                          const char *key,
@@ -682,26 +671,14 @@ void LunaCriteriaCategoryHandler::LSMessageReplyCriteria(LSMessage *msg,
                                                          LSSubscriptionIter *iter,
                                                          LSError *lserror)
 {
-    bool retVal;
+    bool retVal = false;
 
-    if (LSMessageIsSubscription(msg)) {
-        LS_LOG_DEBUG("LSSubscriptionNonSubscriptionReply replying susbcribed call LSMessageGetPayload(message) = %s",
-                     LSMessageGetPayload(msg));
-        retVal = LSMessageReply(sh, msg, payload, lserror);
+    retVal = LSMessageReply(sh, msg, payload, lserror);
 
-        if (retVal == false) {
-            return retVal;
-        }
-    } else {
-        retVal = LSMessageReply(sh, msg, payload, lserror);
-
-        if (retVal == false) {
-            return retVal;
-        }
-
+    if (!LSMessageIsSubscription(msg))
         LSSubscriptionRemove(iter);
-        LS_LOG_DEBUG("Removed Non Subscription message from list");
-    }
+
+    return retVal;
 }
 
 /* Vincenty formula. WGS-84 */
@@ -797,10 +774,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
     }
     else {
         LS_LOG_ERROR("Invalid param:Handler");
-        LSMessageReplyError(sh,
-                            message,
-                            LOCATION_INVALID_INPUT,
-                            LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
 
         j_release(&parsedObj);
         return true;
@@ -808,10 +782,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
 
     if (handler == NULL) {
         LS_LOG_ERROR("ParamInput is NULL");
-        LSMessageReplyError(sh,
-                            message,
-                            LOCATION_INVALID_INPUT,
-                            LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
 
         j_release(&parsedObj);
         return true;
@@ -821,10 +792,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
 
     if (jis_null(serviceObject)) {
         LS_LOG_ERROR("Failed to allocate memory to serviceObject");
-        LSMessageReplyError(sh,
-                            message,
-                            LOCATION_OUT_OF_MEM,
-                            LocationService::getInstance()->positionErrorText(LOCATION_OUT_OF_MEM));
+        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM);
 
         g_free(handler);
         j_release(&parsedObj);
@@ -873,10 +841,7 @@ bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh
         }
     } else {
         LS_LOG_ERROR("LPAppGetHandle is not created");
-        LSMessageReplyError(sh,
-                            message,
-                            LOCATION_INVALID_INPUT,
-                            LocationService::getInstance()->positionErrorText(LOCATION_INVALID_INPUT));
+        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
     }
 
     g_free(handler);

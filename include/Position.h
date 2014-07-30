@@ -68,7 +68,7 @@ struct _Accuracy {
 };
 
 typedef struct {
-    guint prn;
+    gint prn;
     gdouble snr;
     gdouble elevation;
     gdouble azimuth;
@@ -108,7 +108,7 @@ Satellite *satellite_create(guint visible_satellites_count);
 int set_satellite_details(Satellite *satellite,
                           gint index,
                           gdouble snr,
-                          guint prn,
+                          gint prn,
                           gdouble elevation,
                           gdouble azimuth,
                           gboolean used,

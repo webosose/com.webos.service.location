@@ -61,11 +61,11 @@
 extern "C"
 {
 #endif
-void location_util_add_pos_json(jvalue_ref *serviceObject, Position *pos);
-void location_util_add_acc_json(jvalue_ref *serviceObject, Accuracy *acc);
-void location_util_add_errorText_json(jvalue_ref *serviceObject, char *errorText);
-bool location_util_parsejsonAddress(jvalue_ref *m_JsonArgument, Address *addr);
-void location_util_form_json_reply(jvalue_ref *serviceObject, bool returnValue, int errorCode);
+void location_util_add_pos_json(jvalue_ref serviceObject, Position *pos);
+void location_util_add_acc_json(jvalue_ref serviceObject, Accuracy *acc);
+void location_util_add_errorText_json(jvalue_ref serviceObject, char *errorText);
+bool location_util_parsejsonAddress(jvalue_ref serviceObject, Address *addr);
+void location_util_form_json_reply(jvalue_ref serviceObject, bool returnValue, int errorCode);
 
 #ifdef __cplusplus
 }

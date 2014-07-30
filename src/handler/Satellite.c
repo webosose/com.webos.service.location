@@ -35,9 +35,8 @@ static void update_satellite_used_in_fix_count(Satellite *satellite)
     }
 }
 
-int set_satellite_details(Satellite *satellite, gint index, gdouble snr, guint prn, gdouble elevation, gdouble azimuth,
-                          gboolean used,
-                          gboolean hasalmanac, gboolean hasephemeris)
+int set_satellite_details(Satellite *satellite, gint index, gdouble snr, gint prn, gdouble elevation, gdouble azimuth,
+                          gboolean used, gboolean hasalmanac, gboolean hasephemeris)
 {
     g_return_val_if_fail(satellite, FALSE);
     g_return_val_if_fail(satellite->sat_used, FALSE);

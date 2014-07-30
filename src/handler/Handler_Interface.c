@@ -11,8 +11,8 @@
  * Filename     : Handler_Interface.c
  * Purpose      : Interface for all the handlers,all common function present here
  * Platform     : RedRose
- * Author(s)    : rajeshg gopu
- * Email ID.    : rajeshgopu.iv@lge.com
+ * Author(s)    : rajeshg gopu, Abhishek Srivastava
+ * Email ID.    : rajeshgopu.iv@lge.com/abhishek.srivastava@lge.com
  * Creation Date: 14-02-2013
  *
  * Modifications:

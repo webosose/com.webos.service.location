@@ -146,7 +146,8 @@ static int cell_handler_stop(Handler *self, int handler_type, gboolean forcestop
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
     int ret = ERROR_NONE;
 
-    LSError *lserror;
+    LSError lserror;
+    LSErrorInit(&lserror);
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
     if (priv->is_started == FALSE)
@@ -176,7 +177,7 @@ static int cell_handler_stop(Handler *self, int handler_type, gboolean forcestop
     return ret;
 }
 
-static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
+static bool cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 {
     jvalue_ref parsedObj = NULL;
     jvalue_ref error_obj = NULL;
@@ -184,18 +185,18 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     int pos_ret = ERROR_NONE;
     int error = ERROR_NONE;
     jvalue_ref cell_data_obj = NULL ;
-    gboolean ret;
+    bool ret;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE((Handler *) ctx);
 
     g_return_if_fail(priv);
 
     if (priv->is_started == FALSE)
-        return TRUE;
+        return true;
 
     jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
 
     if(!input_schema)
-       return TRUE;
+       return true;
 
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
@@ -204,12 +205,12 @@ static gboolean cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 
     if (jis_null(parsedObj)) {
         jschema_release(&input_schema);
-        return TRUE;
+        return true;
     }
 
     jboolean_get(jobject_get(parsedObj, J_CSTR_TO_BUF("returnValue")), &ret);
 
-    if (ret == FALSE) { // For time being // failure case when telephony return error
+    if (ret == false) { // For time being // failure case when telephony return error
         jnumber_get_i32(jobject_get(parsedObj, J_CSTR_TO_BUF("errorCode")), &error);
 
         if (error == -1 ) {
@@ -251,10 +252,10 @@ CLEANUP:
 
     jschema_release(&input_schema);
 
-    return TRUE;
+    return true;
 }
 
-static gboolean tel_service_status_cb(LSHandle *sh, const char *serviceName, bool connected, void *ctx) {
+static bool tel_service_status_cb(LSHandle *sh, const char *serviceName, bool connected, void *ctx) {
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(ctx);
 
     if(connected) {
@@ -356,7 +357,7 @@ static void cell_handler_start_tracking(Handler *self,
                                         LSMessage *msg)
 {
     LS_LOG_INFO("[DEBUG]Cell handler start Tracking called ");
-    gboolean mRet;
+    gboolean mRet = false;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
@@ -410,7 +411,7 @@ static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable,
                                         LSHandle *sh, LSMessage *msg)
 {
     LS_LOG_INFO("[DEBUG]Cell handler start Tracking called ");
-    gboolean mRet;
+    gboolean mRet = false;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
@@ -427,9 +428,9 @@ static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable,
         priv->sh = sh;
         priv->track_criteria_cb = track_cb;
 
-        if(!(priv->api_progress_flag & CELL_START_TRACKING_ON)) {
-           if(request_cell_data(sh, self, TRUE) == TRUE) {
-              priv->api_progress_flag |= CELL_START_TRACKING_CRITERIA_ON;
+        if (!(priv->api_progress_flag & CELL_START_TRACKING_ON)) {
+            if (request_cell_data(sh, self, TRUE) == TRUE) {
+                priv->api_progress_flag |= CELL_START_TRACKING_CRITERIA_ON;
         } else
               track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
         }

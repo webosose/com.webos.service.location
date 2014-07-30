@@ -205,7 +205,7 @@ static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallb
 
     g_return_val_if_fail(priv->handler_obj[handlertype], ERROR_NOT_AVAILABLE);
 
-    result = handler_get_position(priv->handler_obj[handlertype], enable, priv->nw_cb_arr[handlertype], self, handlertype, sh);
+    result = handler_get_position(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, priv->nw_cb_arr[handlertype], self, handlertype, sh);
 
     return result;
 }
@@ -226,8 +226,10 @@ static void nw_handler_start_tracking(Handler *self,
     int result = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
 
-    if (priv == NULL)
+    if (priv == NULL) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
+        return;
+    }
 
     priv->track_cb = NULL;
 
@@ -247,8 +249,10 @@ static void nw_handler_start_tracking_criteria(Handler *self, gboolean enable, S
     int result = ERROR_NONE;
     NwHandlerPrivate *priv = GET_PRIVATE(self);
 
-    if (priv == NULL)
+    if (priv == NULL) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
+        return;
+    }
 
     priv->track_criteria_cb = NULL;
 

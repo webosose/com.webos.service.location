@@ -46,6 +46,7 @@ typedef struct _GpsHandlerPrivate {
     StartTrackingCallBack track_criteria_cb;
 
     guint pos_timer;
+    gint status;
     gint api_progress_flag;
     gint64 fixrequesttime;
     gint64 ttff;
@@ -103,19 +104,12 @@ void gps_handler_status_cb(gboolean enable_cb, GPSStatus status, gpointer user_d
 
     g_return_if_fail(priv);
 
-    if(priv->status_cb == NULL)
-       return;
+    priv->status = status;
+
+    if (priv->status_cb == NULL)
+        return;
 
     priv->status_cb(enable_cb, status, user_data);
-
-    if (status == GPS_STATUS_AVAILABLE) {
-        // remove timeout timer.
-        // This will be implemented with timeout and agent sync
-        if (priv->pos_timer) {
-            g_source_remove(priv->pos_timer);
-            priv->pos_timer = 0;
-        }
-    }
 }
 
 /**
@@ -188,11 +182,16 @@ void gps_handler_tracking_cb(gboolean enable_cb,
                       accuracy->horizAccuracy);
     }
 
-    if(priv->track_cb != NULL)
-      (*priv->track_cb)(enable_cb, position, accuracy, error, user_data, type);
+    if (priv->track_cb != NULL)
+        (*priv->track_cb)(enable_cb, position, accuracy, error, user_data, type);
 
-    if(priv->track_criteria_cb != NULL)
-       (*priv->track_criteria_cb)(enable_cb, position, accuracy, error, user_data, type);
+    if (priv->track_criteria_cb != NULL)
+        (*priv->track_criteria_cb)(enable_cb, position, accuracy, error, user_data, type);
+
+    if (priv->pos_timer) {
+        g_source_remove(priv->pos_timer);
+        priv->pos_timer = 0;
+    }
 }
 
 /**
@@ -254,13 +253,13 @@ static int gps_handler_start(Handler *self)
     ret = priv->gps_plugin->ops.start(priv->gps_plugin->plugin_handler, gps_handler_status_cb, self);
 
     if (ret == ERROR_NONE) {
-        if(priv->ttffstate == FALSE) {
-           priv->ttff = 0;
-           priv->lastfixtime = 0;
-           priv->fixrequesttime = 0;
-           priv->fixrequesttime = time(0);
-
+        if (priv->ttffstate == FALSE) {
+            priv->ttff = 0;
+            priv->lastfixtime = 0;
+            priv->fixrequesttime = 0;
+            priv->fixrequesttime = time(0);
         }
+
         priv->is_started = TRUE;
     }
 
@@ -468,10 +467,9 @@ static void gps_handler_start_tracking_criteria(Handler *self,
            if (result == ERROR_NONE) {
                if (!priv->pos_timer)
                    priv->pos_timer = g_timeout_add_seconds(GPS_UPDATE_INTERVAL_MAX, gps_timeout_cb, self);
-        }
-        else {
+        } else
             track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_GPS);
-          }
+
         }
         priv->api_progress_flag |= START_TRACKING_CRITERIA_ON;
 
@@ -621,8 +619,9 @@ static int gps_handler_send_extra_command(Handler *self , char *command)
     g_return_val_if_fail(priv->gps_plugin->ops.send_extra_command, ERROR_NOT_AVAILABLE);
 
     ret = priv->gps_plugin->ops.send_extra_command(priv->gps_plugin->plugin_handler, command);
-    if(strcmp("delete_aiding_data", command) == 0)
-       priv->ttffstate = FALSE;
+
+    if (strcmp("delete_aiding_data", command) == 0)
+        priv->ttffstate = FALSE;
 
     return ret;
 }
@@ -644,7 +643,7 @@ static int gps_handler_get_gps_status(Handler *self , StatusCallback status_cb)
 
     priv->status_cb = status_cb;
 
-    return  ERROR_NONE;
+    return priv->status;
 }
 /**
  * <Funciton>       gps_handler_set_gps_parameters
@@ -752,6 +751,7 @@ static void gps_handler_init(GpsHandler *self)
     memset(priv, 0, sizeof(GpsHandlerPrivate));
 
     priv->gps_plugin = (GpsPlugin *) plugin_new("gps");
+    priv->status = GPS_STATUS_UNAVAILABLE;
 
     if (priv->gps_plugin == NULL) {
         LS_LOG_ERROR("Failed to load gps plugin\n");

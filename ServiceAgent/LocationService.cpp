@@ -2387,6 +2387,24 @@ void LocationService::stopNonSubcription(const char *key) {
         handler_get_gps_satellite_data(handler_array[HANDLER_GPS], STOP, wrapper_getGpsSatelliteData_cb);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
 
+    } else if (strcmp(key, GPS_CRITERIA_KEY) == 0) {
+        //STOP GPS
+        if (!(getHandlerStatus(GPS) == HANDLER_STATE_DISABLED)) {
+            handler_start_tracking_criteria(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb, NULL, HANDLER_GPS, NULL);
+            handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
+        }
+    } else if (strcmp(key, NW_CRITERIA_KEY) == 0) {
+
+        if (!(getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
+            //STOP CELLID
+            handler_start_tracking_criteria(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb, NULL, HANDLER_CELLID, NULL);
+            handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
+
+            //STOP WIFI
+            handler_start_tracking_criteria(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb, NULL, HANDLER_WIFI, NULL);
+            handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
+        }
+
     }
 }
 

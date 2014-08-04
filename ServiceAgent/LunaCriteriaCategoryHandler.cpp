@@ -599,6 +599,8 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
     int minDist;
     int minInterval;
     LS_LOG_DEBUG("key = %s", key);
+    bool isNonSubscibePresent = false;
+
 
     retVal = LSSubscriptionAcquire(sh, key, &iter, lserror);
 
@@ -606,6 +608,9 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
         do {
             LSMessage *msg = LSSubscriptionNext(iter);
             //parse message to get minDistance
+            if (!LSMessageIsSubscription(msg))
+                 isNonSubscibePresent = true;
+
             input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY), DOMOPT_NOOPT, NULL);
 
             if(!input_schema)
@@ -652,13 +657,12 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
             }
 
             j_release(&parsedObj);
+            if (isNonSubscibePresent && LocationService::getInstance()->isSubscListFilled(sh, key, false) == false)
+                LocationService::getInstance()->stopNonSubcription(key);
           } while (LSSubscriptionHasNext(iter));
     }
     LSSubscriptionRelease(iter);
     jschema_release(&input_schema);
-
-    if (LocationService::getInstance()->isSubscListFilled(sh, key, false) == false)
-        LocationService::getInstance()->stopNonSubcription(key);
 
     return retVal;
 }

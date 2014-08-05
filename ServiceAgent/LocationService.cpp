@@ -56,10 +56,26 @@ LSMethod LocationService::rootMethod[] = {
     { 0, 0 }
 };
 
+/**
+ @var LSMethod LocationService::prvMethod[]
+ methods belonging to root private category
+ */
 LSMethod LocationService::prvMethod[] = {
     { "sendExtraCommand", LocationService::_sendExtraCommand },
     { "stopGPS",LocationService::_stopGPS },
     { "setGPSParameters", LocationService::_setGPSParameters },
+    { 0, 0 }
+};
+
+/**
+ @var LSMethod LocationService::geofenceMethod[]
+ methods belonging to geofence category
+ */
+LSMethod LocationService::geofenceMethod[] = {
+    { "addGeofenceArea", LocationService::_addGeofenceArea },
+    { "removeGeofenceArea", LocationService::_removeGeofenceArea},
+    /*{ "pauseGeofenceArea", LocationService::_pauseGeofence},
+    { "resumeGeofenceArea", LocationService::_resumeGeofence},*/ //to uncommented later once geofence lib is available.
     { 0, 0 }
 };
 
@@ -126,7 +142,9 @@ bool LocationService::init(GMainLoop *mainLoop)
         || pthread_mutex_init(&track_lock, NULL) || pthread_mutex_init(&pos_lock, NULL)
         || pthread_mutex_init(&nmea_lock, NULL) || pthread_mutex_init(&sat_lock, NULL)
         || pthread_mutex_init(&track_wifi_lock, NULL) || pthread_mutex_init(&track_cell_lock, NULL)
-        || pthread_mutex_init(&pos_nw_lock, NULL)) {
+        || pthread_mutex_init(&pos_nw_lock, NULL) || pthread_mutex_init(&geofence_add_lock, NULL)
+        || pthread_mutex_init(&geofence_pause_lock, NULL) || pthread_mutex_init(&geofence_remove_lock, NULL)
+        || pthread_mutex_init(&geofence_resume_lock, NULL)){
         return false;
     }
 
@@ -144,6 +162,11 @@ bool LocationService::init(GMainLoop *mainLoop)
     LS_LOG_INFO("Successfully LocationService object initialized");
     if (LSMessageInitErrorReply() == false) {
         return false;
+    }
+
+    if (htPseudoGeofence == NULL) {
+        htPseudoGeofence = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                                 (GDestroyNotify)g_free, NULL);
     }
 
     return true;
@@ -164,6 +187,10 @@ bool LocationService::locationServiceRegister(char *srvcname, GMainLoop *mainLoo
 
     // add root category
     bRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/", rootMethod, prvMethod, NULL, this, &mLSError);
+    LSERROR_CHECK_AND_PRINT(bRetVal);
+
+    // add geofence category
+    bRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/geofence", geofenceMethod, prvMethod, NULL, this, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal);
 
     //Register cancel function cb to publicbus
@@ -204,11 +231,19 @@ LocationService::~LocationService()
        g_object_unref(handler_array[HANDLER_LBS]);
 
     LSMessageReleaseErrorReply();
-    if (pthread_mutex_destroy(&lbs_geocode_lock) || pthread_mutex_destroy(&lbs_reverse_lock)
-        || pthread_mutex_destroy(&track_lock)
+
+    if (htPseudoGeofence) {
+        g_hash_table_destroy(htPseudoGeofence);
+        htPseudoGeofence = NULL;
+    }
+
+    if (pthread_mutex_destroy(&lbs_geocode_lock)
+        || pthread_mutex_destroy(&lbs_reverse_lock)|| pthread_mutex_destroy(&track_lock)
         || pthread_mutex_destroy(&pos_lock) || pthread_mutex_destroy(&nmea_lock)
         || pthread_mutex_destroy(&sat_lock) || pthread_mutex_destroy(&track_wifi_lock)
-        || pthread_mutex_destroy(&track_cell_lock) || pthread_mutex_destroy(&pos_nw_lock))
+        || pthread_mutex_destroy(&track_cell_lock) || pthread_mutex_destroy(&pos_nw_lock)
+        || pthread_mutex_destroy(&geofence_add_lock) ||  pthread_mutex_destroy(&geofence_pause_lock)
+        ||  pthread_mutex_destroy(&geofence_remove_lock) ||  pthread_mutex_destroy(&geofence_resume_lock))
     {
         LS_LOG_DEBUG("Could not destroy mutex &map->lock");
     }
@@ -565,6 +600,7 @@ bool LocationService::readLocationfromCache(LSHandle *sh,
     memset(&gpsacc, 0, sizeof(Accuracy));
     memset(&wifiacc, 0, sizeof(Accuracy));
     memset(&cellidacc, 0, sizeof(Accuracy));
+    memset(is_geofenceId_used,0,sizeof(is_geofenceId_used));
 
     if (getCachedDatafromHandler(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), &gpspos, &gpsacc, HANDLER_GPS))
         gpsCacheSuccess = true;
@@ -1807,6 +1843,258 @@ bool LocationService::getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *
     return true;
 }
 
+bool LocationService::addGeofenceArea(LSHandle *sh, LSMessage *message, void *data)
+{
+    gdouble latitude = 0.0;
+    gdouble longitude = 0.0;
+    gdouble radius = 0.0;
+    int geofenceid = -1;
+    int count = 0;
+    int errorCode = LOCATION_SUCCESS;
+    char str_geofenceid[32];
+    LSError mLSError;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+
+    LS_LOG_DEBUG("=======addGeofenceArea=======\n");
+
+    if (!LSMessageValidateSchema(sh, message, JSCHEMA_ADD_GEOFENCE_AREA, &parsedObj)) {
+        LS_LOG_ERROR("Schema Error in addGeofenceArea\n");
+        return true;
+    }
+
+    //GPS  off
+    if (getHandlerStatus(GPS) == HANDLER_STATE_DISABLED) {
+        errorCode = LOCATION_LOCATION_OFF;
+        goto EXIT;
+    }
+
+    /* Extract latitude from message */
+    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("latitude"), &jsonSubObject);
+    jnumber_get_f64(jsonSubObject, &latitude);
+
+     /* Extract longitude from message */
+    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("longitude"), &jsonSubObject);
+    jnumber_get_f64(jsonSubObject, &longitude);
+
+     /* Extract radius from message */
+    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("radius"), &jsonSubObject);
+    jnumber_get_f64(jsonSubObject, &radius);
+
+    if (handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]),
+                      HANDLER_GPS) != ERROR_NONE) {
+        errorCode = LOCATION_START_FAILURE;
+        goto EXIT;
+    }
+
+     /* Generate random Geofence Id which is not used by previous request */
+    while (count < (MAX_GEOFENCE_RANGE - MIN_GEOFENCE_RANGE)) {
+        geofenceid = rand() % (MAX_GEOFENCE_RANGE-MIN_GEOFENCE_RANGE) + MIN_GEOFENCE_RANGE;
+
+        LS_LOG_DEBUG("=======addGeofenceArea ID genrated %d=======\n", geofenceid);
+
+        if (!is_geofenceId_used[geofenceid - MIN_GEOFENCE_RANGE]) {
+            is_geofenceId_used[geofenceid - MIN_GEOFENCE_RANGE] = true;
+            break;
+        }
+
+        count++;
+    }
+
+    if (count == (MAX_GEOFENCE_ID - MIN_GEOFENCE_RANGE)) {
+        LS_LOG_DEBUG("MAX_GEOFENCE_ID reached\n");
+        errorCode = LOCATION_GEOFENCE_TOO_MANY_GEOFENCE;
+        goto EXIT;
+    }
+
+    if (handler_add_geofence_area((Handler *) handler_array[HANDLER_GPS],
+                                  TRUE,
+                                  &geofenceid,
+                                  &latitude,
+                                  &longitude,
+                                  &radius,
+                                  wrapper_geofence_add_cb,
+                                  wrapper_geofence_breach_cb,
+                                  wrapper_geofence_status_cb) != ERROR_NONE) {
+        errorCode = LOCATION_UNKNOWN_ERROR;
+    } else {
+        LSErrorInit(&mLSError);
+        sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+        if (LSSubscriptionAdd(sh, str_geofenceid, message, &mLSError)) {
+            g_hash_table_insert(htPseudoGeofence,
+                                LSMessageGetUniqueToken(message),
+                                GINT_TO_POINTER(geofenceid));
+        } else {
+            LSErrorPrintAndFree(&mLSError);
+            errorCode = LOCATION_UNKNOWN_ERROR;
+        }
+    }
+
+EXIT:
+    if (errorCode != LOCATION_SUCCESS)
+        LSMessageReplyError(sh, message, errorCode);
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    return true;
+}
+
+bool LocationService::removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data)
+{
+    int geofenceid = -1;
+    int errorCode = LOCATION_SUCCESS;
+    char str_geofenceid[32];
+    LSError mLSError;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+
+    LS_LOG_DEBUG("=======removeGeofenceArea=======\n");
+
+    if (!LSMessageValidateSchema(sh, message, JSCHEMA_REMOVE_GEOFENCE_AREA, &parsedObj)) {
+        LS_LOG_ERROR("Schema Error in removeGeofenceArea\n");
+        return true;
+    }
+
+    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject);
+    jnumber_get_i32(jsonSubObject, &geofenceid);
+
+    sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+    if (isSubscListFilled(sh, str_geofenceid, false) == false) {
+        errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
+        goto EXIT;
+    }
+
+    if (handler_remove_geofence((Handler *) handler_array[HANDLER_GPS],
+                                TRUE,
+                                &geofenceid,
+                                wrapper_geofence_remove_cb) != ERROR_NONE) {
+        errorCode = LOCATION_UNKNOWN_ERROR;
+    } else {
+        LSErrorInit(&mLSError);
+        sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_REMOVE_AREA_KEY);
+
+        if (!LSSubscriptionAdd(sh, str_geofenceid, message, &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+            errorCode = LOCATION_UNKNOWN_ERROR;
+        }
+    }
+
+EXIT:
+    if (errorCode != LOCATION_SUCCESS)
+        LSMessageReplyError(sh, message, errorCode);
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    return true;
+}
+
+bool LocationService::pauseGeofence(LSHandle *sh, LSMessage *message, void *data)
+{
+    int geofenceid = -1;
+    int errorCode = LOCATION_SUCCESS;
+    char str_geofenceid[32];
+    LSError mLSError;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+
+    LS_LOG_DEBUG("=======pauseGeofence======\n");
+
+    if (!LSMessageValidateSchema(sh, message, JSCHEMA_PAUSE_GEOFENCE_AREA, &parsedObj)) {
+        LS_LOG_ERROR("Schema Error in removeGeofenceArea\n");
+        return true;
+    }
+
+    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject);
+    jnumber_get_i32(jsonSubObject, &geofenceid);
+
+    sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
+    if (isSubscListFilled(sh, str_geofenceid, false) == false) {
+        errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
+        goto EXIT;
+    }
+
+    if (handler_pause_geofence((Handler *) handler_array[HANDLER_GPS],
+                               TRUE,
+                               &geofenceid,
+                               wrapper_geofence_pause_cb) != ERROR_NONE) {
+        errorCode = LOCATION_UNKNOWN_ERROR;
+    } else {
+        LSErrorInit(&mLSError);
+        sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_PAUSE_AREA_KEY);
+
+        if (!LSSubscriptionAdd(sh, str_geofenceid, message, &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+            errorCode = LOCATION_UNKNOWN_ERROR;
+        }
+    }
+
+EXIT:
+    if (errorCode != LOCATION_SUCCESS)
+        LSMessageReplyError(sh, message, errorCode);
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    return true;
+}
+
+bool LocationService::resumeGeofence(LSHandle *sh, LSMessage *message, void *data)
+{
+    int geofenceid = -1;
+    int monitorTrans = 0;
+    int errorCode = LOCATION_SUCCESS;
+    char str_geofenceid[32];
+    LSError mLSError;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+
+    LS_LOG_DEBUG("=======resumeGeofence======\n");
+
+    if (!LSMessageValidateSchema(sh, message, JSCHEMA_RESUME_GEOFENCE_AREA, &parsedObj)) {
+        LS_LOG_ERROR("Schema Error in resumeGeofenceArea\n");
+        return true;
+    }
+
+    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject);
+    jnumber_get_i32(jsonSubObject, &geofenceid);
+
+    sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
+    if (isSubscListFilled(sh, str_geofenceid, false) == false) {
+        errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
+        goto EXIT;
+    }
+
+    monitorTrans = GEOFENCE_ENTERED | GEOFENCE_EXITED | GEOFENCE_UNCERTAIN;
+    if (handler_resume_geofence((Handler *) handler_array[HANDLER_GPS],
+                                TRUE,
+                                &geofenceid,
+                                &monitorTrans,
+                                wrapper_geofence_resume_cb) != ERROR_NONE) {
+        errorCode = LOCATION_UNKNOWN_ERROR;
+    } else {
+        LSErrorInit(&mLSError);
+        sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_RESUME_AREA_KEY);
+
+        if (!LSSubscriptionAdd(sh, str_geofenceid, message, &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+            errorCode = LOCATION_UNKNOWN_ERROR;
+        }
+    }
+
+EXIT:
+    if (errorCode != LOCATION_SUCCESS)
+        LSMessageReplyError(sh, message, errorCode);
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    return true;
+}
+
 /********************* Callback functions**********************************************************************
  ********************   Called from handlers********************************************************************
  **************************************************************************************************************/
@@ -1871,6 +2159,42 @@ void LocationService::wrapper_gpsStatus_cb(gboolean enable_cb, int state, gpoint
 {
     LS_LOG_DEBUG("wrapper_gpsStatus_cb called back ...");
     getInstance()->getGpsStatus_reply(state);
+}
+
+void LocationService::wrapper_geofence_add_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    LS_LOG_INFO("gps_handler_geofence_add_cb\n");
+    getInstance()->geofence_add_reply(geofence_id, status);
+}
+
+void LocationService::wrapper_geofence_remove_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    LS_LOG_DEBUG("wrapper_geofence_remove_cb");
+    getInstance()->geofence_remove_reply(geofence_id, status);
+}
+
+void LocationService::wrapper_geofence_pause_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    LS_LOG_DEBUG("wrapper_geofence_pause_cb");
+    getInstance()->geofence_pause_reply(geofence_id, status);
+}
+
+void LocationService::wrapper_geofence_resume_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    LS_LOG_DEBUG("wrapper_geofence_resume_cb");
+    getInstance()->geofence_resume_reply(geofence_id, status);
+}
+
+void LocationService::wrapper_geofence_breach_cb(int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude, gpointer user_data)
+{
+    LS_LOG_DEBUG("wrapper_geofence_breach_cb");
+    getInstance()->geofence_breach_reply(geofence_id, status, timestamp, latitude, longitude);
+}
+
+void LocationService::wrapper_geofence_status_cb (int32_t status, Position *last_position, Accuracy *accuracy, gpointer user_data)
+{
+    LS_LOG_DEBUG("wrapper_geofence_status_cb");
+    // Not required as it is only intialization status
 }
 
 /********************************Response to Application layer*********************************************************************/
@@ -2222,6 +2546,410 @@ void LocationService::getGpsStatus_reply(int state)
     }
 
 }
+
+void LocationService::geofence_breach_reply(int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude)
+{
+    LSError mLSError;
+    char str_geofenceid[32];
+    jvalue_ref serviceObject = NULL;
+    char *retString = NULL;
+
+    LS_LOG_INFO("geofence_breach_reply: id=%d, status=%d, timestamp=%lld, latitude=%f, longitude=%f\n",
+                geofence_id, status, timestamp, latitude, longitude);
+
+    serviceObject = jobject_create();
+
+    if (!jis_null(serviceObject)) {
+        location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+
+        switch (status) {
+            case GEOFENCE_ENTERED:
+                retString = geofenceStateText[GEOFENCE_TRANSITION_ENTERED];
+                break;
+
+            case GEOFENCE_EXITED:
+                retString = geofenceStateText[GEOFENCE_TRANSITION_EXITED];
+                break;
+
+            case GEOFENCE_UNCERTAIN:
+                retString = geofenceStateText[GEOFENCE_TRANSITION_UNCERTAIN];
+                break;
+
+            default:
+                retString = geofenceStateText[GEOFENCE_TRANSITION_UNCERTAIN];
+                break;
+        }
+
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("status"), jstring_create(retString));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("timestamp"), jnumber_create_i64(timestamp));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("latitude"), jnumber_create_f64(latitude));
+        jobject_put(serviceObject, J_CSTR_TO_JVAL("longitude"), jnumber_create_f64(longitude));
+
+        retString = jvalue_tostring_simple(serviceObject);
+    } else {
+        retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
+    }
+
+    LSErrorInit(&mLSError);
+    sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+    if (!LSSubscriptionRespond(mServiceHandle,
+                               str_geofenceid,
+                               retString,
+                               &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!LSSubscriptionRespond(mlgeServiceHandle,
+                               str_geofenceid,
+                               retString,
+                               &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!jis_null(serviceObject))
+        j_release(&serviceObject);
+}
+
+void LocationService::geofence_add_reply(int32_t geofence_id, int32_t status)
+{
+    LSError mLSError;
+    char str_geofenceid[32];
+    int errorCode = LOCATION_UNKNOWN_ERROR;
+    jvalue_ref serviceObject = NULL;
+    char *retString = NULL;
+
+    LS_LOG_INFO("geofence_add_reply: id=%d, status=%d\n", geofence_id, status);
+
+    switch (status) {
+        case GEOFENCE_OPERATION_SUCCESS:
+            errorCode = LOCATION_SUCCESS;
+            break;
+
+        case GEOFENCE_ERROR_TOO_MANY_GEOFENCES:
+            errorCode = LOCATION_GEOFENCE_TOO_MANY_GEOFENCE;
+            break;
+
+        case GEOFENCE_ERROR_ID_EXISTS:
+            errorCode = LOCATION_GEOFENCE_ID_EXIST;
+            break;
+
+        case GEOFENCE_ERROR_INVALID_TRANSITION:
+            errorCode = LOCATION_GEOFENCE_INVALID_TRANSITION;
+            break;
+
+        case GEOFENCE_ERROR_GENERIC:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+
+        default:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+    }
+
+    if (errorCode != LOCATION_SUCCESS) {
+        is_geofenceId_used[geofence_id - MIN_GEOFENCE_RANGE] = false;
+
+        retString = LSMessageGetErrorReply(errorCode);
+    } else {
+        serviceObject = jobject_create();
+
+        if (!jis_null(serviceObject)) {
+            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("status"), jstring_create(geofenceStateText[GEOFENCE_ADD_SUCCESS]));
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("geofenceid"), jnumber_create_i32(geofence_id));
+            retString = jvalue_tostring_simple(serviceObject);
+        } else {
+            retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
+        }
+    }
+
+    LSErrorInit(&mLSError);
+    sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+    if (!LSSubscriptionRespond(mServiceHandle,
+                               str_geofenceid,
+                               retString,
+                               &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!LSSubscriptionRespond(mlgeServiceHandle,
+                               str_geofenceid,
+                               retString,
+                               &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!jis_null(serviceObject))
+        j_release(&serviceObject);
+}
+
+void LocationService::geofence_remove_reply(int32_t geofence_id, int32_t status)
+{
+    LSError mLSError;
+    char str_geofenceid[32];
+    int errorCode = LOCATION_UNKNOWN_ERROR;
+    jvalue_ref serviceObject = NULL;
+    char *retString = NULL;
+
+    LS_LOG_INFO("geofence_remove_reply: id=%d, status=%d\n", geofence_id, status);
+
+    switch (status) {
+        case GEOFENCE_OPERATION_SUCCESS:
+            errorCode = LOCATION_SUCCESS;
+            break;
+
+        case GEOFENCE_ERROR_ID_UNKNOWN:
+            errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
+            break;
+
+        case GEOFENCE_ERROR_GENERIC:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+
+        default:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+    }
+
+    if (errorCode != LOCATION_SUCCESS) {
+        retString = LSMessageGetErrorReply(errorCode);
+    } else {
+        serviceObject = jobject_create();
+
+        if (!jis_null(serviceObject)) {
+            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("status"), jstring_create(geofenceStateText[GEOFENCE_REMOVE_SUCCESS]));
+            retString = jvalue_tostring_simple(serviceObject);
+        } else {
+            retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
+        }
+    }
+
+    LSErrorInit(&mLSError);
+    sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_REMOVE_AREA_KEY);
+
+    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                              str_geofenceid,
+                                              retString,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                              str_geofenceid,
+                                              retString,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (status == GEOFENCE_OPERATION_SUCCESS) {
+        sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+        /*Reply add luna api and remove from list*/
+        if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                                  str_geofenceid,
+                                                  retString,
+                                                  &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+        }
+
+        if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                                  str_geofenceid,
+                                                  retString,
+                                                  &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+        }
+
+        handler_remove_geofence((Handler *) handler_array[HANDLER_GPS], FALSE, 0, wrapper_geofence_remove_cb);
+        is_geofenceId_used[geofence_id - MIN_GEOFENCE_RANGE] = false;
+
+        if (htPseudoGeofence != NULL) {
+            GHashTableIter iter;
+            gpointer key, value;
+            key = value = NULL;
+            g_hash_table_iter_init(&iter, htPseudoGeofence);
+
+            while (g_hash_table_iter_next(&iter, &key, &value)) {
+                if (GPOINTER_TO_INT(value) == geofence_id) {
+                    g_hash_table_remove(htPseudoGeofence, key);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!jis_null(serviceObject))
+        j_release(&serviceObject);
+}
+
+void LocationService::geofence_pause_reply(int32_t geofence_id, int32_t status)
+{
+    LSError mLSError;
+    char str_geofenceid[32];
+    int errorCode = LOCATION_UNKNOWN_ERROR;
+    jvalue_ref serviceObject = NULL;
+    char *retString = NULL;
+
+    LS_LOG_INFO("geofence_pause_reply: id=%d, status=%d\n", geofence_id, status);
+
+    switch (status) {
+        case GEOFENCE_OPERATION_SUCCESS:
+            errorCode = LOCATION_SUCCESS;
+            break;
+
+        case GEOFENCE_ERROR_ID_UNKNOWN:
+            errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
+            break;
+
+        case GEOFENCE_ERROR_INVALID_TRANSITION:
+            errorCode = LOCATION_GEOFENCE_INVALID_TRANSITION;
+            break;
+
+        case GEOFENCE_ERROR_GENERIC:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+
+        default:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+    }
+
+    if (errorCode != LOCATION_SUCCESS) {
+        retString = LSMessageGetErrorReply(errorCode);
+    } else {
+        serviceObject = jobject_create();
+
+        if (!jis_null(serviceObject)) {
+            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("status"), jstring_create(geofenceStateText[GEOFENCE_PAUSE_SUCCESS]));
+            retString = jvalue_tostring_simple(serviceObject);
+        } else {
+            retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
+        }
+    }
+
+    LSErrorInit(&mLSError);
+    sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_PAUSE_AREA_KEY);
+
+    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                              str_geofenceid,
+                                              retString,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                              str_geofenceid,
+                                              retString,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (status == GEOFENCE_OPERATION_SUCCESS) {
+        sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+        if (!LSSubscriptionRespond(mServiceHandle,
+                                   str_geofenceid,
+                                   retString,
+                                   &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+        }
+
+        if (!LSSubscriptionRespond(mlgeServiceHandle,
+                                   str_geofenceid,
+                                   retString,
+                                   &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+        }
+    }
+
+    if (!jis_null(serviceObject))
+        j_release(&serviceObject);
+}
+
+void LocationService::geofence_resume_reply(int32_t geofence_id, int32_t status)
+{
+    LSError mLSError;
+    char str_geofenceid[32];
+    int errorCode = LOCATION_UNKNOWN_ERROR;
+    jvalue_ref serviceObject = NULL;
+    char *retString = NULL;
+
+    LS_LOG_INFO("geofence_resume_reply: id=%d, status=%d\n", geofence_id, status);
+
+    switch(status) {
+        case GEOFENCE_OPERATION_SUCCESS:
+            errorCode = LOCATION_SUCCESS;
+            break;
+
+        case GEOFENCE_ERROR_ID_UNKNOWN:
+            errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
+            break;
+
+        case GEOFENCE_ERROR_GENERIC:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+
+        default:
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            break;
+    }
+
+    if (errorCode != LOCATION_SUCCESS) {
+        retString = LSMessageGetErrorReply(errorCode);
+    } else {
+        serviceObject = jobject_create();
+
+        if (!jis_null(serviceObject)) {
+            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("status"), jstring_create(geofenceStateText[GEOFENCE_RESUME_SUCCESS]));
+            retString = jvalue_tostring_simple(serviceObject);
+        } else {
+            retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
+        }
+    }
+
+    LSErrorInit(&mLSError);
+    sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_RESUME_AREA_KEY);
+
+    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                              str_geofenceid,
+                                              retString,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                              str_geofenceid,
+                                              retString,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (status == GEOFENCE_OPERATION_SUCCESS) {
+        sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
+
+        if (!LSSubscriptionRespond(mServiceHandle,
+                                   str_geofenceid,
+                                   retString,
+                                   &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+        }
+
+        if (!LSSubscriptionRespond(mlgeServiceHandle,
+                                   str_geofenceid,
+                                   retString,
+                                   &mLSError)) {
+            LSErrorPrintAndFree(&mLSError);
+        }
+    }
+
+    if (!jis_null(serviceObject))
+        j_release(&serviceObject);
+}
+
 /**
  * <Funciton >   cancelSubscription
  * <Description>  Callback function called when application cancels the subscription or Application crashed
@@ -2237,7 +2965,8 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
     char *key = LSMessageGetMethod(message);
     LSSubscriptionIter *iter = NULL;
 
-    LS_LOG_INFO("LSMessageGetMethod(message) %s", key);
+    LS_LOG_DEBUG("LSMessageGetMethod(message) %s\n", key);
+
     LSErrorInit(&mLSError);
 
     if (key == NULL) {
@@ -2245,7 +2974,42 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
         return true;
     }
 
-    bRetVal = LSSubscriptionAcquire(sh, key, &iter, &mLSError);
+    if ((strcmp(key, SUBSC_GEOFENCE_ADD_AREA_KEY)) == 0) {
+        int geofenceid = -1;
+        gpointer geofenceid_ptr = NULL;
+        char *uniquetoken = NULL;
+
+        if (htPseudoGeofence) {
+            uniquetoken = LSMessageGetUniqueToken(message);
+
+            if (uniquetoken) {
+                geofenceid_ptr = g_hash_table_lookup(htPseudoGeofence, uniquetoken);
+
+                if (geofenceid_ptr) {
+                    geofenceid = GPOINTER_TO_INT(geofenceid_ptr);
+
+                    is_geofenceId_used[geofenceid - MIN_GEOFENCE_RANGE] = false;
+                    handler_remove_geofence((Handler *) handler_array[HANDLER_GPS],
+                                            TRUE,
+                                            &geofenceid,
+                                            wrapper_geofence_remove_cb);
+                }
+            }
+        }
+
+        double latitude,longitude,radius;
+
+        handler_add_geofence_area((Handler *) handler_array[HANDLER_GPS],
+                                  FALSE,
+                                  &geofenceid,
+                                  &latitude,
+                                  &longitude,
+                                  &radius,
+                                  wrapper_geofence_add_cb,
+                                  wrapper_geofence_breach_cb,
+                                  wrapper_geofence_status_cb);
+    } else {
+        bRetVal = LSSubscriptionAcquire(sh, key, &iter, &mLSError);
 
     if (bRetVal == false) {
         LSErrorPrintAndFree(&mLSError);
@@ -2258,12 +3022,13 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
 
         if (LSSubscriptionHasNext(iter) == false)
             stopSubcription(sh, key);
-    }
+        }
+        LSSubscriptionRelease(iter);
 
-    LSSubscriptionRelease(iter);
-    //check for criteria key list
-    if (key != NULL && (strcmp(key, CRITERIA_KEY) == 0))
-        criteriaStopSubscription(sh, message);
+        //check for criteria key list
+        if (key != NULL && (strcmp(key, CRITERIA_KEY) == 0))
+            criteriaStopSubscription(sh, message);
+    }
 
     return true;
 }
@@ -2271,12 +3036,12 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
 void LocationService::criteriaStopSubscription(LSHandle *sh, LSMessage *message) {
     LS_LOG_DEBUG("criteriaStopSubscription");
 
-    if(!isSubscListFilled(sh, GPS_CRITERIA_KEY, true)){
+    if (!isSubscListFilled(sh, GPS_CRITERIA_KEY, true) && !isSubscListFilled(sh, GPS_NW_CRITERIA_KEY, true)){
         LS_LOG_INFO("criteriaStopSubscription Stopping GPS Engine");
         stopSubcription(sh, GPS_CRITERIA_KEY);
     }
 
-    if(!isSubscListFilled(sh, NW_CRITERIA_KEY, true)){
+    if (!isSubscListFilled(sh, NW_CRITERIA_KEY, true) && !isSubscListFilled(sh, GPS_NW_CRITERIA_KEY, true)){
         LS_LOG_INFO("criteriaStopSubscription Stopping NW handler");
         stopSubcription(sh, NW_CRITERIA_KEY);
     }
@@ -2387,13 +3152,13 @@ void LocationService::stopNonSubcription(const char *key) {
         handler_get_gps_satellite_data(handler_array[HANDLER_GPS], STOP, wrapper_getGpsSatelliteData_cb);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
 
-    } else if (strcmp(key, GPS_CRITERIA_KEY) == 0) {
+    }  else if ((strcmp(key, GPS_CRITERIA_KEY) == 0) ) {
         //STOP GPS
         if (!(getHandlerStatus(GPS) == HANDLER_STATE_DISABLED)) {
             handler_start_tracking_criteria(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb, NULL, HANDLER_GPS, NULL);
             handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
         }
-    } else if (strcmp(key, NW_CRITERIA_KEY) == 0) {
+    } else if ((strcmp(key, NW_CRITERIA_KEY) == 0)) {
 
         if (!(getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
             //STOP CELLID
@@ -2548,7 +3313,9 @@ bool LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh, const cha
         do {
             LSMessage *msg = LSSubscriptionNext(iter);
 
-            if (LSMessageIsSubscription(msg)) {
+            /*SUBSC_GEOFENCE_ADD_AREA_KEY condition is for remove case*/
+
+            if (LSMessageIsSubscription(msg) && strstr(key,SUBSC_GEOFENCE_ADD_AREA_KEY) == NULL) {
                 LS_LOG_DEBUG("LSSubscriptionNonSubscriptionReply replying susbcribed call LSMessageGetPayload(message) = %s",
                             LSMessageGetPayload(msg));
                 retVal = LSMessageReply(sh, msg, payload, lserror);

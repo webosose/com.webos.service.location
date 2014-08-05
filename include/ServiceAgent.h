@@ -26,7 +26,13 @@
 #define SUBSC_GET_STATE_KEY "getState"
 #define GPS_CRITERIA_KEY "gps/startTrackingCriteriaBased"
 #define NW_CRITERIA_KEY "nw/startTrackingCriteriaBased"
+#define GPS_NW_CRITERIA_KEY "gpsnw/startTrackingCriteriaBased"
 #define CRITERIA_KEY "startTrackingCriteriaBased"
+#define SUBSC_GEOFENCE_STATUS_KEY "geofenceStatus"
+#define SUBSC_GEOFENCE_PAUSE_AREA_KEY "pauseGeofenceArea"
+#define SUBSC_GEOFENCE_RESUME_AREA_KEY "resumeGeofenceArea"
+#define SUBSC_GEOFENCE_REMOVE_AREA_KEY "removeGeofenceArea"
+#define SUBSC_GEOFENCE_ADD_AREA_KEY "addGeofenceArea"
 
 #define GPS "gps"
 #define NETWORK "network"
@@ -48,7 +54,22 @@ enum LocationErrorCode {
     LOCATION_DATA_CONNECTION_OFF,
     LOCATION_WIFI_CONNECTION_OFF,
     LOCATION_OUT_OF_MEM,
+    LOCATION_GEOFENCE_TOO_MANY_GEOFENCE,
+    LOCATION_GEOFENCE_ID_EXIST,
+    LOCATION_GEOFENCE_ID_UNKNOWN,
+    LOCATION_GEOFENCE_INVALID_TRANSITION,
     LOCATION_ERROR_MAX
+};
+
+enum GeofenceStateCode {
+    GEOFENCE_ADD_SUCCESS = 0,
+    GEOFENCE_REMOVE_SUCCESS,
+    GEOFENCE_PAUSE_SUCCESS ,
+    GEOFENCE_RESUME_SUCCESS ,
+    GEOFENCE_TRANSITION_ENTERED,
+    GEOFENCE_TRANSITION_EXITED,
+    GEOFENCE_TRANSITION_UNCERTAIN,
+    GEOFENCE_MAXIMUM
 };
 
 /**

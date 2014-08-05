@@ -44,6 +44,12 @@ typedef struct _GpsHandlerPrivate {
     NmeaCallback nmea_cb;
     StartTrackingCallBack track_cb;
     StartTrackingCallBack track_criteria_cb;
+    GeofenceAddCallBack add_cb;
+    GeofenceResumeCallback resume_cb;
+    GeofencePauseCallback pause_cb;
+    GeofenceRemoveCallback remove_cb;
+    GeofenceBreachCallback breach_cb;
+    GeofenceStatusCallback geofence_status_cb;
 
     guint pos_timer;
     gint status;
@@ -80,8 +86,8 @@ static gboolean gps_timeout_cb(gpointer user_data)
     if (priv->track_cb)
         (*priv->track_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
 
-    if(priv->track_criteria_cb)
-       (*priv->track_criteria_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
+    if (priv->track_criteria_cb)
+        (*priv->track_criteria_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
 
     position_free(position);
     accuracy_free(accuracy);
@@ -225,6 +231,72 @@ void gps_handler_position_cb(gboolean enable_cb,
     (*priv->pos_cb)(enable_cb, position, accuracy, error, user_data, type); //call SA position callback
 }
 
+void gps_handler_geofence_status_cb(int32_t status,
+                                    Position *last_position,
+                                    Accuracy *accuracy,
+                                    gpointer user_data)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+    g_return_if_fail(priv);
+    g_return_if_fail(priv->geofence_status_cb);
+
+    (*priv->geofence_status_cb)(status, last_position, accuracy, user_data);
+}
+
+void gps_handler_geofence_breach_cb(int32_t geofence_id,
+                                    int32_t status,
+                                    int64_t timestamp,
+                                    double latitude,
+                                    double longitude,
+                                    gpointer user_data)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+    g_return_if_fail(priv);
+    g_return_if_fail(priv->breach_cb);
+
+    (*priv->breach_cb)( geofence_id, status, timestamp, latitude, longitude, user_data);
+}
+
+void gps_handler_geofence_add_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    LS_LOG_INFO("gps_handler_geofence_add_cb..\n");
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+    g_return_if_fail(priv);
+    g_return_if_fail(priv->add_cb);
+
+    (*priv->add_cb)( geofence_id, status, user_data);
+}
+
+void gps_handler_geofence_remove_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
+    g_return_if_fail(priv);
+    g_return_if_fail(priv->remove_cb);
+
+    (*priv->remove_cb)(geofence_id, status, user_data);
+}
+
+void gps_handler_geofence_resume_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
+    g_return_if_fail(priv);
+    g_return_if_fail(priv->resume_cb);
+
+    (*priv->resume_cb)( geofence_id, status, user_data);
+}
+
+void gps_handler_geofence_pause_cb(int32_t geofence_id, int32_t status, gpointer user_data)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);
+
+    g_return_if_fail(priv);
+    g_return_if_fail(priv->pause_cb);
+
+    (*priv->pause_cb)( geofence_id, status, user_data);
+}
+
 /**
  * <Funciton>       gps_handler_start
  * <Description>    start the GPS handler
@@ -363,6 +435,87 @@ static int gps_handler_get_position(Handler *self,
     return result;
 }
 
+static int gps_handler_add_geofence_area(Handler *self,
+                                         gboolean enable,
+                                         int32_t *geofence_id,
+                                         gdouble *latitude,
+                                         gdouble *longitude,
+                                         gdouble *radius_meters,
+                                         GeofenceAddCallBack add_cb,
+                                         GeofenceBreachCallback breach_cb,
+                                         GeofenceStatusCallback status_cb)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+    int result = ERROR_NONE;
+
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+
+    g_return_val_if_fail(add_cb, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(breach_cb, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(status_cb, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->gps_plugin->ops.geofence_add_area, ERROR_NOT_AVAILABLE);
+
+    priv->add_cb = add_cb;
+    priv->breach_cb = breach_cb;
+    priv->geofence_status_cb = status_cb;
+    result = priv->gps_plugin->ops.geofence_add_area(priv->gps_plugin->plugin_handler,
+                                                     enable,
+                                                     geofence_id,
+                                                     latitude,
+                                                     longitude,
+                                                     radius_meters,
+                                                     gps_handler_geofence_add_cb,
+                                                     gps_handler_geofence_breach_cb,
+                                                     gps_handler_geofence_status_cb);
+
+    return result;
+}
+
+static int gps_handler_remove_geofence(Handler *self, gboolean enable, int32_t *geofence_id, GeofenceRemoveCallback remove_cb)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+    int result = ERROR_NONE;
+
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(remove_cb, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->gps_plugin->ops.geofence_process_request, ERROR_NOT_AVAILABLE);
+
+    priv->remove_cb = remove_cb;
+    result = priv->gps_plugin->ops.geofence_process_request(priv->gps_plugin->plugin_handler, enable, geofence_id, 0, gps_handler_geofence_remove_cb, HANLDER_GEOFENCE_REMOVE);
+
+    return result;
+}
+
+static int gps_handler_resume_geofence(Handler *self, gboolean enable, int32_t *geofence_id, int32_t *monitor, GeofenceResumeCallback resume_cb)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+    int result = ERROR_NONE;
+    LS_LOG_INFO("abhishek resume called");
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(resume_cb, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->gps_plugin->ops.geofence_process_request, ERROR_NOT_AVAILABLE);
+
+    priv->resume_cb = resume_cb;
+    result = priv->gps_plugin->ops.geofence_process_request(priv->gps_plugin->plugin_handler, enable, geofence_id, monitor, gps_handler_geofence_resume_cb, HANLDER_GEOFENCE_RESUME);
+
+    return result;
+}
+
+static int gps_handler_pause_geofence(Handler *self, gboolean enable, int32_t *geofence_id, GeofencePauseCallback pause_cb)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+
+    int result = ERROR_NONE;
+
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(pause_cb, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->gps_plugin->ops.geofence_process_request, ERROR_NOT_AVAILABLE);
+
+    priv->pause_cb = pause_cb;
+    result = priv->gps_plugin->ops.geofence_process_request(priv->gps_plugin->plugin_handler, enable, geofence_id, 0, gps_handler_geofence_pause_cb, HANLDER_GEOFENCE_PAUSE);
+
+    return result;
+}
 /**
  * <Funciton>       gps_handler_start_tracking
  * <Description>    get the position from GPS receiver
@@ -416,9 +569,9 @@ static void gps_handler_start_tracking(Handler *self,
     } else {
        if (!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON)) {
            if (priv->pos_timer) {
-              g_source_remove(priv->pos_timer);
-              priv->pos_timer = 0;
-            }
+               g_source_remove(priv->pos_timer);
+               priv->pos_timer = 0;
+           }
 
            priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler,
                                               enable,
@@ -734,6 +887,10 @@ static void handler_interface_init(HandlerInterface *iface)
     iface->get_gps_status = (TYPE_GET_GPS_STATUS) gps_handler_get_gps_status;
     iface->set_gps_params = (TYPE_SET_GPS_PARAMETERS) gps_handler_set_gps_parameters;
     iface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) gps_handler_start_tracking_criteria;
+    iface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) gps_handler_add_geofence_area;
+    iface->remove_geofence = (TYPE_REMOVE_GEOFENCE) gps_handler_remove_geofence;
+    iface->resume_geofence = (TYPE_RESUME_GEOFENCE) gps_handler_resume_geofence;
+    iface->pause_geofence = (TYPE_PAUSE_GEOFENCE) gps_handler_pause_geofence;
 }
 
 /**

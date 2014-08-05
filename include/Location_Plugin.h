@@ -133,6 +133,18 @@ typedef void (*StartTrackingCallBack)(gboolean enable_cb, Position *pos, Accurac
  */
 typedef void (*getTTFF_cb)(gboolean enable_cb, double ttff, gpointer userdata);
 
+
+typedef void (*GeofenceAddCallBack)(int32_t geofence_id, int32_t status, gpointer user_data);
+
+typedef void (*GeofenceResumeCallback) (int32_t geofence_id, int32_t status, gpointer user_data);
+
+typedef void (*GeofencePauseCallback) (int32_t geofence_id, int32_t status, gpointer user_data);
+
+typedef void (*GeofenceRemoveCallback) (int32_t geofence_id, int32_t status, gpointer user_data);
+
+typedef void (*GeofenceBreachCallback) (int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude, gpointer user_data);
+
+typedef void (*GeofenceStatusCallback) (int32_t status, Position *last_position, Accuracy *accuracy, gpointer user_data);
 /**
  * GPS plug-in APIS
  */
@@ -143,6 +155,16 @@ typedef struct {
     int (*get_gps_data)(gpointer handle, gboolean enable_data, gpointer gps_cb, int data_type);
     int (*send_extra_command)(gpointer handle , char *command);
     int (*set_gps_parameters)(gpointer handle , char *command);
+    int (*geofence_add_area)(gpointer handle,
+                             gboolean enable,
+                             int32_t *geofence_id,
+                             gdouble *latitude,
+                             gdouble *longitude,
+                             gdouble *radius_meters,
+                             GeofenceAddCallBack add_cb,
+                             GeofenceBreachCallback breach_cb,
+                             GeofenceStatusCallback status_cb);
+    int (*geofence_process_request)(gpointer handle, gboolean enable, int32_t *geofence_id, int *monitor, gpointer callback, int type);
 } GpsPluginOps;
 
 typedef struct {

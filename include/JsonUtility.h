@@ -44,6 +44,8 @@
 #define PROPS_7(p1, p2, p3, p4, p5, p6, p7) ",\"properties\":{" p1 "," p2 "," p3 "," p4 "," p5 "," p6 "," p7 "}"
 #define REQUIRED_1(p1)                      ",\"required\":[\"" #p1 "\"]"
 #define REQUIRED_2(p1, p2)                  ",\"required\":[\"" #p1 "\",\"" #p2 "\"]"
+#define REQUIRED_3(p1, p2, p3)              ",\"required\":[\"" #p1 "\",\"" #p2 "\",\"" #p3 "\"]"
+#define REQUIRED_4(p1, p2, p3, p4)          ",\"required\":[\"" #p1 "\",\"" #p2 "\",\"" #p3 "\",\"" #p4 "\"]"
 #define STRICT_SCHEMA(attributes)           "{\"type\":\"object\"" attributes ",\"additionalProperties\":false}"
 #define RELAXED_SCHEMA(attributes)          "{\"type\":\"object\"" attributes ",\"additionalProperties\":true}"
 

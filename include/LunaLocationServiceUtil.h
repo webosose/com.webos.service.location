@@ -150,6 +150,38 @@
  */
 #define JSCHEMA_STOP_GPS                                    SCHEMA_ANY
 
+/*
+ * JSON SCHEMA: addGeofenceArea (double latitude, double longitude, double radius, [bool subscribe])
+ */
+#define JSCHEMA_ADD_GEOFENCE_AREA                           STRICT_SCHEMA(\
+        PROPS_4(PROP(latitude, number), PROP(longitude, number), PROP(radius, number), PROP(subscribe, boolean)) \
+        REQUIRED_3(latitude, longitude, radius))
+
+/*
+ * JSON SCHEMA: removeGeofenceArea (integer geofenceid)
+ */
+#define JSCHEMA_REMOVE_GEOFENCE_AREA                        STRICT_SCHEMA(\
+        PROPS_1(PROP(geofenceid, integer)) \
+        REQUIRED_1(geofenceid))
+
+/*
+ * JSON SCHEMA: pauseGeofenceArea (integer geofenceid)
+ */
+#define JSCHEMA_PAUSE_GEOFENCE_AREA                         STRICT_SCHEMA(\
+        PROPS_1(PROP(geofenceid, integer)) \
+        REQUIRED_1(geofenceid))
+
+/*
+ * JSON SCHEMA: resumeGeofenceArea (integer geofenceid)
+ */
+#define JSCHEMA_RESUME_GEOFENCE_AREA                        STRICT_SCHEMA(\
+        PROPS_1(PROP(geofenceid, integer)) \
+        REQUIRED_1(geofenceid))
+
+
+
+
+
 bool LSMessageInitErrorReply();
 
 void LSMessageReleaseErrorReply();

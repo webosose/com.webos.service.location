@@ -347,6 +347,10 @@ static void nw_handler_interface_init(HandlerInterface *interface)
     interface->get_geo_code = (TYPE_GEO_CODE) nw_handler_function_not_implemented;
     interface->get_rev_geocode = (TYPE_REV_GEO_CODE) nw_handler_function_not_implemented;
     interface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) nw_handler_start_tracking_criteria;
+    interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) nw_handler_function_not_implemented;
+    interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) nw_handler_function_not_implemented;
+    interface->resume_geofence = (TYPE_RESUME_GEOFENCE) nw_handler_function_not_implemented;
+    interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) nw_handler_function_not_implemented;
 }
 
 /**

@@ -52,6 +52,22 @@
 #define LOCATION_SERVICE_NAME           "com.palm.location"
 #define LOCATION_SERVICE_ALIAS_LGE_NAME "com.lge.location"
 
+#define GEOFENCE_ENTERED                    0
+#define GEOFENCE_EXITED                     1
+#define GEOFENCE_UNCERTAIN                  2
+#define GEOFENCE_UNAVAILABLE                (1<<0L)
+#define GEOFENCE_AVAILABLE                  (1<<1L)
+#define GEOFENCE_OPERATION_SUCCESS          0
+#define GEOFENCE_ERROR_TOO_MANY_GEOFENCES   -100
+#define GEOFENCE_ERROR_ID_EXISTS            -101
+#define GEOFENCE_ERROR_ID_UNKNOWN           -102
+#define GEOFENCE_ERROR_INVALID_TRANSITION   -103
+#define GEOFENCE_ERROR_GENERIC              -149
+
+#define MAX_GEOFENCE_ID                     200
+#define MIN_GEOFENCE_RANGE                  1000
+#define MAX_GEOFENCE_RANGE                  1200
+
 #define LSERROR_CHECK_AND_PRINT(ret)\
     do {                          \
         if (ret == false) {               \
@@ -159,6 +175,12 @@ public:
     static void wrapper_getGpsSatelliteData_cb(gboolean enable_cb, Satellite *satellite, gpointer privateIns);
     static void wrapper_sendExtraCommand_cb(gboolean enable_cb, int command, gpointer privateIns);
     static void wrapper_gpsStatus_cb(gboolean enable_cb, int state, gpointer data);
+    static void wrapper_geofence_add_cb(int32_t geofence_id, int32_t status, gpointer user_data);
+    static void wrapper_geofence_remove_cb(int32_t geofence_id, int32_t status, gpointer user_data);
+    static void wrapper_geofence_pause_cb(int32_t geofence_id, int32_t status, gpointer user_data);
+    static void wrapper_geofence_resume_cb(int32_t geofence_id, int32_t status, gpointer user_data);
+    static void wrapper_geofence_breach_cb(int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude, gpointer user_data);
+    static void wrapper_geofence_status_cb (int32_t status, Position *last_position, Accuracy *accuracy, gpointer user_data);
 
     static bool _getNmeaData(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getNmeaData(sh, message, NULL);
@@ -222,6 +244,26 @@ public:
 
     static bool _cancelSubscription(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->cancelSubscription(sh, message, NULL);
+    }
+
+    static bool _addGeofenceArea(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->addGeofenceArea(sh, message, NULL);
+    }
+
+    static bool _getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->getGeofenceStatus(sh, message, NULL);
+    }
+
+    static bool _pauseGeofence(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->pauseGeofence(sh, message, NULL);
+    }
+
+    static bool _resumeGeofence(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->resumeGeofence(sh, message, NULL);
+    }
+
+    static bool _removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->removeGeofenceArea(sh, message, NULL);
     }
 
     static gboolean TimerCallback(void *data) {
@@ -338,7 +380,10 @@ private:
     static LocationService *locService;
     static LSMethod rootMethod[];
     static LSMethod prvMethod[];
+    static LSMethod geofenceMethod[];
+    bool is_geofenceId_used[MAX_GEOFENCE_ID];
     unsigned char trackhandlerstate;
+    GHashTable *htPseudoGeofence;
 
     LSPalmService *mServiceHandle;
     LSPalmService *mlgeServiceHandle;
@@ -358,10 +403,23 @@ private:
     pthread_mutex_t pos_nw_lock;
     pthread_mutex_t nmea_lock;
     pthread_mutex_t sat_lock;
+    pthread_mutex_t geofence_add_lock;
+    pthread_mutex_t geofence_pause_lock;
+    pthread_mutex_t geofence_remove_lock;
+    pthread_mutex_t geofence_resume_lock;
     LunaCriteriaCategoryHandler *criteriaCatSvrc;
     //mapped with HandlerTypes
     Handler *handler_array[HANDLER_MAX];
 
+    char* geofenceStateText[GEOFENCE_MAXIMUM] {
+        "added",                // GEOFENCE_ADD_SUCCESS
+        "removed",              // GEOFENCE_REMOVE_SUCCESS
+        "paused",               // GEOFENCE_PAUSE_SUCCESS
+        "resumed",              // GEOFENCE_RESUME_SUCCESS
+        "transitionEntered",    // GEOFENCE_TRANSITION_ENTERED
+        "transitionExited",     // GEOFENCE_TRANSITION_EXITED
+        "transitionUncertain"   // GEOFENCE_TRANSITION_UNCERTAIN
+    };
 
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
@@ -380,6 +438,11 @@ private:
     bool getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data);
     bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
     bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
+    bool addGeofenceArea(LSHandle *sh, LSMessage *message, void *data);
+    bool removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data);
+    bool pauseGeofence(LSHandle *sh, LSMessage *message, void *data);
+    bool resumeGeofence(LSHandle *sh, LSMessage *message, void *data);
+    bool getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data);
     gboolean _TimerCallback(void *data);
     bool readLocationfromCache(LSHandle *sh, LSMessage *message, jvalue_ref serviceObject, int maxAge,int accuracylevel, unsigned char handlerstatus);
     bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *,jvalue_ref );
@@ -393,6 +456,12 @@ private:
     void getCurrentPosition_reply(Position *, Accuracy *, int, int);
     void getGpsSatelliteData_reply(Satellite *);
     void getGpsStatus_reply(int);
+    void geofence_add_reply(int32_t geofence_id, int32_t status);
+    void geofence_breach_reply(int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude);
+    void geofence_remove_reply(int32_t geofence_id, int32_t status);
+    void geofence_pause_reply(int32_t geofence_id, int32_t status);
+    void geofence_resume_reply(int32_t geofence_id, int32_t status);
+    void geofence_status_reply(int32_t status, Position *last_position, Accuracy *accuracy);
     void stopSubcription(LSHandle *sh, const char *key);
     void LSErrorPrintAndFree(LSError *ptrLSError);
     void criteriaStopSubscription(LSHandle *sh, LSMessage *message);

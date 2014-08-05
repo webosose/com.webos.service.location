@@ -34,7 +34,11 @@ static const locErrorTextPair_t mapLocErrorText[LOCATION_ERROR_MAX] = {
     {LOCATION_INVALID_INPUT,                "Invalid input"},
     {LOCATION_DATA_CONNECTION_OFF,          "No internet connection"},
     {LOCATION_WIFI_CONNECTION_OFF,          "Wifi is not turned on"},
-    {LOCATION_OUT_OF_MEM,                   "Out of memory"}
+    {LOCATION_OUT_OF_MEM,                   "Out of memory"},
+    {LOCATION_GEOFENCE_TOO_MANY_GEOFENCE,   "Too many geofences are added"},
+    {LOCATION_GEOFENCE_ID_EXIST,            "Geofence id already exists"},
+    {LOCATION_GEOFENCE_ID_UNKNOWN,          "Geofecne id unknown"},
+    {LOCATION_GEOFENCE_INVALID_TRANSITION,  "Geofence invalid transition"}
 };
 
 char *locationErrorReply[LOCATION_ERROR_MAX] = {0};

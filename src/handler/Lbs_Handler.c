@@ -236,6 +236,10 @@ static void lbs_handler_interface_init(HandlerInterface *interface)
     interface->send_extra_cmd = (TYPE_SEND_EXTRA) lbs_handler_function_not_implemented;
     interface->get_geo_code = (TYPE_GEO_CODE) lbs_handler_geo_code;
     interface->get_rev_geocode = (TYPE_REV_GEO_CODE) lbs_handler_reverse_geo_code;
+    interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) lbs_handler_function_not_implemented;
+    interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) lbs_handler_function_not_implemented;
+    interface->resume_geofence = (TYPE_RESUME_GEOFENCE) lbs_handler_function_not_implemented;
+    interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) lbs_handler_function_not_implemented;
 }
 
 /**

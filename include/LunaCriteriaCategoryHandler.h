@@ -28,7 +28,7 @@
 
 #define MATH_PI 3.1415926535897932384626433832795
 #define SUCCESSFUL 0
-#define KEY_MAX  32
+#define KEY_MAX  40
 
 class LunaCriteriaCategoryHandler
 {
@@ -54,7 +54,7 @@ public:
     bool init(LSPalmService *sh, LSPalmService *sh_lge, Handler **handler);
     void LSErrorPrintAndFree(LSError *ptrLSError);
     int handlerSelection(int accLevel, int powLevel);
-    int enableHandlers(int sel_handler, char *sub_key_gps, char *sub_key_nw, unsigned char *startedHandlers);
+    int enableHandlers(int sel_handler, char *sub_key_gps, char *sub_key_nw, char *sub_key_gpsnw, unsigned char *startedHandlers);
     bool enableGpsHandler(unsigned char *startedHandlers);
     bool enableNwHandler(unsigned char *startedHandlers);
     void startTrackingCriteriaBased_reply(Position *pos, Accuracy *accuracy, int error, int type);

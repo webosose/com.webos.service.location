@@ -29,6 +29,7 @@
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-nmea.h>
 #include <geoclue/geoclue-satellite.h>
+#include <geoclue/geoclue-geofence.h>
 #include <geoclue/geoclue-provider.h>
 #include <geoclue/geoclue-types.h>
 #include <LocationService_Log.h>
@@ -44,7 +45,7 @@ typedef struct {
     GeoclueAccuracy *geoclue_accuracy;
     GeoclueNmea *geoclue_nmea;
     GeoclueSatellite *geoclue_satellite;
-
+    GeoclueGeofence *geoclue_geofence;
     /*
      * CallBacks from GPS Handler, Location_Plugin.h
      */
@@ -53,7 +54,19 @@ typedef struct {
     SatelliteCallback sat_cb;
     StartTrackingCallBack track_cb;
     NmeaCallback nmea_cb;
-
+    GeofenceAddCallBack add_cb;
+    GeofenceResumeCallback resume_cb;
+    GeofencePauseCallback pause_cb;
+    GeofenceRemoveCallback remove_cb;
+    GeofenceBreachCallback breach_cb;
+    GeofenceStatusCallback geofence_status_cb;
+    gboolean addstatus;
+    gboolean pausestatus;
+    gboolean resumestatus;
+    gboolean removestatus;
+    uint32_t pauseRequestCounter;
+    uint32_t resumeRequestCounter;
+    uint32_t removeRequestCounter;
     gpointer userdata;
 } GeoclueGps;
 
@@ -271,6 +284,112 @@ static void satellite_cb(GeoclueSatellite *satellite, uint32_t used_in_fix, int 
     satellite_free(sat);
 }
 
+static void geofence_breach_cb(GeoclueGeofence *geofence,
+                               int32_t status,
+                               int64_t timestamp,
+                               int32_t geofenceid,
+                               double latitude,
+                               double longitude,
+                               gpointer plugin_data)
+{
+    GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+
+    g_return_if_fail(gpsPlugin);
+    g_return_if_fail(gpsPlugin->breach_cb);
+
+    (*gpsPlugin->breach_cb)(geofenceid, status, timestamp, latitude, longitude, gpsPlugin->userdata);
+}
+
+static void geofence_add_cb(GeoclueGeofence  *geofence,
+                            int32_t geofenceId,
+                            int32_t status,
+                            gpointer plugin_data)
+{
+    GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+    LS_LOG_DEBUG("geofence_add_cb");
+    g_return_if_fail(gpsPlugin);
+    g_return_if_fail(gpsPlugin->add_cb);
+
+    (*gpsPlugin->add_cb)(geofenceId, status, gpsPlugin->userdata);
+}
+
+static void geofence_resume_cb(GeoclueGeofence *geofence,
+                               int32_t geofenceId,
+                               int32_t status,
+                               gpointer plugin_data)
+{
+    GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+    LS_LOG_DEBUG("geofence_resume_cb");
+    g_return_if_fail(gpsPlugin);
+    g_return_if_fail(gpsPlugin->resume_cb);
+    gpsPlugin->resumeRequestCounter--;
+    (*gpsPlugin->resume_cb)(geofenceId, status, gpsPlugin->userdata);
+}
+
+static void geofence_pause_cb(GeoclueGeofence  *geofence, int32_t geofenceId, int32_t status, gpointer plugin_data)
+{
+    GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+
+    g_return_if_fail(gpsPlugin);
+    g_return_if_fail(gpsPlugin->pause_cb);
+    gpsPlugin->pauseRequestCounter--;
+    (*gpsPlugin->pause_cb)(geofenceId, status, gpsPlugin->userdata);
+}
+
+static void geofence_status_cb(GeoclueGeofence *geofence,
+                               int32_t status,
+                               GeocluePositionGpsFields fields,
+                               int64_t timestamp,
+                               double latitude,
+                               double longitude,
+                               double altitude,
+                               double speed,
+                               double direction,
+                               double climb,
+                               GeoclueAccuracy *accuracy,
+                               gpointer plugin_data)
+{
+    GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+
+    g_return_if_fail(gpsPlugin);
+    g_return_if_fail(gpsPlugin->geofence_status_cb);
+
+    Accuracy *ac;
+    double hor_acc = DEFAULT_VALUE;
+    double vert_acc = INVALID_PARAM;
+    GeoclueAccuracyLevel level;
+    Position *ret_pos = position_create(timestamp, latitude, longitude, altitude, speed, direction, climb, fields);
+
+    g_return_if_fail(ret_pos);
+
+    if (accuracy) {
+        geoclue_accuracy_get_details(accuracy, &level, &hor_acc, &vert_acc);
+        ac = accuracy_create(ACCURACY_LEVEL_DETAILED, hor_acc, vert_acc);
+    } else {
+        ac = accuracy_create(ACCURACY_LEVEL_NONE, hor_acc, vert_acc);
+    }
+
+    if (ac == NULL) {
+        position_free(ret_pos);
+        return;
+    }
+
+    (*gpsPlugin->geofence_status_cb)(TRUE, ret_pos, ac, gpsPlugin->userdata);
+
+    position_free(ret_pos);
+    accuracy_free(ac);
+}
+
+static void geofence_remove_cb(GeoclueGeofence  *geofence, int32_t geofenceId, int32_t status, gpointer plugin_data)
+{
+    GeoclueGps *gpsPlugin = (GeoclueGps *) plugin_data;
+
+    g_return_if_fail(gpsPlugin);
+    g_return_if_fail(gpsPlugin->remove_cb);
+    gpsPlugin->removeRequestCounter--;
+    (*gpsPlugin->remove_cb)(geofenceId, status, gpsPlugin->userdata);
+}
+
 /**
  * <Funciton >   tracking_cb
  * <Description>  tracking callback ,called by gps plugin when
@@ -389,6 +508,187 @@ static int get_position(gpointer handle, PositionCallback positionCB)
     return ERROR_NONE;
 }
 
+static int geofence_process_request (gpointer handle,
+                                     gboolean enable,
+                                     int32_t *geofence_id,
+                                     int32_t *monitor,
+                                     gpointer callback,
+                                     int type)
+{
+    GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+    GError *error = NULL;
+    gboolean ret = FALSE;
+    int error_code = ERROR_NONE;
+    g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
+
+    switch (type) {
+    case HANLDER_GEOFENCE_REMOVE: {
+        geoclueGps->remove_cb = NULL;
+        if (enable) {
+            geoclueGps->remove_cb = (GeofenceRemoveCallback) callback;
+            if (geoclueGps->removestatus == FALSE) {
+                g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                 "geofence-remove",
+                                 G_CALLBACK(geofence_remove_cb),
+                                 geoclueGps);
+
+                geoclueGps->removestatus = TRUE;
+            }
+
+            ret = geoclue_geofence_remove(geoclueGps->geoclue_geofence,*geofence_id, &error);
+
+            if (ret == FALSE) {
+                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                                     G_CALLBACK(geofence_remove_cb),
+                                                     geoclueGps);
+
+                geoclueGps->removestatus = FALSE;
+                error_code = ERROR_NOT_AVAILABLE;
+            } else {
+                geoclueGps->removeRequestCounter++;
+
+            }
+        } else {
+            geoclueGps->removestatus = FALSE;
+            if(geoclueGps->removeRequestCounter == 0) {
+                LS_LOG_INFO("Disconnectiong from remove signal");
+                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                                 G_CALLBACK(geofence_remove_cb),
+                                                 geoclueGps);
+            }
+        }
+    }
+        break;
+
+    case HANLDER_GEOFENCE_PAUSE: {
+        geoclueGps->pause_cb = NULL;
+        if (enable) {
+            geoclueGps->pause_cb = (GeofencePauseCallback) callback;
+            // send request set callback to signal
+            if (geoclueGps->pausestatus == FALSE) {
+                LS_LOG_DEBUG("[DEBUG] GPS Plugin CC: resume connected");
+                g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                 "geofence-pause",
+                                 G_CALLBACK(geofence_pause_cb),
+                                 geoclueGps);
+
+                geoclueGps->pausestatus = TRUE;
+            }
+            ret = geoclue_geofence_pause(geoclueGps->geoclue_geofence, *geofence_id, &error);
+
+            if (ret == FALSE) {
+                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                                     G_CALLBACK(geofence_pause_cb),
+                                                     geoclueGps);
+
+                geoclueGps->pausestatus = FALSE;
+                error_code = ERROR_NOT_AVAILABLE;
+            } else {
+                geoclueGps->pauseRequestCounter++;
+            }
+        } else {
+            geoclueGps->pausestatus = FALSE;
+            if(geoclueGps->pauseRequestCounter == 0) {
+                LS_LOG_INFO("Disconnectiong from pause signal");
+                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                                 G_CALLBACK(geofence_pause_cb),
+                                                 geoclueGps);
+            }
+        }
+    }
+        break;
+
+    case HANLDER_GEOFENCE_RESUME: {
+        geoclueGps->resume_cb = NULL;
+        if (enable) {
+            geoclueGps->resume_cb = (GeofenceResumeCallback) callback;
+
+            if (geoclueGps->resumestatus == FALSE) {
+                LS_LOG_DEBUG("[DEBUG] GPS Plugin CC: resume connected");
+                g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                 "geofence-resume",
+                                 G_CALLBACK(geofence_resume_cb),
+                                 geoclueGps);
+
+                geoclueGps->resumestatus = TRUE;
+            }
+
+
+            ret = geoclue_geofence_resume(geoclueGps->geoclue_geofence, *geofence_id, *monitor, &error);
+            // send request set callback to signal
+            LS_LOG_DEBUG("[DEBUG] GPS Plugin CC: HANLDER_GEOFENCE_RESUME %d", ret);
+
+            if (ret == FALSE) {
+                geoclueGps->resumestatus = FALSE;
+                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                                     G_CALLBACK(geofence_resume_cb),
+                                                     geoclueGps);
+                error_code = ERROR_NOT_AVAILABLE;
+            } else {
+                geoclueGps->resumeRequestCounter++;
+            }
+        } else {
+            geoclueGps->resumestatus = FALSE;
+            if(geoclueGps->resumeRequestCounter == 0) {
+                LS_LOG_INFO("Disconnectiong from resume signal");
+                g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
+                                                 G_CALLBACK(geofence_resume_cb),
+                                                 geoclueGps);
+            }
+        }
+    }
+        break;
+    }
+
+    return error_code;
+}
+
+int  geofence_add_area (gpointer handle,
+                        gboolean enable,
+                        int32_t *geofence_id,
+                        gdouble *latitude,
+                        gdouble *longitude,
+                        gdouble *radius_meters,
+                        GeofenceAddCallBack add_cb,
+                        GeofenceBreachCallback breach_cb,
+                        GeofenceStatusCallback status_cb)
+{
+    GeoclueGps *geoclueGps = (GeoclueGps *) handle;
+    GError *error = NULL;
+    gboolean ret= FALSE;
+    g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
+     // call geoclue function to send the add area request
+    if (enable) {
+        geoclueGps->add_cb = add_cb;
+        geoclueGps->breach_cb = breach_cb;
+        geoclueGps->geofence_status_cb = status_cb;
+
+        if (geoclueGps->addstatus == FALSE) {
+            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), "geofence-status", G_CALLBACK(geofence_status_cb), geoclueGps);
+            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), "geofence-add", G_CALLBACK(geofence_add_cb), geoclueGps);
+            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), "geofence-transition", G_CALLBACK(geofence_breach_cb), geoclueGps);
+            geoclueGps->addstatus = TRUE;
+        }
+
+        ret = geoclue_geofence_add(geoclueGps->geoclue_geofence, *geofence_id, *latitude, *longitude, *radius_meters, &error);
+
+        if (ret == FALSE) {
+            geoclueGps->addstatus = FALSE;
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_add_cb), geoclueGps);
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_breach_cb), geoclueGps);
+            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_status_cb), geoclueGps);
+            return ERROR_NOT_AVAILABLE;
+        }
+    } else {
+        geoclueGps->addstatus = FALSE;
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_add_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_breach_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_status_cb), geoclueGps);
+    }
+
+    return ERROR_NONE;
+}
+
 static int get_gps_data(gpointer handle, gboolean enable_data, gpointer gps_cb, int datatype)
 {
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
@@ -479,6 +779,21 @@ static void unreference_geoclue(GeoclueGps *geoclueGps)
         g_object_unref(geoclueGps->geoclue_satellite);
         geoclueGps->geoclue_satellite = NULL;
     }
+
+    if (geoclueGps->geoclue_geofence) {
+        geoclueGps->addstatus = FALSE;
+        geoclueGps->pausestatus = FALSE;
+        geoclueGps->resumestatus = FALSE;
+        geoclueGps->removestatus = FALSE;
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_add_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_breach_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_pause_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_remove_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_resume_cb), geoclueGps);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)), G_CALLBACK(geofence_status_cb), geoclueGps);
+        g_object_unref(geoclueGps->geoclue_geofence);
+        geoclueGps->geoclue_geofence = NULL;
+    }
 }
 
 /**
@@ -492,7 +807,7 @@ static gboolean intialize_gps_geoclue_service(GeoclueGps *geoclueGps)
     g_return_val_if_fail(geoclueGps, FALSE);
 
     //Check its alreasy started
-    if (geoclueGps->geoclue_pos || geoclueGps->geoclue_nmea || geoclueGps->geoclue_satellite) {
+    if (geoclueGps->geoclue_pos || geoclueGps->geoclue_nmea || geoclueGps->geoclue_satellite || geoclueGps->geoclue_geofence) {
         return TRUE;
     }
 
@@ -502,8 +817,9 @@ static gboolean intialize_gps_geoclue_service(GeoclueGps *geoclueGps)
     geoclueGps->geoclue_pos = geoclue_positiongps_new(LGE_GPS_SERVICE_NAME, LGE_GPS_SERVICE_PATH);
     geoclueGps->geoclue_nmea = geoclue_nmea_new(LGE_GPS_SERVICE_NAME, LGE_GPS_SERVICE_PATH);
     geoclueGps->geoclue_satellite = geoclue_satellite_new(LGE_GPS_SERVICE_NAME, LGE_GPS_SERVICE_PATH);
+    geoclueGps->geoclue_geofence = geoclue_geofence_new(LGE_GPS_SERVICE_NAME, LGE_GPS_SERVICE_PATH);
 
-    if (geoclueGps->geoclue_pos == NULL || geoclueGps->geoclue_satellite == NULL || geoclueGps->geoclue_nmea == NULL) {
+    if (geoclueGps->geoclue_pos == NULL || geoclueGps->geoclue_satellite == NULL || geoclueGps->geoclue_nmea == NULL || geoclueGps->geoclue_geofence == NULL) {
         LS_LOG_ERROR("[DEBUG] Error while creating LG GPS geoclue object !!");
         unreference_geoclue(geoclueGps);
         return FALSE;
@@ -579,6 +895,8 @@ EXPORT_API gpointer init(GpsPluginOps *ops)
     ops->get_gps_data = get_gps_data;
     ops->send_extra_command = send_extra_command;
     ops->set_gps_parameters = set_gps_parameters;
+    ops->geofence_add_area = geofence_add_area;
+    ops->geofence_process_request = geofence_process_request;
     /*
      * Handler for plugin
      */

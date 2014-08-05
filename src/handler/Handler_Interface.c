@@ -289,3 +289,86 @@ int handler_get_reverse_geo_code(Handler *self, Position *pos, Address *address)
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode(self, pos, address);
 }
 
+
+/**
+ * <Funciton>       handler_add_geo_fence
+ * <Description>    convert given position info to Address
+ * @param           <self> <In> <Handler GObject>
+ * @param
+ * @param
+ * @return          int
+ */
+int handler_add_geofence_area(Handler *self,
+                              gboolean enable,
+                              int32_t *geofence_id,
+                              gdouble *latitude,
+                              gdouble *longitude,
+                              gdouble *radius_meters,
+                              GeofenceAddCallBack add_cb,
+                              GeofenceBreachCallback breach_cb,
+                              GeofenceStatusCallback status_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->add_geofence_area, ERROR_NOT_AVAILABLE);
+
+    LS_LOG_DEBUG("handler_add_geo_fence\n");
+
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->add_geofence_area(self, enable, geofence_id, latitude, longitude, radius_meters, add_cb, breach_cb, status_cb );
+}
+
+/**
+ * <Funciton>       handler_remove_geo_fence
+ * <Description>
+ * @param           <self> <In> <Handler GObject>
+ * @param
+ * @param
+ * @return          int
+ */
+
+int handler_remove_geofence(Handler *self, gboolean enable, int32_t *geofence_id, GeofenceRemoveCallback remove_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->remove_geofence, ERROR_NOT_AVAILABLE);
+
+    LS_LOG_DEBUG("handler_remove_geo_fence\n");
+
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->remove_geofence(self, enable, geofence_id, remove_cb);
+}
+
+/**
+ * <Funciton>       handler_pause_geo_fence
+ * <Description>
+ * @param           <self> <In> <Handler GObject>
+ * @param
+ * @param
+ * @return          int
+ */
+
+int handler_pause_geofence(Handler *self, gboolean enable, int32_t *geofence_id, GeofencePauseCallback pause_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->pause_geofence, ERROR_NOT_AVAILABLE);
+
+    LS_LOG_DEBUG("handler_pause_geo_fence\n");
+
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->pause_geofence(self, enable, geofence_id, pause_cb);
+}
+
+/**
+ * <Funciton>       handler_resume_geo_fence
+ * <Description>
+ * @param           <self> <In> <Handler GObject>
+ * @param
+ * @param
+ * @return          int
+ */
+
+int handler_resume_geofence(Handler *self, gboolean enable, int32_t *geofence_id, int *monitor_transitions, GeofenceResumeCallback resume_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->resume_geofence, ERROR_NOT_AVAILABLE);
+
+    LS_LOG_DEBUG("handler_resume_geo_fence\n");
+
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->resume_geofence(self, enable, geofence_id, monitor_transitions, resume_cb);
+}

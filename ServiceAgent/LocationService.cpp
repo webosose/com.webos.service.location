@@ -1441,7 +1441,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 
         if ((strcmp(handler, GPS) == 0) && mGpsStatus != state) {
             mGpsStatus = state;
-
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("state"), jnumber_create_i32(mGpsStatus));
             bRetVal = LSSubscriptionRespond(mServiceHandle, subscription_key, jvalue_tostring_simple(serviceObject), &mLSError);
 
             if (bRetVal == false)
@@ -1458,7 +1458,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 
         if ((strcmp(handler, NETWORK) == 0) && mNwStatus != state) {
             mNwStatus = state;
-
+            jobject_put(serviceObject, J_CSTR_TO_JVAL("state"), jnumber_create_i32(mNwStatus));
             bRetVal = LSSubscriptionRespond(mServiceHandle, subscription_key, jvalue_tostring_simple(serviceObject), &mLSError);
 
             if (bRetVal == false)

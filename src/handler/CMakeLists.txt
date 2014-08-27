@@ -37,5 +37,5 @@ set(LIBRARIES
 add_executable(${LOCATION_SERVICE_NAME} ${SRC})
 target_link_libraries(${LOCATION_SERVICE_NAME} ${LIBRARIES} dbutils)
 
-webos_build_daemon()
+webos_build_program(NAME ${LOCATION_SERVICE_NAME})
 webos_build_system_bus_files()

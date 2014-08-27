@@ -1,6 +1,6 @@
 {
     "role": {
-        "exeName":"@WEBOS_INSTALL_SBINDIR@/location",
+        "exeName":"@WEBOS_INSTALL_BINDIR@/location",
         "type": "regular",
         "allowedNames": ["com.palm.location","com.lge.location"]
     },

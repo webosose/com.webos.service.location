@@ -83,15 +83,6 @@ typedef void (*SatelliteCallback)(gboolean enable_cb, Satellite *satellite, gpoi
  */
 typedef void (*TimeoutCallback)(gboolean enable_cb, int error, gpointer userdata);
 
-/**
- * <Funciton>       GeoCodeCallback
- * <Description>    Callback to get GeoCode Data
- * @param           <enable_cb> <In> <enable/disable the callback>
- * @param           <Position> <In> <Position data
- * @param           <userdata> <In> <Gobject private instance>
- * @return          void
- */
-typedef void (*GeoCodeCallback)(gboolean enable_cb, Position *position, Accuracy *accuracy, gpointer userdata);
 
 /**
  * <Funciton>       RevGeocodeCallback
@@ -145,6 +136,8 @@ typedef void (*GeofenceRemoveCallback) (int32_t geofence_id, int32_t status, gpo
 typedef void (*GeofenceBreachCallback) (int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude, gpointer user_data);
 
 typedef void (*GeofenceStatusCallback) (int32_t status, Position *last_position, Accuracy *accuracy, gpointer user_data);
+
+typedef void (*GeoCodeCallback)(gboolean enable_cb, char *response, int error, gpointer userdata, int type);
 /**
  * GPS plug-in APIS
  */
@@ -184,12 +177,14 @@ typedef struct {
 typedef struct {
     int (*start)(gpointer handle, gpointer userdata);
     int (*stop)(gpointer handle);
+#ifdef NOMINATIUM_LBS
     int (*get_reverse_geocode)(gpointer handle, Position *pos, Address *address);
     int (*get_geocode)(gpointer handle, const Address *address, Position *pos, Accuracy *ac);
     int (*get_geocode_freetext)(gpointer handle, const gchar *addrress, Position *pos, Accuracy *ac);
-    int (*get_geocode_async)(gpointer handle, const Address *address, GeoCodeCallback geo_callback, gpointer userdata);
-    int (*get_geocode_freetext_async)(gpointer handle, const gchar *address, GeoCodeCallback geo_callback, gpointer userdata);
-    int (*get_reverse_geocode_async)(gpointer handle, Position *position, RevGeocodeCallback rev_cb, gpointer userdata);
+#else
+    int (*get_google_geocode)(gpointer handle, const char *addrress, GeoCodeCallback geocode_cb);
+    int (*get_reverse_google_geocode)(gpointer handle, const char *pos, GeoCodeCallback geocode_cb);
+#endif
 } LbsPluginOps;
 
 #endif  /* _LOCATION_PLUGIN_H_ */

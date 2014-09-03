@@ -49,8 +49,10 @@ void set_store_position(gdouble latitude,
     if (handle != NULL) {
 
         createPreference(path, handle, "Location\n", FALSE);
-        guint64 timestamp = (guint64)time(NULL);
-        sprintf(input, "%lld", (timestamp*1000));
+        struct timeval tv;
+        gettimeofday(&tv, (struct timezone *) NULL);
+        guint64 timestamp = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+        sprintf(input, "%lld", timestamp);
         put(handle, "timestamp", input);
         sprintf(input, "%lf", latitude);
         put(handle, "latitude", input);

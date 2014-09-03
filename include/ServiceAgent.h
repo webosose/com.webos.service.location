@@ -23,6 +23,8 @@
 #define SUBSC_GET_TTFF_KEY "getTimeToFirstFix"
 #define SUBSC_GET_GPS_SATELLITE_DATA "getGpsSatelliteData"
 #define SUBSC_GPS_ENGINE_STATUS "getGpsStatus"
+#define SUBSC_GET_GEOCODE_KEY "getGeoCodeLocation"
+#define SUBSC_GET_REVGEOCODE_KEY "getReverseLocation"
 #define SUBSC_GET_STATE_KEY "getState"
 #define GPS_CRITERIA_KEY "gps/startTrackingCriteriaBased"
 #define NW_CRITERIA_KEY "nw/startTrackingCriteriaBased"
@@ -33,9 +35,16 @@
 #define SUBSC_GEOFENCE_RESUME_AREA_KEY "resumeGeofenceArea"
 #define SUBSC_GEOFENCE_REMOVE_AREA_KEY "removeGeofenceArea"
 #define SUBSC_GEOFENCE_ADD_AREA_KEY "addGeofenceArea"
+#define GET_LOC_UPDATE_KEY "getLocationUpdates"
+#define SUBSC_GET_LOC_UPDATES_GPS_KEY "gps/getLocationUpdate"
+#define SUBSC_GET_LOC_UPDATES_NW_KEY  "nw/getLocationUpdate"
+#define SUBSC_GET_LOC_UPDATES_HYBRID_KEY   "gpsnw/getLocationUpdate"
+#define SUBSC_GET_LOC_UPDATES_PASSIVE_KEY "passive/getLocationUpdate"
 
 #define GPS "gps"
 #define NETWORK "network"
+#define HYBRID "hybrid"
+#define PASSIVE "passive"
 #define START TRUE
 #define STOP FALSE
 #define MINIMAL_ACCURACY 100 // 100 meter as minimum accuracy for handler to reply

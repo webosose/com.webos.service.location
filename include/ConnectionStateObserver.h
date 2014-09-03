@@ -39,6 +39,7 @@ public:
     }
     void RegisterListener(IConnectivityListener *);
     void init(LSHandle *);
+    void finalize(LSHandle *);
     void UnregisterListener(IConnectivityListener *);
 
 private:
@@ -87,6 +88,9 @@ private:
     void Notify_TelephonyStateChange(bool);
     void Notify_WifiInternetStateChange(bool);
     std::set<IConnectivityListener *> m_listeners;
+    void *m_telephony_cookie;
+    void *m_wifi_cookie;
+    void *m_wan_cookie;
 
 };
 

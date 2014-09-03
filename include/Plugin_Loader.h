@@ -32,8 +32,11 @@
 static const gchar GPS_PLUGIN_NAME[] = "gps";   //without lib prefix
 static const gchar WIFI_PLUGIN_NAME[] = "wifi"; //without lib prefix
 static const gchar CELL_PLUGIN_NAME[] = "cell"; //without lib prefix
+#ifdef NOMINATIUM_LBS
 static const gchar LBS_PLUGIN_NAME[] = "lbs";   //without lib prefix
-
+#else
+static const gchar LBS_PLUGIN_NAME[] = "googlelbs";   //without lib prefix
+#endif
 /*
  * Common Plugin properties
  */

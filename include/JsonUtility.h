@@ -50,6 +50,7 @@
 #define RELAXED_SCHEMA(attributes)          "{\"type\":\"object\"" attributes ",\"additionalProperties\":true}"
 
 #define PROP(name, type)                    "\"" #name "\":{\"type\":\"" #type "\"}"
+#define PROP_WITH_OPT(name, type, ...)      "\"" #name "\":{\"type\":\"" #type "\"," #__VA_ARGS__ "}"
 #define ENUM_PROP(name, type, ...)          "\"" #name "\":{\"type\":\"" #type "\",\"enum\":[" #__VA_ARGS__ "]}"
 #define ARRAY(name, type)                   "\"" #name "\":{\"type\":\"array\", \"items\":{\"type\":\"" #type "\"}}"
 #define OBJSCHEMA_1(param)                  "{\"type\":\"object\",\"properties\":{" param "}}"
@@ -57,12 +58,14 @@
 #define OBJSCHEMA_3(p1, p2, p3)             "{\"type\":\"object\",\"properties\":{" p1 "," p2 ", " p3 "}}"
 #define OBJSCHEMA_4(p1, p2, p3, p4)         "{\"type\":\"object\",\"properties\":{" p1 "," p2 ", " p3 ", " p4 "}}"
 #define OBJECT(name, objschema)             "\"" #name "\":" objschema
+#define STRICT_ENUM_ARRAY(name, type, ...)  "\"" #name "\":{\"type\":\"array\", \"items\":{\"type\":\"" #type "\",\"enum\":[" #__VA_ARGS__ "]}, \"minItems\": 1, \"additionalItems\": false, \"uniqueItems\": true }"
 
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
 void location_util_add_pos_json(jvalue_ref serviceObject, Position *pos);
 void location_util_add_acc_json(jvalue_ref serviceObject, Accuracy *acc);
 void location_util_add_errorText_json(jvalue_ref serviceObject, char *errorText);

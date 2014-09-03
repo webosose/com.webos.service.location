@@ -128,6 +128,25 @@ void handler_start_tracking_criteria(Handler *self, gboolean enable, StartTracki
     LS_LOG_DEBUG("handler_start_tracking_criteria\n");
     HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking_criteria(self, enable, track_cb, handlerobj, handlertype, sh);
 }
+
+
+/**
+ * <Funciton>       handler_start_tracking
+ * <Description>    Continous position updates
+ * @param           <self> <In> <Handler GObject>
+ * @param           <enable> <In> <true : enabel tracking, false : disable tracking, callback not required in false case>
+ * @param           <track_cb> <In> <callback function to get result>
+ * @return          void
+ */
+void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
+{
+    g_return_if_fail(HANDLER_IS_INTERFACE(self));
+    g_return_if_fail(track_cb);
+    g_return_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_location_updates);
+    LS_LOG_DEBUG("handler_get_location_updates\n");
+    HANDLER_INTERFACE_GET_INTERFACE(self)->get_location_updates(self, enable, track_cb, handlerobj, handlertype, sh);
+}
+
 /**
  * <Funciton>       handler_get_last_position
  * <Description>    get the last position from the specified handler
@@ -250,7 +269,7 @@ int handler_set_gps_parameters(Handler *self , char *command)
 
     return HANDLER_INTERFACE_GET_INTERFACE(self)->set_gps_params(self, command);
 }
-
+#ifdef NOMINATIUM_LBS
 /**
  * <Funciton>       handler_get_geo_code
  * <Description>    Convert the given address to latitude & longitude
@@ -288,8 +307,44 @@ int handler_get_reverse_geo_code(Handler *self, Position *pos, Address *address)
 
     return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_geocode(self, pos, address);
 }
+#else
+/**
+ * <Funciton>       handler_get_google_geo_code
+ * <Description>    Convert the given address to latitude & longitude
+ * @param           <self> <In> <Handler GObject>
+ * @param           <address> <In> <address info which need to convert>
+ * @param           <geo_cb> <In> <callback function to get result>
+ * @return          int
+ */
+int handler_get_google_geo_code(Handler *self, const char *data, GeoCodeCallback geocode_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_google_geo_code, ERROR_NOT_AVAILABLE);
 
+    LS_LOG_DEBUG("handler_get_google_geo_code\n");
 
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_google_geo_code(self, data, geocode_cb);
+}
+
+/**
+ * <Funciton>       handler_get_reverse_google_geo_code
+ * <Description>    convert given position info to Address
+ * @param           <self> <In> <Handler GObject>
+ * @param           <pos> <In> <Position structure>
+ * @param           <rev_geo_cb> <In> <callback function for reverse geocode>
+ * @return          int
+ */
+int handler_get_reverse_google_geo_code(Handler *self, const char *data, GeoCodeCallback rev_geocode_cb)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(data, ERROR_WRONG_PARAMETER);
+    g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_google_geocode, ERROR_NOT_AVAILABLE);
+
+    LS_LOG_DEBUG("handler_get_reverse_geo_code\n");
+
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_rev_google_geocode(self, data, rev_geocode_cb);
+}
+#endif
 /**
  * <Funciton>       handler_add_geo_fence
  * <Description>    convert given position info to Address

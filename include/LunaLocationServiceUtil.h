@@ -74,6 +74,86 @@
         PROP(postcode, string)))
 
 /*
+ * JSON SCHEMA: getGeoCodeLocation (string address) - syntax 1
+ */
+
+#define JSCHEMA_GET_GOOGLE_GEOCODE_LOCATION                 STRICT_SCHEMA(\
+        PROPS_5(\
+            PROP(address, string), \
+            OBJECT(components, STRICT_SCHEMA(\
+                PROPS_5(\
+                    PROP(route, string), \
+                    PROP(locality, string), \
+                    PROP(administrative_area, string), \
+                    PROP(postal_code, string), \
+                    PROP(country, string)\
+                )\
+            )), \
+            OBJECT(bounds, STRICT_SCHEMA(\
+                PROPS_4(\
+                    PROP_WITH_OPT(southwestLat, number, "minimum":-90, "maximum":90), \
+                    PROP_WITH_OPT(southwestLon, number, "minimum":-180, "maximum":180), \
+                    PROP_WITH_OPT(northeastLat, number, "minimum":-90, "maximum":90), \
+                    PROP_WITH_OPT(northeastLon, number, "minimum":-180, "maximum":180)\
+                ) \
+                REQUIRED_4(southwestLat, southwestLon, northeastLat, northeastLon)\
+            )), \
+            PROP(language, string), \
+            PROP(region, string)\
+        ))
+
+/*
+* JSON SCHEMA: getReverseLocation
+*/
+#define JSCHEMA_GET_GOOGLE_REVERSE_LOCATION                 STRICT_SCHEMA(\
+        PROPS_5(\
+            PROP_WITH_OPT(latitude, number, "minimum":-90, "maximum":90), \
+            PROP_WITH_OPT(longitude, number, "minimum":-180, "maximum":180), \
+            PROP(language, string), \
+            STRICT_ENUM_ARRAY(result_type, string, \
+                "street_address", \
+                "route", \
+                "intersection", \
+                "political", \
+                "country", \
+                "administrative_area_level_1", \
+                "administrative_area_level_2", \
+                "administrative_area_level_3", \
+                "administrative_area_level_4", \
+                "administrative_area_level_5", \
+                "colloquial_area", \
+                "locality", \
+                "ward", \
+                "sublocality", \
+                "neighborhood", \
+                "premise", \
+                "subpremise", \
+                "postal_code", \
+                "natural_feature", \
+                "airport", \
+                "park", \
+                "point_of_interest", \
+                "floor", \
+                "establishment", \
+                "parking", \
+                "post_box", \
+                "postal_town", \
+                "room", \
+                "street_number", \
+                "bus_station", \
+                "train_station", \
+                "transit_station"\
+            ), \
+            STRICT_ENUM_ARRAY(location_type, string, \
+                "ROOFTOP", \
+                "RANGE_INTERPOLATED", \
+                "GEOMETRIC_CENTER", \
+                "APPROXIMATE"\
+            )\
+        ) \
+        REQUIRED_2(latitude, longitude))
+
+/*
  * JSON SCHEMA: getGpsSatelliteData ([bool subscribe])
  */
 #define JSCHEMA_GET_GPS_SATELLITE_DATA                      STRICT_SCHEMA(\
@@ -102,7 +182,8 @@
  * JSON SCHEMA: getReverseLocation (double latitude, double longitude)
  */
 #define JSCHEMA_GET_REVERSE_LOCATION                        STRICT_SCHEMA(\
-        PROPS_2(PROP(latitude, number), PROP(longitude, number)) \
+        PROPS_2(PROP_WITH_OPT(latitude, number, "minimum":-90, "maximum":90), \
+        PROP_WITH_OPT(longitude, number, "minimum":-180, "maximum":180)) \
         REQUIRED_2(latitude, longitude))
 
 /*
@@ -178,8 +259,33 @@
         PROPS_1(PROP(geofenceid, integer)) \
         REQUIRED_1(geofenceid))
 
+/*
+ * JSON SCHEMA: getLocationUpdates ([bool subscribe],
+ *                                  [integer minimumInterval],
+ *                                  [integer minimumDistance],
+ *                                  [integer responseTimeout],
+ *                                  [string Handler])
+ */
+
+#define JSCEHMA_GET_LOCATION_UPDATES                        STRICT_SCHEMA(\
+        PROPS_5(\
+            PROP(subscribe, boolean), \
+            PROP_WITH_OPT(minimumInterval, integer, "minimum":0, "maximum":360000), \
+            PROP_WITH_OPT(minimumDistance, integer, "minimum":0, "maximum":60000), \
+            PROP_WITH_OPT(responseTimeout, integer, "minimum":0, "maximum":720), \
+            ENUM_PROP(Handler, string, "gps", "network", "passive")\
+        ))
 
 
+/*
+ * JSON SCHEMA: getCachedPosition ([integer maximumAge], [string Handler])
+ */
+
+
+#define JSCHEMA_GET_CACHED_POSITION                         STRICT_SCHEMA(\
+        PROPS_2(\
+            PROP_WITH_OPT(maximumAge, integer, "minimum":0, "exclusiveMinimum": true), \
+            ENUM_PROP(Handler, string, "gps", "network", "passive")))
 
 
 bool LSMessageInitErrorReply();

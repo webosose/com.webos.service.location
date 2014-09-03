@@ -65,7 +65,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
                                        WIFI_SERVICE,
                                        ConnectionStateObserver::wifi_service_status_cb,
                                        this,
-                                       NULL,
+                                       &m_wifi_cookie,
                                        &lserror);
     if (!result)
     {
@@ -76,7 +76,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
                                        WAN_SERVICE,
                                        ConnectionStateObserver::wan_service_status_cb,
                                        this,
-                                       NULL,
+                                       &m_wan_cookie,
                                        &lserror);
     if (!result)
     {
@@ -87,7 +87,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
                                        TELEPHONY_SERVICE,
                                        ConnectionStateObserver::tel_service_status_cb,
                                        this,
-                                       NULL,
+                                       &m_telephony_cookie,
                                        &lserror);
     if (!result)
     {
@@ -95,6 +95,38 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
         LSErrorFree (&lserror);
     }
 }
+
+void ConnectionStateObserver::finalize(LSHandle *ConnHandle)
+{
+    LSError lserror;
+    LSErrorInit(&lserror);
+    bool result;
+
+    result = LSCancelServerStatus(ConnHandle, m_telephony_cookie, &lserror);
+
+    if (!result)
+    {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
+
+    result = LSCancelServerStatus(ConnHandle, m_wifi_cookie, &lserror);
+
+    if (!result)
+    {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
+
+    result = LSCancelServerStatus(ConnHandle, m_wan_cookie, &lserror);
+
+    if (!result)
+    {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+    }
+}
+
 void ConnectionStateObserver::Notify_WifiStateChange(bool WifiState)
 {
     BOOST_FOREACH(IConnectivityListener * l, m_listeners) {

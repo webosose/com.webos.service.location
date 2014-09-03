@@ -187,9 +187,10 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
     if (enableHandlers(sel_handler, sub_key_gps, sub_key_nw, sub_key_gps_nw, &startedHandlers)) {
         LS_LOG_DEBUG("startedHandlers %d sub_key_gps %s sub_key_nw %s sub_key_gps_nw %s",
                      startedHandlers, sub_key_gps, sub_key_nw,sub_key_gps_nw);
+        struct timeval tv;
+        gettimeofday(&tv, (struct timezone *) NULL);
+        long long reqTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
-        long long reqTime = time(0);
-        reqTime *= 1000;
         CriteriaRequest *criteriaReq = new(std::nothrow) CriteriaRequest(message,
                                                                          reqTime,
                                                                          LunaCriteriaCategoryHandler::INVALID_LAT,
@@ -205,13 +206,14 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         m_criteria_req_list.push_back(req);
 
         if (strcmp(sub_key_gps, GPS_CRITERIA_KEY) == 0) {
-            bRetVal = LSSubscriptionAdd(sh, sub_key_gps, message, &mLSError);
+            if (startedHandlers != 0) {
+                bRetVal = LSSubscriptionAdd(sh, GPS_CRITERIA_KEY, message, &mLSError);
 
-            if (bRetVal == false) {
-
-                LSErrorPrintAndFree(&mLSError);
-                errorCode = LOCATION_UNKNOWN_ERROR;
-                goto EXIT;
+                if (bRetVal == false) {
+                    LSErrorPrintAndFree(&mLSError);
+                    errorCode = LOCATION_UNKNOWN_ERROR;
+                    goto EXIT;
+                }
             }
 
             handler_start_tracking_criteria((Handler *) handler_array[HANDLER_GPS],
@@ -225,12 +227,14 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         }
 
         if (strcmp(sub_key_nw, NW_CRITERIA_KEY) == 0) {
-            bRetVal = LSSubscriptionAdd(sh, sub_key_nw, message, &mLSError);
+            if (startedHandlers != 0) {
+                bRetVal = LSSubscriptionAdd(sh, NW_CRITERIA_KEY, message, &mLSError);
 
-            if (bRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-                errorCode = LOCATION_UNKNOWN_ERROR;
-                goto EXIT;
+                if (bRetVal == false) {
+                    LSErrorPrintAndFree(&mLSError);
+                    errorCode = LOCATION_UNKNOWN_ERROR;
+                    goto EXIT;
+                }
             }
 
             LS_LOG_INFO("startedHandlers %d", startedHandlers);
@@ -255,37 +259,40 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
         }
 
         if (strcmp(sub_key_gps_nw, GPS_NW_CRITERIA_KEY) == 0)  {
-            bRetVal = LSSubscriptionAdd(sh, sub_key_gps_nw, message, &mLSError);
 
-            if (bRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-                errorCode = LOCATION_UNKNOWN_ERROR;
-                goto EXIT;
+            if (startedHandlers != 0) {
+                bRetVal = LSSubscriptionAdd(sh, GPS_NW_CRITERIA_KEY, message, &mLSError);
+                LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY added");
+                if (bRetVal == false) {
+                    LSErrorPrintAndFree(&mLSError);
+                    errorCode = LOCATION_UNKNOWN_ERROR;
+                    goto EXIT;
+                }
             }
 
-            if (startedHandlers & HANDLER_GPS_BIT)
-                handler_start_tracking_criteria((Handler *) handler_array[HANDLER_GPS],
-                                                START,
-                                                start_tracking_criteria_cb,
-                                                NULL,
-                                                HANDLER_GPS,
-                                                sh);
+        if (startedHandlers & HANDLER_GPS_BIT)
+            handler_start_tracking_criteria((Handler *) handler_array[HANDLER_GPS],
+                                             START,
+                                             start_tracking_criteria_cb,
+                                             NULL,
+                                             HANDLER_GPS,
+                                             sh);
 
-            if (startedHandlers & HANDLER_WIFI_BIT)
-                handler_start_tracking_criteria((Handler *) handler_array[HANDLER_NW],
-                                                START,
-                                                start_tracking_criteria_cb,
-                                                NULL,
-                                                HANDLER_WIFI,
-                                                sh);
+        if (startedHandlers & HANDLER_WIFI_BIT)
+            handler_start_tracking_criteria((Handler *) handler_array[HANDLER_NW],
+                                             START,
+                                             start_tracking_criteria_cb,
+                                             NULL,
+                                             HANDLER_WIFI,
+                                             sh);
 
-            if (startedHandlers & HANDLER_CELLID_BIT)
-                handler_start_tracking_criteria((Handler *) handler_array[HANDLER_NW],
-                                                START,
-                                                start_tracking_criteria_cb,
-                                                NULL,
-                                                HANDLER_CELLID,
-                                                sh);
+        if (startedHandlers & HANDLER_CELLID_BIT)
+            handler_start_tracking_criteria((Handler *) handler_array[HANDLER_NW],
+                                             START,
+                                             start_tracking_criteria_cb,
+                                             NULL,
+                                             HANDLER_CELLID,
+                                             sh);
 
             trackhandlerstate = startedHandlers;
         }
@@ -562,23 +569,6 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         if (bRetVal == false)
             LSErrorPrintAndFree(&mLSError);
 
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
-                                                           mpalmSrvHandle,
-                                                           key1,
-                                                           jvalue_tostring_simple(serviceObject),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
-                                                           mpalmLgeSrvHandle,
-                                                           key1,
-                                                           jvalue_tostring_simple(serviceObject),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
 
         /*reply to gps_nw subscription list*/
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
@@ -599,23 +589,6 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         if (bRetVal == false)
             LSErrorPrintAndFree(&mLSError);
 
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
-                                                           mpalmSrvHandle,
-                                                           key2,
-                                                           jvalue_tostring_simple(serviceObject),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
-                                                           mpalmLgeSrvHandle,
-                                                           key2,
-                                                           jvalue_tostring_simple(serviceObject),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
 
         //Store last lat and long
         mlastLat = pos->latitude;
@@ -674,7 +647,7 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
             if (bRetVal == false)
                 LSErrorPrintAndFree(&mLSError);
 
-        /*reply to gps nw subscription list */
+            /*reply to gps nw subscription list */
 
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
@@ -795,22 +768,25 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *
             // check for key sub list and gps_nw sub list*/
             if (isNonSubscibePresent) {
                 if (strcmp(key, GPS_NW_CRITERIA_KEY) == 0) {
+
                     //check gps list empty
-                    if((LocationService::getInstance()->isSubscListFilled(sh, GPS_NW_CRITERIA_KEY, false) == false)
-                       && (LocationService::getInstance()->isSubscListFilled(sh, GPS_CRITERIA_KEY, false) == false))
-                       LocationService::getInstance()->stopNonSubcription(GPS_CRITERIA_KEY);
+                    if((LocationService::getInstance()->isSubscListFilled(sh, msg, GPS_NW_CRITERIA_KEY, false) ==  false) && (LocationService::getInstance()->isSubscListFilled(sh, msg, GPS_CRITERIA_KEY, false) == false)) {
+                        LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
+                        LocationService::getInstance()->stopNonSubcription(GPS_CRITERIA_KEY);
+                    }
 
                     //check nw list empty and stop nw handler
-                    if((LocationService::getInstance()->isSubscListFilled(sh, GPS_NW_CRITERIA_KEY, false) == false)
-                       && LocationService::getInstance()->isSubscListFilled(sh, NW_CRITERIA_KEY, false) == false)
-                       LocationService::getInstance()->stopNonSubcription(NW_CRITERIA_KEY);
+                    if((LocationService::getInstance()->isSubscListFilled(sh, msg, GPS_NW_CRITERIA_KEY, false) == false) && LocationService::getInstance()->isSubscListFilled(sh, msg, NW_CRITERIA_KEY, false) == false) {
+                        LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and NW_CRITERIA_KEY empty");
+                        LocationService::getInstance()->stopNonSubcription(NW_CRITERIA_KEY);
+                    }
 
-                } else if((LocationService::getInstance()->isSubscListFilled(sh, key, false) == false)
-                          && (LocationService::getInstance()->isSubscListFilled(sh, GPS_NW_CRITERIA_KEY, false))) {
+                } else if((LocationService::getInstance()->isSubscListFilled(sh, msg,key, false) == false) && (LocationService::getInstance()->isSubscListFilled(sh, msg, GPS_NW_CRITERIA_KEY, false) == false)) {
+                    LS_LOG_DEBUG("key %s empty",key);
                     LocationService::getInstance()->stopNonSubcription(key);
                 }
             }
-          } while (LSSubscriptionHasNext(iter));
+        } while (LSSubscriptionHasNext(iter));
     }
     LSSubscriptionRelease(iter);
     jschema_release(&input_schema);
@@ -1054,8 +1030,10 @@ bool LunaCriteriaCategoryHandler::meetsCriteria(LSMessage *msg,
 
                 if (minIntervalCase) {
                     long long reqTime = it->get()->getRequestTime();
-                    long long currentTime = time(0);
-                    currentTime *= 1000;
+                    struct timeval tv;
+                    gettimeofday(&tv, (struct timezone *) NULL);
+                    long long currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+
                     LS_LOG_DEBUG("currentTime-reqTime = %d ", currentTime - reqTime);
                     LS_LOG_DEBUG("minInterval = %d", minInterval);
 

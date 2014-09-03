@@ -28,7 +28,7 @@
 
 #define MATH_PI 3.1415926535897932384626433832795
 #define SUCCESSFUL 0
-#define KEY_MAX  40
+#define KEY_MAX  64
 
 class LunaCriteriaCategoryHandler
 {
@@ -39,6 +39,8 @@ public:
     static const int CRITERIA_NW = 0;
     static const int CRITERIA_GPS_NW = 1;
     static const int CRITERIA_GPS = 2;
+    static const int CRITERIA_PASSIVE = 3;
+    static const int CRITERIA_INVALID =4;
 
     static const int POWER_HIGH = 1;
     static const int POWER_LOW = 2;

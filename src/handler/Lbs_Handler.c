@@ -36,6 +36,10 @@ typedef struct _LbsHandlerPrivate {
     LbsPlugin *lbs_plugin;
     gboolean is_started;
     gint api_progress_flag;
+#ifndef NOMINATIUM_LBS
+    GeoCodeCallback geocode_cb;
+    GeoCodeCallback rev_geocode_cb;
+#endif
     GMutex mutex;
 } LbsHandlerPrivate;
 
@@ -118,7 +122,29 @@ static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 
     return ret;
 }
+#ifndef NOMINATIUM_LBS
+void lbs_handler_rev_geocode_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type)
+{
+    LS_LOG_INFO("gps_handler_geocode_cb.");
+    LbsHandlerPrivate *priv = GET_PRIVATE(userdata);
+    g_return_if_fail(priv);
 
+    priv->api_progress_flag &= ~LBS_GEOCODE_ON;
+    priv->rev_geocode_cb (enable_cb, response, error, userdata, type);
+}
+
+void lbs_handler_geocode_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type)
+{
+    LS_LOG_INFO("gps_handler_geocode_cb.");
+    LbsHandlerPrivate *priv = GET_PRIVATE(userdata);
+    g_return_if_fail(priv);
+
+    priv->api_progress_flag &= ~LBS_REVGEOCODE_ON;
+    priv->geocode_cb (enable_cb, response, error, userdata, type);
+}
+#endif
+
+#ifdef NOMINATIUM_LBS
 /**
  * <Funciton >   lbs_handler_geo_code
  * <Description>  Convert the given address to Latitide & longitude
@@ -176,7 +202,62 @@ static int lbs_handler_reverse_geo_code(Handler *self, Position *pos, Address *a
 
     return result;
 }
+#else
+/**
+ * <Funciton >   lbs_handler_reverse_google_geo_code
+ * <Description>  Convert the given position values to the Address
+ *      and provide the result in callback
+ * @param     <self> <In> <Handler Gobject>
+ * @param     <Position> <In> <position to  rev geocode>
+ * @param     <RevGeocodeCallback> <In> <Handler Gobject>
+ * @return    int
+ */
+static int lbs_handler_google_geo_code(Handler *self, const char *data, GeoCodeCallback geocode_cb)
+{
+    LbsHandlerPrivate *priv = GET_PRIVATE(self);
+    int result = ERROR_NONE;
 
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->lbs_plugin->ops.get_google_geocode, ERROR_NOT_AVAILABLE);
+    priv->geocode_cb = geocode_cb;
+    result = priv->lbs_plugin->ops.get_google_geocode(priv->lbs_plugin->plugin_handler, data, lbs_handler_geocode_cb);
+
+    if (result == ERROR_NONE)
+        priv->api_progress_flag |= LBS_GEOCODE_ON;
+
+    LS_LOG_INFO("[DEBUG]result : lbs_handler_google_geo_code %d  \n", result);
+
+    return result;
+}
+
+/**
+ * <Funciton >   lbs_handler_reverse_google_geo_code
+ * <Description>  Convert the given position values to the Address
+ *      and provide the result in callback
+ * @param     <self> <In> <Handler Gobject>
+ * @param     <Position> <In> <position to  rev geocode>
+ * @param     <RevGeocodeCallback> <In> <Handler Gobject>
+ * @return    int
+ */
+static int lbs_handler_reverse_google_geo_code(Handler *self, const char *data, GeoCodeCallback rev_geocode_cb)
+{
+    LbsHandlerPrivate *priv = GET_PRIVATE(self);
+    int result = ERROR_NONE;
+
+    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    g_return_val_if_fail(priv->lbs_plugin->ops.get_reverse_google_geocode, ERROR_NOT_AVAILABLE);
+
+    priv->rev_geocode_cb = rev_geocode_cb;
+    result = priv->lbs_plugin->ops.get_reverse_google_geocode(priv->lbs_plugin->plugin_handler, data, lbs_handler_rev_geocode_cb);
+
+    if (result == ERROR_NONE)
+        priv->api_progress_flag |= LBS_REVGEOCODE_ON;
+
+    LS_LOG_INFO("[DEBUG]result : lbs_handler_reverse_google_geo_code %d  \n", result);
+
+    return result;
+}
+#endif
 /**
  * <Funciton >   lbs_handler_dispose
  * <Description>  dispose the gobject
@@ -202,7 +283,11 @@ static void lbs_handler_finalize(GObject *gobject)
     g_return_if_fail(priv);
 
     if (priv->lbs_plugin != NULL) {
-        plugin_free(priv->lbs_plugin, "Lbs");
+#ifdef NOMINATIUM_LBS
+        plugin_free(priv->lbs_plugin, "lbs");
+#else
+        plugin_free(priv->lbs_plugin, "googlelbs");
+#endif
         priv->lbs_plugin = NULL;
     }
 
@@ -234,8 +319,13 @@ static void lbs_handler_interface_init(HandlerInterface *interface)
     interface->get_sat_data = (TYPE_GET_SAT) lbs_handler_function_not_implemented;
     interface->get_nmea_data = (TYPE_GET_NMEA) lbs_handler_function_not_implemented;
     interface->send_extra_cmd = (TYPE_SEND_EXTRA) lbs_handler_function_not_implemented;
+#ifdef NOMINATIUM_LBS
     interface->get_geo_code = (TYPE_GEO_CODE) lbs_handler_geo_code;
     interface->get_rev_geocode = (TYPE_REV_GEO_CODE) lbs_handler_reverse_geo_code;
+#else
+    interface->get_google_geo_code = (TYPE_GOOGLE_GEO_CODE) lbs_handler_google_geo_code;
+    interface->get_rev_google_geocode = (TYPE_REV_GOOGLE_GEO_CODE) lbs_handler_reverse_google_geo_code;
+#endif
     interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) lbs_handler_function_not_implemented;
     interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) lbs_handler_function_not_implemented;
     interface->resume_geofence = (TYPE_RESUME_GEOFENCE) lbs_handler_function_not_implemented;
@@ -254,8 +344,11 @@ static void lbs_handler_init(LbsHandler *self)
     g_return_if_fail(priv);
 
     memset(priv, 0x00, sizeof(LbsHandlerPrivate));
-
+#ifdef NOMINATIUM_LBS
     priv->lbs_plugin = (LbsPlugin *) plugin_new("lbs");
+#else
+    priv->lbs_plugin = (LbsPlugin *) plugin_new("googlelbs");
+#endif
 
     if (priv->lbs_plugin == NULL) {
         LS_LOG_WARNING("[DEBUG] Lbs plugin loading failed\n");

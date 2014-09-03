@@ -39,6 +39,7 @@ typedef struct _NwHandlerPrivate {
     PositionCallback nw_cb_arr[MAX_HANDLER_TYPE];
     StartTrackingCallBack track_cb;
     StartTrackingCallBack track_criteria_cb;
+    StartTrackingCallBack track_get_loc_update_cb;
 
 
 } NwHandlerPrivate;
@@ -81,11 +82,14 @@ void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *ac
     NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
 
     g_return_if_fail(priv);
-    if(priv->track_cb)
-      (*(priv->track_cb))(enable_cb, position, accuracy, error, priv, type);
+    if (priv->track_cb)
+        (*(priv->track_cb))(enable_cb, position, accuracy, error, priv, type);
 
-    if(priv->track_criteria_cb != NULL)
-      (*(priv->track_criteria_cb))(enable_cb, position, accuracy, error, priv, type);
+    if (priv->track_criteria_cb != NULL)
+        (*(priv->track_criteria_cb))(enable_cb, position, accuracy, error, priv, type);
+
+    if (priv->track_get_loc_update_cb != NULL)
+        (*(priv->track_get_loc_update_cb))(enable_cb, position, accuracy, error, priv, type);
 }
 /**
  * <Funciton >   position_cb
@@ -235,11 +239,8 @@ static void nw_handler_start_tracking(Handler *self,
 
     if (enable) {
         priv->track_cb = track_cb;
-        handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
-    } else {
-        handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
     }
-
+    handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
     LS_LOG_INFO("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);
 }
 
@@ -258,13 +259,34 @@ static void nw_handler_start_tracking_criteria(Handler *self, gboolean enable, S
 
     if (enable) {
         priv->track_criteria_cb = track_cb;
-        handler_start_tracking_criteria(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
-    } else {
-        handler_start_tracking_criteria(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
     }
 
+    handler_start_tracking_criteria(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
     LS_LOG_INFO("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);
 }
+
+
+static void nw_handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handleobj, int handlertype,
+        LSHandle *sh)
+{
+    int result = ERROR_NONE;
+    NwHandlerPrivate *priv = GET_PRIVATE(self);
+
+    if (priv == NULL) {
+        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
+        return;
+    }
+
+    priv->track_get_loc_update_cb = NULL;
+
+    if (enable) {
+        priv->track_get_loc_update_cb = track_cb;
+    }
+    handler_get_location_updates(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
+
+    LS_LOG_INFO("[DEBUG] return from nw_handler_get_location_updates , %d  \n", result);
+}
+
 
 /**
  * <Funciton >   handler_stop
@@ -344,13 +366,19 @@ static void nw_handler_interface_init(HandlerInterface *interface)
     interface->get_sat_data = (TYPE_GET_SAT) nw_handler_function_not_implemented;
     interface->get_nmea_data = (TYPE_GET_NMEA) nw_handler_function_not_implemented;
     interface->send_extra_cmd = (TYPE_SEND_EXTRA) nw_handler_function_not_implemented;
+#ifdef NOMINATIUM_LBS
     interface->get_geo_code = (TYPE_GEO_CODE) nw_handler_function_not_implemented;
     interface->get_rev_geocode = (TYPE_REV_GEO_CODE) nw_handler_function_not_implemented;
+#else
+    interface->get_google_geo_code = (TYPE_GOOGLE_GEO_CODE) nw_handler_function_not_implemented;
+    interface->get_rev_google_geocode = (TYPE_REV_GOOGLE_GEO_CODE) nw_handler_function_not_implemented;
+#endif
     interface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) nw_handler_start_tracking_criteria;
     interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) nw_handler_function_not_implemented;
     interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) nw_handler_function_not_implemented;
     interface->resume_geofence = (TYPE_RESUME_GEOFENCE) nw_handler_function_not_implemented;
     interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) nw_handler_function_not_implemented;
+    interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) nw_handler_get_location_updates;
 }
 
 /**

@@ -36,6 +36,7 @@
 #include <LocationService_Log.h>
 #include <LunaCriteriaCategoryHandler.h>
 #include <pbnjson.h>
+#include <sys/time.h>
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -91,13 +92,23 @@
 class LocationService: public IConnectivityListener
 {
 public:
+    static const int GETLOC_UPDATE_NW = 0;
+    static const int GETLOC_UPDATE_GPS_NW = 1;
+    static const int GETLOC_UPDATE_GPS = 2;
+    static const int GETLOC_UPDATE_PASSIVE = 3;
+    static const int GETLOC_UPDATE_INVALID =4;
     class TimerData
     {
     public:
-        TimerData(LSMessage *message, LSHandle *sh, unsigned char handlerType) {
+        TimerData(LSMessage *message, LSHandle *sh, unsigned char handlerType, const char *argkey) {
             m_message = message;
             m_sh = sh;
             m_handlerType = handlerType;
+            timerStart = true;
+            if (argkey != NULL)
+                memcpy(key, argkey, strlen(argkey)+1);
+            else
+                memset(key,0x00,KEY_MAX);
         }
         LSHandle *GetHandle() const {
             return m_sh;
@@ -110,11 +121,22 @@ public:
         unsigned char GetHandlerType() const {
             return m_handlerType;
         }
+        void stopTimer() {
+            timerStart = false;
+        }
+        bool getTimerStatus() {
+            return timerStart;
+        }
+        const char *getKey() {
+            return key;
+        }
 
     private:
         LSMessage *m_message;
         LSHandle *m_sh;
         unsigned char m_handlerType;
+        bool timerStart;
+        char key[KEY_MAX];
     };
 
     class Request
@@ -161,6 +183,70 @@ public:
         guint m_timerID;
     };
 
+    class LocationUpdateRequest
+    {
+    public:
+        LocationUpdateRequest(LSMessage *msg, long long reqTime,guint timerID,TimerData *timerData,double latitude, double longitude, int hander_type) {
+            m_message = msg;
+            m_requestTime = reqTime;
+            m_lastlat = latitude;
+            m_lastlong = longitude;
+            m_isFirstReply = true;
+            m_timerdata = timerData;
+            m_timerID = timerID;
+            m_handler_type = hander_type;
+        }
+        LSMessage *getMessage() {
+            return m_message;
+        }
+        long long getRequestTime() {
+            return m_requestTime;
+        }
+        void updateRequestTime(long long currentTime) {
+            m_requestTime = currentTime;
+        }
+        double getLatitude() {
+            return m_lastlat;
+        }
+        double getLongitude() {
+            return m_lastlong;
+        }
+
+        guint getTimerID() const {
+            return m_timerID;
+        }
+        void updateLatAndLong(double latitude,double longitude) {
+            m_lastlat = latitude;
+            m_lastlong = longitude;
+        }
+        bool getFirstReply() {
+            return m_isFirstReply;
+        }
+        bool updateFirstReply(bool firstreply) {
+            m_isFirstReply = firstreply;
+        }
+
+        TimerData *getTimerData() {
+            return m_timerdata;
+        }
+
+        void setTimerData(TimerData *timerData) {
+            m_timerdata = timerData;
+        }
+        int getHandlerType() {
+            return m_handler_type;
+        }
+    private:
+        LSMessage *m_message;
+        long long m_requestTime;
+        double m_lastlong;
+        double m_lastlat;
+        bool m_isFirstReply;
+        guint m_timerID;
+        TimerData *m_timerdata;
+        int m_handler_type;
+        bool m_is_first_reply;
+    };
     virtual ~LocationService();
     bool init(GMainLoop *);
     bool locationServiceRegister(char *srvcname, GMainLoop *mainLoop, LSPalmService **mServiceHandle);
@@ -168,6 +254,8 @@ public:
 
     // /**Callback called from Handlers********/
     static void wrapper_getNmeaData_cb(gboolean enable_cb, int64_t timestamp, char *nmea, int length, gpointer privateIns);
+    static void wrapper_rev_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type);
+    static void wrapper_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type);
     static void wrapper_getCurrentPosition_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int handlerType);
     static void wrapper_startTracking_cb(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error, gpointer privateIns, int type);
     static void wrappergetReverseLocation_cb(gboolean enable_cb, Address *address, gpointer privateIns);
@@ -181,6 +269,7 @@ public:
     static void wrapper_geofence_resume_cb(int32_t geofence_id, int32_t status, gpointer user_data);
     static void wrapper_geofence_breach_cb(int32_t geofence_id, int32_t status, int64_t timestamp, double latitude, double longitude, gpointer user_data);
     static void wrapper_geofence_status_cb (int32_t status, Position *last_position, Accuracy *accuracy, gpointer user_data);
+    static void wrapper_getLocationUpdate_cb(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error,gpointer privateIns, int type);
 
     static bool _getNmeaData(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getNmeaData(sh, message, NULL);
@@ -230,6 +319,10 @@ public:
         return ((LocationService *) data)->stopGPS(sh, message, NULL);
     }
 
+    static bool _exitLocation(LSHandle *sh, LSMessage *message, void *data){
+        return ((LocationService *) data)->exitLocation(sh, message, NULL);
+    }
+
     static bool _getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getLocationHandlerDetails(sh, message, NULL);
     }
@@ -240,6 +333,14 @@ public:
 
     static bool _getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data) {
         return ((LocationService *) data)->getTimeToFirstFix(sh, message, NULL);
+    }
+
+    static bool _getLocationUpdates(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->getLocationUpdates(sh, message, NULL);
+    }
+
+    static bool _getCachedPosition(LSHandle *sh, LSMessage *message, void *data) {
+        return ((LocationService *) data)->getCachedPosition(sh, message, NULL);
     }
 
     static bool _cancelSubscription(LSHandle *sh, LSMessage *message, void *data) {
@@ -269,6 +370,11 @@ public:
     static gboolean TimerCallback(void *data) {
         return getInstance()->_TimerCallback(data);
     }
+
+    static gboolean TimerCallbackLocationUpdate(void *data) {
+        return getInstance()->_TimerCallbackLocationUpdate(data);
+    }
+
 
     bool getHandlerStatus(const char *);
     bool loadHandlerStatus(const char *handler);
@@ -358,7 +464,25 @@ public:
     bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
     bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
     void stopNonSubcription(const char *key);
-    bool isSubscListFilled(LSHandle *sh, const char *key,bool cancelCase);
+    bool isSubscListFilled(LSHandle *sh, LSMessage *message, const char *key,bool cancelCase);
+    bool enableGpsHandler(unsigned char *startedHandlers);
+    bool enableNwHandler(unsigned char *startedHandlers);
+    int enableHandlers(int sel_handler, char *key, unsigned char *startedHandlers);
+    bool LSSubNonSubRespondGetLocUpdateCase(Position *pos, Accuracy *acc, LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
+    bool LSSubNonSubReplyLocUpdateCase(Position *pos, Accuracy *acc, LSHandle *sh, const char *key, const char *payload, LSError *lserror);
+    bool LSMessageReplyLocUpdateCase(LSMessage *msg,
+                                     Position *pos,
+                                     Accuracy *acc,
+                                     LSHandle *sh,
+                                     const char *key,
+                                     const char *payload,
+                                     LSSubscriptionIter *iter,
+                                     LSError *lserror);
+    bool meetsCriteria(LSMessage *msg, Position *pos, int minInterval,int minDist, bool minIntervalCase, bool minDistCase );
+    bool minDistance(int minimumDistance, double latitude1, double longitude1, double latitude2 , double longitude2);
+    void getLocRequestStopSubscription(LSHandle *sh, LSMessage *message);
+    bool LSMessageRemoveReqList(LSMessage *message);
+    bool removeTimer(LSMessage *message);
 
 private:
     bool mGpsStatus;
@@ -371,6 +495,8 @@ private:
     long long mlastTrackingReplyTime;
     typedef boost::shared_ptr<Request> Requestptr;
     std::vector<Requestptr> m_reqlist;
+    typedef boost::shared_ptr<LocationUpdateRequest> LocationUpdateRequestPtr;
+    std::vector<LocationUpdateRequestPtr> m_locUpdate_req_list;
     bool wifistate;
     bool isInternetConnectionAvailable;
     bool isTelephonyAvailable;
@@ -394,6 +520,7 @@ private:
     static long mTTFF;
     // time we received our last fix
     static long mLastFixTime;
+    GMainLoop *mMainLoop;
     pthread_mutex_t lbs_geocode_lock;
     pthread_mutex_t lbs_reverse_lock;
     pthread_mutex_t track_lock;
@@ -434,9 +561,12 @@ private:
     bool sendExtraCommand(LSHandle *sh, LSMessage *message, void *data);
     bool setGPSParameters(LSHandle * sh, LSMessage * message, void * data);
     bool stopGPS(LSHandle * sh, LSMessage * message, void * data);
+    bool exitLocation(LSHandle * sh, LSMessage * message, void * data);
     bool getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data);
     bool getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data);
     bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
+    bool getLocationUpdates(LSHandle *sh, LSMessage *message, void *data);
+    bool getCachedPosition(LSHandle *sh, LSMessage *message, void *data);
     bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
     bool addGeofenceArea(LSHandle *sh, LSMessage *message, void *data);
     bool removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data);
@@ -444,6 +574,7 @@ private:
     bool resumeGeofence(LSHandle *sh, LSMessage *message, void *data);
     bool getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data);
     gboolean _TimerCallback(void *data);
+    gboolean _TimerCallbackLocationUpdate (void *data);
     bool readLocationfromCache(LSHandle *sh, LSMessage *message, jvalue_ref serviceObject, int maxAge,int accuracylevel, unsigned char handlerstatus);
     bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *,jvalue_ref );
     bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
@@ -452,6 +583,8 @@ private:
     bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc, int type);
 
     void startTracking_reply(Position *pos, Accuracy *acc, int, int);
+    void geocoding_reply(char *response, int error, int type);
+    void rev_geocoding_reply(char *response, int error, int type);
     void get_nmea_reply(long long timestamp, char *data, int length);
     void getCurrentPosition_reply(Position *, Accuracy *, int, int);
     void getGpsSatelliteData_reply(Satellite *);
@@ -462,9 +595,13 @@ private:
     void geofence_pause_reply(int32_t geofence_id, int32_t status);
     void geofence_resume_reply(int32_t geofence_id, int32_t status);
     void geofence_status_reply(int32_t status, Position *last_position, Accuracy *accuracy);
+    void getLocationUpdate_reply(Position *pos, Accuracy *acc, int, int);
     void stopSubcription(LSHandle *sh, const char *key);
     void LSErrorPrintAndFree(LSError *ptrLSError);
     void criteriaStopSubscription(LSHandle *sh, LSMessage *message);
+    int getHandlerVal(char *handlerName);
+    Position comparePositionTimeStamps(Position pos1, Position pos2, Position pos3, Accuracy acc1, Accuracy acc2, Accuracy acc3, Accuracy *retAcc);
+
 };
 
 #endif  //  H_LocationService

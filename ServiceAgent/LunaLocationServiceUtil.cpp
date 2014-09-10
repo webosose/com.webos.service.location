@@ -161,6 +161,7 @@ bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
     *parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
+    jschema_release(&input_schema);
 
     if (jis_null(*parsedObj)) {
         input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY), DOMOPT_NOOPT, NULL);
@@ -170,12 +171,12 @@ bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema
         if(!jis_null(*parsedObj))
            j_release(parsedObj);
 
+        jschema_release(&input_schema);
+
         LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
     } else {
         ret = true;
     }
-
-    jschema_release(&input_schema);
 
     return ret;
 }

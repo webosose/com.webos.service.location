@@ -1610,7 +1610,7 @@ EXIT:
 bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 {
     LS_LOG_INFO("=======setState=======");
-    char *handler;
+    char *handler = NULL;
     bool state;
     LSError mLSError;
     LSErrorInit(&mLSError);
@@ -1701,6 +1701,9 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
         LS_LOG_DEBUG("LPAppGetHandle is not created");
         LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR);
     }
+
+    if (handler != NULL)
+        g_free(handler);
 
     return true;
 }
@@ -2552,6 +2555,7 @@ bool LocationService::getCachedPosition(LSHandle *sh, LSMessage *message, void *
         handlerName = g_strdup(nameBuf.m_str);
 
         LS_LOG_INFO("handlerName %s", handlerName);
+        jstring_free_buffer(nameBuf);
     } else {
         handlerName = g_strdup(HYBRID);
     }
@@ -2625,6 +2629,7 @@ EXIT:
         LSMessageReplyError(sh, message, errorCode);
     } else {
         //Read according to accuracy value
+        location_util_form_json_reply(serviceObj, true, LOCATION_SUCCESS);
         location_util_add_pos_json(serviceObj, &pos);
         location_util_add_acc_json(serviceObj, &acc);
 

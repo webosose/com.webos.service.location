@@ -200,7 +200,7 @@ static void position_cb(GeocluePosition *position,
         return;
     }
 
-    set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
+    set_store_position(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
 
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_CELLID);
 
@@ -261,7 +261,7 @@ static void tracking_cb(GeocluePosition *position,
         return;
     }
 
-    set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
+    set_store_position(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_CELL);
 
     (*cellPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, cellPlugin->userdata, HANDLER_CELLID);
 

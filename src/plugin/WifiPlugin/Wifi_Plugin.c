@@ -72,6 +72,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
 
     if (!geoclue_provider_set_options(GEOCLUE_PROVIDER(instance), options, &error)) {
         LS_LOG_ERROR("[DEBUG] WIFI Error geoclue_provider_set_options(%s) : %s", gvalue, error->message);
+        g_value_unset(gvalue);
         g_error_free(error);
         g_free(gvalue);
         g_hash_table_destroy(options);
@@ -79,7 +80,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     }
 
     LS_LOG_INFO("[DEBUG] WIFI Success to geoclue_provider_set_options(%s)", gvalue);
-
+    g_value_unset(gvalue);
     g_free(gvalue);
     g_hash_table_destroy(options);
 
@@ -173,7 +174,7 @@ DONE:
 
     if (geoclueWifi && geoclueWifi->position_cb) {
 
-        set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_WIFI);
+        set_store_position(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_WIFI);
 
         (*(geoclueWifi->position_cb))(TRUE, ret_pos, ret_acc, error_code, geoclueWifi->userdata, HANDLER_WIFI);
     }
@@ -231,7 +232,7 @@ static void tracking_cb(GeocluePosition *position,
     if (!ret_pos || !ret_acc)
         return;
 
-    set_store_position(latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_WIFI);
+    set_store_position(timestamp, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM, hor_acc, INVALID_PARAM, LOCATION_DB_PREF_PATH_WIFI);
 
     (*(geoclueWifi->tracking_cb))(TRUE, ret_pos, ret_acc, ERROR_NONE, geoclueWifi->userdata, HANDLER_WIFI);
 

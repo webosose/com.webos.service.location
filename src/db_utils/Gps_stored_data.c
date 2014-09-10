@@ -37,7 +37,7 @@
  * @return     Void
  */
 
-void set_store_position(gdouble latitude,
+void set_store_position(int64_t timestamp, gdouble latitude,
                         gdouble longitude, gdouble altitude, gdouble speed,
                         gdouble direction, gdouble hor_accuracy,
                         gdouble ver_accuracy , char *path)
@@ -49,20 +49,18 @@ void set_store_position(gdouble latitude,
     if (handle != NULL) {
 
         createPreference(path, handle, "Location\n", FALSE);
-        struct timeval tv;
-        gettimeofday(&tv, (struct timezone *) NULL);
-        guint64 timestamp = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+
         sprintf(input, "%lld", timestamp);
         put(handle, "timestamp", input);
-        sprintf(input, "%lf", latitude);
+        sprintf(input, "%.7f", latitude);
         put(handle, "latitude", input);
-        sprintf(input, "%lf", longitude);
+        sprintf(input, "%.7f", longitude);
         put(handle, "longitude", input);
-        sprintf(input, "%lf", altitude);
+        sprintf(input, "%.7f", altitude);
         put(handle, "altitude", input);
         sprintf(input, "%lf", speed);
         put(handle, "speed", input);
-        sprintf(input, "%lf", direction);
+        sprintf(input, "%.7f", direction);
         put(handle, "direction", input);
         sprintf(input, "%lf", hor_accuracy);
         put(handle, "hor_accuracy", input);
@@ -78,6 +76,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
     DBHandle *handle = NULL;
     handle = (DBHandle *) malloc(sizeof(DBHandle));
     xmlChar *result = NULL;
+    int error = ERROR_NONE;
     int ret;
 
     if (position == NULL || accuracy == NULL) {
@@ -87,58 +86,104 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
         return ERROR_NOT_AVAILABLE;
     }
 
-    if (handle == NULL)
-        return ERROR_NOT_AVAILABLE;
-    else {
-        if (isFileExists(path) == 0)
-            return ERROR_NOT_AVAILABLE;
+    if (handle == NULL) {
+        error = ERROR_NOT_AVAILABLE;
+        goto EXIT;
+    } else {
+        if (isFileExists(path) == 0) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        }
 
         handle->fileName = path;
         ret = get(handle, "timestamp", &result);
 
-        if (ret == KEY_NOT_FOUND)
-            return ERROR_NOT_AVAILABLE;
-        else
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
             position->timestamp = atoll(result);
+        }
 
+        xmlFree(result);
         ret = get(handle, "latitude", &result);
 
-        if (ret == KEY_NOT_FOUND)
-            return ERROR_NOT_AVAILABLE;
-        else
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
             position->latitude = atof(result);
+        }
 
+        xmlFree(result);
         ret = get(handle, "longitude", &result);
 
-        if (ret == KEY_NOT_FOUND)
-            return ERROR_NOT_AVAILABLE;
-        else
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
             position->longitude = atof(result);
+        }
 
+        xmlFree(result);
         ret = get(handle, "altitude", &result);
 
-        if (ret == KEY_NOT_FOUND)
-            return ERROR_NOT_AVAILABLE;
-        else
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
             position->altitude = atof(result);
+        }
 
+        xmlFree(result);
         ret = get(handle, "hor_accuracy", &result);
 
-        if (ret == KEY_NOT_FOUND)
-            return ERROR_NOT_AVAILABLE;
-        else
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
             accuracy->horizAccuracy = atof(result);
+        }
 
+        xmlFree(result);
         ret = get(handle, "ver_accuracy", &result);
 
-        if (ret == KEY_NOT_FOUND)
-            return ERROR_NOT_AVAILABLE;
-        else
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
             accuracy->vertAccuracy = atof(result);
+        }
 
-        free(handle);
+        xmlFree(result);
+        ret = get(handle, "speed", &result);
+
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
+            position->speed = atof(result);
+        }
+
+        xmlFree(result);
+        ret = get(handle, "direction", &result);
+
+        if (ret == KEY_NOT_FOUND) {
+            error = ERROR_NOT_AVAILABLE;
+            goto EXIT;
+        } else {
+            position->direction = atof(result);
+        }
+
+        xmlFree(result);
+
     }
 
-    return ERROR_NONE;
+EXIT:
+
+    if (handle != NULL)
+        free(handle);
+
+    return error;
 }
 

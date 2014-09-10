@@ -114,12 +114,14 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
         g_error_free(error);
         error = NULL;
         g_hash_table_destroy(options);
+        g_value_unset(gvalue);
         g_free(gvalue);
         return FALSE;
     }
 
     LS_LOG_INFO("[DEBUG] Success to geoclue_provider_set_options(%s)", gvalue);
 
+    g_value_unset(gvalue);
     g_free(gvalue);
     g_hash_table_destroy(options);
 
@@ -184,7 +186,7 @@ static void position_cb(GeocluePositionGps *position,
         return;
     }
 
-    set_store_position(latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
+    set_store_position(timestamp, latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
     //Call the GPS Handler callback
     (*plugin_data->pos_cb)(TRUE, ret_pos, ac, ERROR_NONE, plugin_data->userdata, HANDLER_GPS);
 
@@ -443,7 +445,7 @@ static void tracking_cb(GeocluePositionGps *position,
         return;
     }
 
-    set_store_position(latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
+    set_store_position(timestamp, latitude, longitude, altitude, speed, direction, hor_acc, vert_acc, LOCATION_DB_PREF_PATH);
 
     (*gpsPlugin->track_cb)(TRUE, ret_pos, ac, ERROR_NONE, gpsPlugin->userdata, HANDLER_GPS);
 

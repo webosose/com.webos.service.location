@@ -78,9 +78,11 @@ int main(int argc, char *argv[])
     g_main_loop_unref(mainLoop);
     //Unregister
     connectionStateObserverObj->UnregisterListener(locService);
+    connectionStateObserverObj->finalize(locService->getPrivatehandle());
+    //Unregister
     delete locService;
-    locService == NULL;
+    locService = NULL;
     delete connectionStateObserverObj;
-    connectionStateObserverObj == NULL;
+    connectionStateObserverObj = NULL;
     return EXIT_SUCCESS;
 }

@@ -270,7 +270,7 @@
 #define JSCEHMA_GET_LOCATION_UPDATES                        STRICT_SCHEMA(\
         PROPS_5(\
             PROP(subscribe, boolean), \
-            PROP_WITH_OPT(minimumInterval, integer, "minimum":0, "maximum":360000), \
+            PROP_WITH_OPT(minimumInterval, integer, "minimum":0, "maximum":3600000), \
             PROP_WITH_OPT(minimumDistance, integer, "minimum":0, "maximum":60000), \
             PROP_WITH_OPT(responseTimeout, integer, "minimum":0, "maximum":720), \
             ENUM_PROP(Handler, string, "gps", "network", "passive")\

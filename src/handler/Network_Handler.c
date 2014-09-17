@@ -156,14 +156,16 @@ static void intialize_nw_handler(Handler *handler_data, int handler_type)
     switch (handler_type) {
         case HANDLER_WIFI:
             if (plugin_is_supported("wifi")) {
-                priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_WIFI, NULL);
+                if (!priv->handler_obj[handler_type])
+                    priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_WIFI, NULL);
             }
 
             break;
 
         case HANDLER_CELLID:
             if (plugin_is_supported("cell")) {
-                priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_CELL, NULL);
+                if (!priv->handler_obj[handler_type])
+                    priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_CELL, NULL);
             }
 
             break;

@@ -3826,13 +3826,10 @@ EXIT:
                                                  &mLSError);
 
     if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
+        LSErrorPrintAndFree(&mLSError);
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
-
-    /*responseTimeout reply will be sent from timercb, no need to handle*/
-    return;
 }
 
 void LocationService::geocoding_reply(char *response, int error, int type)
@@ -4547,13 +4544,12 @@ bool LocationService::LSSubNonSubRespondGetLocUpdateCase(Position *pos,
 {
     LSHandle *public_bus = LSPalmServiceGetPublicConnection(psh);
     LSHandle *private_bus = LSPalmServiceGetPrivateConnection(psh);
-    bool retVal = LSSubNonSubReplyLocUpdateCase(pos, acc, public_bus, key, payload, lserror);
 
+    bool retVal = LSSubNonSubReplyLocUpdateCase(pos, acc, public_bus, key, payload, lserror);
     if (retVal == false)
         return retVal;
 
     retVal = LSSubNonSubReplyLocUpdateCase(pos, acc, private_bus, key, payload, lserror);
-
     if (retVal == false)
         return retVal;
 }
@@ -4610,115 +4606,89 @@ bool LocationService::LSSubNonSubReplyLocUpdateCase(Position *pos,
                                                     LSError *lserror)
 {
     LSSubscriptionIter *iter = NULL;
-    bool retVal;
+    LSMessage *msg = NULL;
     jvalue_ref parsedObj = NULL;
     jvalue_ref jsonSubObject = NULL;
     jschema_ref input_schema = NULL ;
     JSchemaInfo schemaInfo;
-    int minDist;
-    int minInterval;
-    LS_LOG_DEBUG("key = %s", key);
+    int minDist, minInterval;
     bool isNonSubscibePresent = false;
 
+    LS_LOG_DEBUG("key = %s\n", key);
 
-    retVal = LSSubscriptionAcquire(sh, key, &iter, lserror);
+    if (!LSSubscriptionAcquire(sh, key, &iter, lserror))
+        return false;
 
-    if (retVal == true && LSSubscriptionHasNext(iter)) {
+    input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY),
+                                  DOMOPT_NOOPT, NULL);
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
 
-        do {
-            LSMessage *msg = LSSubscriptionNext(iter);
-            //parse message to get minDistance
-            if (!LSMessageIsSubscription(msg))
-                 isNonSubscibePresent = true;
+    while (LSSubscriptionHasNext(iter)) {
+        msg = LSSubscriptionNext(iter);
 
-            input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY),
-                                          DOMOPT_NOOPT, NULL);
+        //parse message to get minDistance
+        if (!LSMessageIsSubscription(msg))
+            isNonSubscibePresent = true;
 
-            if(!input_schema)
-               return false;
+        if (pos == NULL || acc == NULL) {
+            // means error string will be returned
+            LSMessageReplyLocUpdateCase(msg, sh, key, payload, iter, lserror);
+        } else {
+            minInterval = minDist = 0;
 
-            jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
             parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(msg)),
                                    DOMOPT_NOOPT, &schemaInfo);
 
-            if (jis_null(parsedObj)) {
-                LS_LOG_ERROR("parsing error");
-                return false;
-            }
+            if (!jis_null(parsedObj)) {
+                if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumInterval"), &jsonSubObject))
+                    jnumber_get_i32(jsonSubObject, &minInterval);
 
-            //Check Minimum Interval
-            if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumInterval"), &jsonSubObject)) {
-                //check for criteria meets minimumDistance
-                jnumber_get_i32(jsonSubObject, &minInterval);
-                LS_LOG_DEBUG("minInterval in message = %d", minInterval);
-
-                if (meetsCriteria(msg, pos, minInterval, 0, true, false)) {
-
-                    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"),&jsonSubObject)) {
-                        jnumber_get_i32(jsonSubObject, &minDist);
-
-                        if (meetsCriteria(msg, pos, 0, minDist, false, true)) {
-                            LSMessageReplyLocUpdateCase(msg, pos, acc, sh, key, payload, iter, lserror);
-                        }
-                    } else {
-                        LSMessageReplyLocUpdateCase(msg, pos, acc, sh, key, payload, iter, lserror);
-                    }
-                }
-            } else {
-                //Check minimum Distance
-                if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &jsonSubObject)) {
-                    //check for criteria meets minimumDistance
+                if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &jsonSubObject))
                     jnumber_get_i32(jsonSubObject, &minDist);
 
-                    if (meetsCriteria(msg, pos, 0, minDist, false, true))
-                        LSMessageReplyLocUpdateCase(msg, pos, acc, sh, key, payload, iter, lserror);
-                } else {
-                    //No critria, just reply
-                    LSMessageReplyLocUpdateCase(msg, pos, acc, sh, key, payload, iter, lserror);
-                }
-            }
-            if (!jis_null(parsedObj))
                 j_release(&parsedObj);
-
-            // check for key sub list and gps_nw sub list*/
-            if (isNonSubscibePresent) {
-
-                if (strcmp(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY) == 0) {
-
-                    LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
-
-                    //check gps list empty
-                    if((isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) ==  false) &&
-                                         (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == false)) {
-                        LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
-                        stopNonSubcription(SUBSC_GET_LOC_UPDATES_GPS_KEY);
-
-                    }
-
-                    //check nw list empty and stop nw handler
-                    if((isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false) &&
-                                          isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == false) {
-                        LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and NW_CRITERIA_KEY empty");
-                        stopNonSubcription(SUBSC_GET_LOC_UPDATES_NW_KEY);
-                    }
-                } else if((isSubscListFilled(sh, msg,key, false) == false) && (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false)) {
-                    LS_LOG_DEBUG("key %s empty",key);
-                   stopNonSubcription(key);
-                }
             }
-        } while (LSSubscriptionHasNext(iter));
+
+            if (meetsCriteria(msg, pos, acc, minInterval, minDist))
+                LSMessageReplyLocUpdateCase(msg, sh, key, payload, iter, lserror);
+        }
+
+        // check for key sub list and gps_nw sub list*/
+        if (isNonSubscibePresent) {
+            if (strcmp(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY) == 0) {
+
+                LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
+
+                //check gps list empty
+                if ((isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) ==  false) &&
+                    (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == false)) {
+                    LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
+                    stopNonSubcription(SUBSC_GET_LOC_UPDATES_GPS_KEY);
+                }
+
+                //check nw list empty and stop nw handler
+                if ((isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false) &&
+                    (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == false)) {
+                    LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and NW_CRITERIA_KEY empty");
+                    stopNonSubcription(SUBSC_GET_LOC_UPDATES_NW_KEY);
+                }
+            } else if ((isSubscListFilled(sh, msg, key, false) == false) &&
+                       (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false)) {
+                LS_LOG_DEBUG("key %s empty",key);
+                stopNonSubcription(key);
+            }
+        }
     }
+
     LSSubscriptionRelease(iter);
     jschema_release(&input_schema);
 
-    return retVal;
+    return true;
 }
 
 
 
 bool LocationService::LSMessageReplyLocUpdateCase(LSMessage *msg,
-                                                  Position *pos,
-                                                  Accuracy *acc,
                                                   LSHandle *sh,
                                                   const char *key,
                                                   const char *payload,
@@ -4726,55 +4696,6 @@ bool LocationService::LSMessageReplyLocUpdateCase(LSMessage *msg,
                                                   LSError *lserror)
 {
     bool retVal = false;
-    std::vector<LocationUpdateRequestPtr>::iterator it ;
-    int size = m_locUpdate_req_list.size();
-    int count = 0;
-    bool isFirst = false;
-
-    LS_LOG_DEBUG("m_locUpdate_req_list size = %d", size);
-
-    if (size <= 0) {
-        LS_LOG_DEBUG("getLocUpdate Criteria Request list is empty");
-        return false;
-    }
-
-    for (it = m_locUpdate_req_list.begin(); count < size; ++it, count++) {
-        if (*it != NULL) {
-            LS_LOG_DEBUG("List iterating");
-            LSMessage *listmsg = it->get()->getMessage();
-
-            if (msg == listmsg) {
-                isFirst = it->get()->getFirstReply();
-                struct timeval tv;
-                gettimeofday(&tv, (struct timezone *) NULL);
-                long long curr_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-
-                if (isFirst) {
-                    it->get()->updateFirstReply(false);
-                    it->get()->updateRequestTime(curr_time);
-                    goto REPLY;
-                } else if(it->get()->getHandlerType() == HANDLER_HYBRID
-                    && (acc->horizAccuracy < MINIMAL_ACCURACY)) {
-                    it->get()->updateRequestTime(curr_time);
-                    goto REPLY;
-                } else if(curr_time - it->get() ->getRequestTime() > 60000) {
-                    it->get()->updateRequestTime(curr_time);
-                    goto REPLY;
-                } else if(it->get()->getHandlerType() == HANDLER_HYBRID) {
-                    return false;
-                } else {
-                    // Not a Hybrid handler, just reply
-                    goto REPLY;
-                }
-            } else {
-                LS_LOG_DEBUG("m_criteria_req_list msg %p listmsg %p", msg, listmsg);
-            }
-        } else {
-            LS_LOG_DEBUG("m_criteria_req_list Iterator is NULL");
-        }
-    }
-
-REPLY:
 
     retVal = LSMessageReply(sh, msg, payload, lserror);
 
@@ -4872,75 +4793,75 @@ bool LocationService::LSMessageRemoveReqList(LSMessage *message)
 
 
 bool LocationService::meetsCriteria(LSMessage *msg,
-                                                Position *pos,
-                                                int minInterval,
-                                                int minDist,
-                                                bool minIntervalCase,
-                                                bool minDistCase )
+                                    Position *pos,
+                                    Accuracy *acc,
+                                    int minInterval,
+                                    int minDist)
 {
+    LSMessage *listmsg = NULL;
+    std::vector<LocationUpdateRequestPtr>::iterator it;
+    bool bMeetsInterval, bMeetsDistance, bMeetsCriteria;
+    struct timeval tv;
+    long long currentTime, elapsedTime;
 
-    std::vector<LocationUpdateRequestPtr>::iterator it ;
-    int size = m_locUpdate_req_list.size();
-    int count = 0;
-    bool isFirst = false;
+    gettimeofday(&tv, (struct timezone *) NULL);
+    currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 
-    LS_LOG_DEBUG("m_locUpdate_req_list size = %d", size);
+    bMeetsCriteria = false;
 
-    if (size <= 0) {
-        LS_LOG_DEBUG("getLocUpdate Criteria Request list is empty");
-        return false;
-    }
+    for (it = m_locUpdate_req_list.begin(); it != m_locUpdate_req_list.end(); ++it) {
+        if (*it == NULL)
+            continue;
 
-    for (it = m_locUpdate_req_list.begin(); count < size; ++it, count++) {
-        if (*it != NULL) {
-            LS_LOG_DEBUG("List iterating");
-            LSMessage *listmsg = it->get()->getMessage();
-
-            if (msg == listmsg) {
-                isFirst = it->get()->getFirstReply();
-
-                if (isFirst) {
-                    it->get()->updateFirstReply(false);
-                }
-
-                if (minIntervalCase) {
-                    long long reqTime = it->get()->getRequestTime();
-                    struct timeval tv;
-                    gettimeofday(&tv, (struct timezone *) NULL);
-                    long long currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-
-                    LS_LOG_DEBUG("currentTime-reqTime = %d ", currentTime - reqTime);
-                    LS_LOG_DEBUG("minInterval = %d", minInterval);
-
-                    if (isFirst || (currentTime - reqTime) > minInterval) {
-                        it->get()->updateRequestTime(currentTime);
-                        LS_LOG_DEBUG("Minimum Interval meets criteria");
-                        return true;
-                    }
-                } else if (minDistCase) {
-                    if (minDist == 0) {
-                        LS_LOG_DEBUG("Minimum distance zero");
-                        it->get()->updateLatAndLong(pos->latitude,pos->longitude);
-                        return true;
-                    }
-                    double lastLat = it->get()->getLatitude();
-                    double lastLong = it->get()->getLongitude();
-
-                    if (isFirst || minDistance(minDist, pos->latitude, pos->longitude, lastLat, lastLong)){
-                        LS_LOG_DEBUG("Minimum Distance meets criteria");
-                        it->get()->updateLatAndLong(pos->latitude,pos->longitude);
-                        return true;
-                    }
-                }
+        listmsg = it->get()->getMessage();
+        if (msg == listmsg) {
+            if (it->get()->getFirstReply()) {
+                it->get()->updateRequestTime(currentTime);
+                it->get()->updateLatAndLong(pos->latitude, pos->longitude);
+                it->get()->updateFirstReply(false);
+                bMeetsCriteria = true;
             } else {
-                LS_LOG_DEBUG("m_criteria_req_list msg %p listmsg %p", msg, listmsg);
+                // check if it's cached one
+                if (pos->timestamp != 0) {
+                    bMeetsInterval = bMeetsDistance = true;
+
+                    elapsedTime = currentTime - it->get()->getRequestTime();
+
+                    if (minInterval > 0) {
+                        if (elapsedTime <= minInterval)
+                            bMeetsInterval = false;
+                    }
+
+                    if (minDist > 0) {
+                        if (!minDistance(minDist,
+                                         pos->latitude,
+                                         pos->longitude,
+                                         it->get()->getLatitude(),
+                                         it->get()->getLongitude()))
+                            bMeetsDistance = false;
+                    }
+
+                    if (bMeetsInterval && bMeetsDistance) {
+                        if (it->get()->getHandlerType() == HANDLER_HYBRID) {
+                            if (elapsedTime > 60000 || acc->horizAccuracy < MINIMAL_ACCURACY)
+                                bMeetsCriteria = true;
+                        } else {
+                            bMeetsCriteria = true;
+                        }
+                    }
+
+                    if (bMeetsCriteria) {
+                        it->get()->updateRequestTime(currentTime);
+                        it->get()->updateLatAndLong(pos->latitude, pos->longitude);
+                    }
+                }
             }
-        } else {
-            LS_LOG_DEBUG("m_criteria_req_list Iterator is NULL");
+
+            break;
         }
     }
 
-    return false;
+    return bMeetsCriteria;
 }
 
 

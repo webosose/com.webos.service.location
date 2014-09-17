@@ -245,7 +245,6 @@ public:
         guint m_timerID;
         TimerData *m_timerdata;
         int m_handler_type;
-        bool m_is_first_reply;
     };
     virtual ~LocationService();
     bool init(GMainLoop *);
@@ -471,14 +470,12 @@ public:
     bool LSSubNonSubRespondGetLocUpdateCase(Position *pos, Accuracy *acc, LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
     bool LSSubNonSubReplyLocUpdateCase(Position *pos, Accuracy *acc, LSHandle *sh, const char *key, const char *payload, LSError *lserror);
     bool LSMessageReplyLocUpdateCase(LSMessage *msg,
-                                     Position *pos,
-                                     Accuracy *acc,
                                      LSHandle *sh,
                                      const char *key,
                                      const char *payload,
                                      LSSubscriptionIter *iter,
                                      LSError *lserror);
-    bool meetsCriteria(LSMessage *msg, Position *pos, int minInterval,int minDist, bool minIntervalCase, bool minDistCase );
+    bool meetsCriteria(LSMessage *msg, Position *pos, Accuracy *acc, int minInterval,int minDist);
     bool minDistance(int minimumDistance, double latitude1, double longitude1, double latitude2 , double longitude2);
     void getLocRequestStopSubscription(LSHandle *sh, LSMessage *message);
     bool LSMessageRemoveReqList(LSMessage *message);

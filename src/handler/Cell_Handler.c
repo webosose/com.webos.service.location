@@ -48,6 +48,8 @@ typedef struct _CellHandlerPrivate {
     int susbcribe;
     GMutex mutex;
     void *server_status_cookie;
+    Position *tracking_pos;
+    Accuracy *tracking_acc;
 } CellHandlerPrivate;
 
 #define CELL_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_CELL, CellHandlerPrivate))
@@ -72,6 +74,21 @@ static void cell_handler_tracking_cb(gboolean enable_cb, Position *position, Acc
     //Return pos is NULL 25/10/2013 [START]
     g_return_if_fail(position);
     g_return_if_fail(accuracy);
+
+    if (priv->tracking_pos == NULL)
+        priv->tracking_pos = (Position *)malloc(sizeof(Position));
+
+    if (priv->tracking_acc == NULL)
+        priv->tracking_acc = (Accuracy *)malloc(sizeof(Accuracy));
+
+    if (priv->tracking_pos) {
+        memcpy(priv->tracking_pos, position, sizeof(Position));
+        priv->tracking_pos->timestamp = 0;      // means cached position
+    }
+
+    if (priv->tracking_acc) {
+        memcpy(priv->tracking_acc, accuracy, sizeof(Accuracy));
+    }
 
     if (priv->track_cb != NULL)
         (*(priv->track_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
@@ -100,7 +117,7 @@ static void cell_handler_position_cb(gboolean enable_cb, Position *position, Acc
     g_return_if_fail(priv);
     g_return_if_fail(priv->pos_cb);
 
-    (*priv->pos_cb)(enable_cb, position, accuracy, error, priv->nwhandler, type); //call SA position callback
+    (*(priv->pos_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type); //call SA position callback
 
     priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
 }
@@ -190,7 +207,7 @@ static bool cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     int pos_ret = ERROR_NONE;
     int error = ERROR_NONE;
     jvalue_ref cell_data_obj = NULL ;
-    bool ret;
+
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE((Handler *) ctx);
 
     g_return_if_fail(priv);
@@ -213,19 +230,20 @@ static bool cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
         return true;
     }
 
-    jboolean_get(jobject_get(parsedObj, J_CSTR_TO_BUF("returnValue")), &ret);
+    if (!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &error_obj))
+        goto CLEANUP;
 
-    if (ret == false) { // For time being // failure case when telephony return error
-        jnumber_get_i32(jobject_get(parsedObj, J_CSTR_TO_BUF("errorCode")), &error);
+    jnumber_get_i32(error_obj, &error);
 
-        if (error == -1 ) {
-            LS_LOG_ERROR("Cell handler:Telephony error Happened\n", ret);
-        }
-
+    if (error != 0) { // O i Sucess case
+        LS_LOG_ERROR("Cell handler:Telephony error Happened %d\n", error);
         goto CLEANUP;
     }
 
-    cell_data_obj = jobject_get(parsedObj, J_CSTR_TO_BUF("data"));
+    if (!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("data"), &cell_data_obj)) {
+        LS_LOG_ERROR("Cell handler:Telephony no data available\n");
+        goto CLEANUP;
+    }
 
     if ((priv->api_progress_flag & CELL_START_TRACKING_ON) ||
         (priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON) ||
@@ -243,14 +261,10 @@ static bool cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
                                                       (gpointer) jvalue_tostring_simple(cell_data_obj));
     }
 
-    if (track_ret == ERROR_NOT_AVAILABLE) {
+    if (track_ret != ERROR_NONE) {
         priv->api_progress_flag &= ~CELL_START_TRACKING_ON;
-
-        if (priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON)
-            priv->api_progress_flag &= ~CELL_START_TRACKING_CRITERIA_ON;
-
-        if (priv->api_progress_flag & CELL_LOCATION_UPDATES_ON)
-            priv->api_progress_flag &= ~CELL_LOCATION_UPDATES_ON;
+        priv->api_progress_flag &= ~CELL_START_TRACKING_CRITERIA_ON;
+        priv->api_progress_flag &= ~CELL_LOCATION_UPDATES_ON;
     }
 
     if (pos_ret == ERROR_NOT_AVAILABLE)
@@ -282,7 +296,7 @@ static bool tel_service_status_cb(LSHandle *sh, const char *serviceName, bool co
         if (priv->api_progress_flag & CELL_GET_POSITION_ON) {
             g_return_if_fail(priv->pos_cb);
 
-            (*priv->pos_cb)(TRUE , NULL, NULL, ERROR_NETWORK_ERROR, priv->nwhandler, HANDLER_CELLID);//call SA position callback
+            (*(priv->pos_cb))(TRUE , NULL, NULL, ERROR_NETWORK_ERROR, priv->nwhandler, HANDLER_CELLID);//call SA position callback
             priv->api_progress_flag &= ~CELL_GET_POSITION_ON;
         }
         LS_LOG_DEBUG("Cell handler:Telephony service Name = %s disconnected",serviceName);
@@ -303,11 +317,11 @@ static gboolean request_cell_data(LSHandle *sh, gpointer self, int subscribe)
     priv->susbcribe = subscribe;
 
     result = LSRegisterServerStatusEx(sh,
-                                    "com.palm.telephony",
-                                    tel_service_status_cb,
-                                    self,
-                                    &(priv->server_status_cookie),
-                                    &lserror);
+                                      "com.palm.telephony",
+                                      tel_service_status_cb,
+                                      self,
+                                      &(priv->server_status_cookie),
+                                      &lserror);
     if (!result) {
         LSErrorPrint (&lserror, stderr);
         LSErrorFree (&lserror);
@@ -372,28 +386,38 @@ static void cell_handler_start_tracking(Handler *self,
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
-    if (priv == NULL) {
-        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
+    if (priv == NULL || priv->cell_plugin->ops.start_tracking == NULL) {
+        if (track_cb)
+            (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
+
         return;
     }
-    if ((enable == TRUE) && (priv->api_progress_flag & CELL_START_TRACKING_ON))
+
+    if (enable && !track_cb) {
         return;
+    }
 
     priv->nwhandler = handlerobj;
 
     if (enable) {
+        if (priv->api_progress_flag & CELL_START_TRACKING_ON) {
+            if (priv->tracking_pos && priv->tracking_acc)
+                (*track_cb)(TRUE, priv->tracking_pos, priv->tracking_acc, ERROR_NONE, handlerobj, HANDLER_CELLID);
+
+            return;
+        }
         priv->sh = sh;
         priv->track_cb = track_cb;
 
         if (request_cell_data(sh, self, TRUE) == TRUE) {
             priv->api_progress_flag |= CELL_START_TRACKING_ON;
         } else {
-            track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
+            (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
         }
     } else {
         if ((!(priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON)) &&
             (!(priv->api_progress_flag & CELL_LOCATION_UPDATES_ON))) {
-            priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler, enable, cell_handler_tracking_cb, NULL);
+            int result = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler, FALSE, NULL, NULL);
             priv->api_progress_flag &= ~CELL_START_TRACKING_ON;
             LS_LOG_DEBUG("LSCancel");
 
@@ -401,6 +425,18 @@ static void cell_handler_start_tracking(Handler *self,
                 mRet = LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror);
 
             priv->m_cellInfoReq = DEFAULT_VALUE;
+
+            if (result == ERROR_NONE) {
+                if (priv->tracking_pos) {
+                    free(priv->tracking_pos);
+                    priv->tracking_pos = NULL;
+                }
+
+                if (priv->tracking_acc) {
+                    free(priv->tracking_acc);
+                    priv->tracking_acc = NULL;
+                }
+            }
         }
 
         priv->track_cb = NULL;
@@ -419,25 +455,39 @@ static void cell_handler_start_tracking(Handler *self,
  * @param     <self> <In> <Position callback function to get result>
  * @return    int
  */
-static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable, StartTrackingCallBack track_cb,
-                                        gpointer handlerobj, int handlertype,
-                                        LSHandle *sh, LSMessage *msg)
+static void cell_handler_start_tracking_criteria(Handler *self,
+                                                 gboolean enable,
+                                                 StartTrackingCallBack track_cb,
+                                                 gpointer handlerobj,
+                                                 int handlertype,
+                                                 LSHandle *sh,
+                                                 LSMessage *msg)
 {
     LS_LOG_INFO("[DEBUG]Cell handler start Tracking called ");
     gboolean mRet = false;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
-    if (priv == NULL) {
-        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
+    if (priv == NULL || priv->cell_plugin->ops.start_tracking == NULL) {
+        if (track_cb)
+            (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
+
         return;
     }
-    if ((enable == TRUE) && (priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON))
+
+    if (enable && !track_cb) {
         return;
+    }
 
     priv->nwhandler = handlerobj;
 
     if (enable) {
+        if (priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON) {
+            if (priv->tracking_pos && priv->tracking_acc)
+                (*track_cb)(TRUE, priv->tracking_pos, priv->tracking_acc, ERROR_NONE, handlerobj, HANDLER_CELLID);
+
+            return;
+        }
         priv->sh = sh;
         priv->track_criteria_cb = track_cb;
 
@@ -446,7 +496,7 @@ static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable,
             if (request_cell_data(sh, self, TRUE) == TRUE) {
                 priv->api_progress_flag |= CELL_START_TRACKING_CRITERIA_ON;
             } else {
-                track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
+                (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
             }
         } else {
             priv->api_progress_flag |= CELL_START_TRACKING_CRITERIA_ON;
@@ -454,14 +504,29 @@ static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable,
     } else {
         if ((!(priv->api_progress_flag & CELL_START_TRACKING_ON)) &&
             (!(priv->api_progress_flag & CELL_LOCATION_UPDATES_ON))) {
-            priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler, enable, cell_handler_tracking_cb, NULL);
+            int result = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler,
+                                                               FALSE,
+                                                               NULL,
+                                                               NULL);
+
+            if (result == ERROR_NONE) {
+                if (priv->tracking_pos) {
+                    free(priv->tracking_pos);
+                    priv->tracking_pos = NULL;
+                }
+
+                if (priv->tracking_acc) {
+                    free(priv->tracking_acc);
+                    priv->tracking_acc = NULL;
+                }
+            }
 
             if (priv->m_cellInfoReq != DEFAULT_VALUE)
                 mRet = LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror);
 
             priv->m_cellInfoReq = DEFAULT_VALUE;
         }
-        priv->track_criteria_cb= NULL;
+        priv->track_criteria_cb = NULL;
         priv->api_progress_flag &= ~CELL_START_TRACKING_CRITERIA_ON;
         LS_LOG_DEBUG("[DEBUG] LSCallCancel return from cell_handler_start_tracking   %d \n", mRet);
     }
@@ -476,25 +541,40 @@ static void cell_handler_start_tracking_criteria(Handler *self, gboolean enable,
  * @param     <self> <In> <Position callback function to get result>
  * @return    int
  */
-static void cell_handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack loc_update_cb,
-                                        gpointer handlerobj, int handlertype,
-                                        LSHandle *sh, LSMessage *msg)
+static void cell_handler_get_location_updates(Handler *self,
+                                              gboolean enable,
+                                              StartTrackingCallBack loc_update_cb,
+                                              gpointer handlerobj,
+                                              int handlertype,
+                                              LSHandle *sh,
+                                              LSMessage *msg)
 {
     LS_LOG_INFO("[DEBUG]Cell handler get location updates called ");
     gboolean mRet = false;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
-    if (priv == NULL) {
-        loc_update_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
+    if (priv == NULL || priv->cell_plugin->ops.start_tracking == NULL) {
+        if (loc_update_cb)
+            (*loc_update_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_CELLID);
+
         return;
     }
-    if ((enable == TRUE) && (priv->api_progress_flag & CELL_LOCATION_UPDATES_ON))
+
+    if (enable && !loc_update_cb)  {
         return;
+    }
 
     priv->nwhandler = handlerobj;
 
     if (enable) {
+        if (priv->api_progress_flag & CELL_LOCATION_UPDATES_ON) {
+
+            if (priv->tracking_pos && priv->tracking_acc)
+                (*loc_update_cb)(TRUE, priv->tracking_pos, priv->tracking_acc, ERROR_NONE, handlerobj, HANDLER_CELLID);
+
+            return;
+        }
         priv->sh = sh;
         priv->loc_update_cb = loc_update_cb;
 
@@ -503,7 +583,7 @@ static void cell_handler_get_location_updates(Handler *self, gboolean enable, St
             if (request_cell_data(sh, self, TRUE) == TRUE) {
                 priv->api_progress_flag |= CELL_LOCATION_UPDATES_ON;
             } else {
-                loc_update_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
+                (*loc_update_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, priv->nwhandler, HANDLER_CELLID);
             }
         } else {
             priv->api_progress_flag |= CELL_LOCATION_UPDATES_ON;
@@ -512,17 +592,27 @@ static void cell_handler_get_location_updates(Handler *self, gboolean enable, St
         if ((!(priv->api_progress_flag & CELL_START_TRACKING_ON)) &&
             (!(priv->api_progress_flag & CELL_START_TRACKING_CRITERIA_ON))) {
 
-            priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler,
-                                                  enable,
-                                                  cell_handler_tracking_cb,
-                                                  NULL);
+            int result = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler,
+                                                               FALSE,
+                                                               NULL,
+                                                               NULL);
+            if (result == ERROR_NONE) {
+                if (priv->tracking_pos) {
+                    free(priv->tracking_pos);
+                    priv->tracking_pos = NULL;
+                }
 
+                if (priv->tracking_acc) {
+                    free(priv->tracking_acc);
+                    priv->tracking_acc = NULL;
+                }
+            }
             if (priv->m_cellInfoReq != DEFAULT_VALUE)
                 mRet = LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror);
 
             priv->m_cellInfoReq = DEFAULT_VALUE;
         }
-        priv->track_criteria_cb = NULL;
+        priv->loc_update_cb = NULL;
         priv->api_progress_flag &= ~CELL_LOCATION_UPDATES_ON;
         LS_LOG_DEBUG("[DEBUG] LSCallCancel return from cell_handler_start_tracking   %d \n", mRet);
     }
@@ -539,7 +629,7 @@ static void cell_handler_get_location_updates(Handler *self, gboolean enable, St
 static int cell_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
 {
     if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH_CELL) == ERROR_NOT_AVAILABLE) {
-        LS_LOG_ERROR("Cell get last poistion Failed to read\n");
+        LS_LOG_ERROR("Cell get last position Failed to read\n");
         return ERROR_NOT_AVAILABLE;
     }
 
@@ -572,9 +662,23 @@ static void cell_handler_finalize(GObject *gobject)
 
     g_return_if_fail(priv);
 
-    plugin_free(priv->cell_plugin, "cell");
-    priv->cell_plugin = NULL;
+    if (priv->cell_plugin != NULL) {
+        plugin_free(priv->cell_plugin, "cell");
+        priv->cell_plugin = NULL;
+    }
+
+    if (priv->tracking_pos) {
+        free(priv->tracking_pos);
+        priv->tracking_pos = NULL;
+    }
+
+    if (priv->tracking_acc) {
+        free(priv->tracking_acc);
+        priv->tracking_acc = NULL;
+    }
     g_mutex_clear(&priv->mutex);
+
+    memset(priv, 0x00, sizeof(CellHandlerPrivate));
 
     G_OBJECT_CLASS(cell_handler_parent_class)->finalize(gobject);
 }
@@ -592,28 +696,14 @@ static int cell_handler_function_not_implemented(Handler *self, Position *pos, A
  */
 static void cell_handler_interface_init(HandlerInterface *interface)
 {
+    memset(interface, 0, sizeof(HandlerInterface));
+
     interface->start = (TYPE_START_FUNC) cell_handler_start;
     interface->stop = (TYPE_STOP_FUNC) cell_handler_stop;
     interface->get_position = (TYPE_GET_POSITION) cell_handler_get_position;
     interface->start_tracking = (TYPE_START_TRACK) cell_handler_start_tracking;
     interface->start_tracking_criteria= (TYPE_START_TRACK_CRITERIA) cell_handler_start_tracking_criteria;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) cell_handler_get_last_position;
-    interface->get_ttfx = (TYPE_GET_TTFF) cell_handler_function_not_implemented;
-    interface->get_sat_data = (TYPE_GET_SAT) cell_handler_function_not_implemented;
-    interface->get_nmea_data = (TYPE_GET_NMEA) cell_handler_function_not_implemented;
-    interface->send_extra_cmd = (TYPE_SEND_EXTRA) cell_handler_function_not_implemented;
-#ifdef NOMINATIUM_LBS
-    interface->get_geo_code = (TYPE_GEO_CODE) cell_handler_function_not_implemented;
-    interface->get_rev_geocode = (TYPE_REV_GEO_CODE) cell_handler_function_not_implemented;
-#else
-    interface->get_google_geo_code = (TYPE_GOOGLE_GEO_CODE) cell_handler_function_not_implemented;
-    interface->get_rev_google_geocode = (TYPE_REV_GOOGLE_GEO_CODE) cell_handler_function_not_implemented;
-#endif
-
-    interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) cell_handler_function_not_implemented;
-    interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) cell_handler_function_not_implemented;
-    interface->resume_geofence = (TYPE_RESUME_GEOFENCE) cell_handler_function_not_implemented;
-    interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) cell_handler_function_not_implemented;
     interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) cell_handler_get_location_updates;
 }
 

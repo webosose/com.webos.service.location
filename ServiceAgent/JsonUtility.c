@@ -25,6 +25,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <geoclue/geoclue-position.h>
+#include <time.h>
 #include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
 #include "LocationService_Log.h"
@@ -32,10 +33,21 @@
 
 void location_util_add_pos_json(jvalue_ref serviceObject, Position *pos)
 {
+    int64_t currentTime = 0;
+
     if (jis_null(serviceObject) || (pos == NULL))
         return;
 
-    jobject_put(serviceObject, J_CSTR_TO_JVAL("timestamp"), jnumber_create_i64(pos->timestamp));
+    //cache time is zero wiich is invalid time we will give current reply time.
+    if (pos->timestamp == 0) {
+        struct timeval tv;
+        gettimeofday(&tv, (struct timezone *) NULL);
+        currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+    } else {
+        currentTime = pos->timestamp;
+    }
+
+    jobject_put(serviceObject, J_CSTR_TO_JVAL("timestamp"), jnumber_create_i64(currentTime));
     jobject_put(serviceObject, J_CSTR_TO_JVAL("latitude"), jnumber_create_f64(pos->latitude));
     jobject_put(serviceObject, J_CSTR_TO_JVAL("longitude"), jnumber_create_f64(pos->longitude));
     jobject_put(serviceObject, J_CSTR_TO_JVAL("altitude"), jnumber_create_f64(pos->altitude));

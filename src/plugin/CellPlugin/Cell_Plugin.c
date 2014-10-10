@@ -68,7 +68,7 @@ static void position_cb(GeocluePosition *position,
 void set_options_cb(GeoclueProvider *provider, GError *error, gpointer userdata) {
     if (error != NULL) {
         LS_LOG_ERROR("set_options_cb called error %s",error->message);
-        g_free(error);
+        g_error_free(error);
     } else {
         LS_LOG_DEBUG("set_options_cb called success");
     }
@@ -82,7 +82,6 @@ void set_options_cb(GeoclueProvider *provider, GError *error, gpointer userdata)
 static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gchar *value)
 {
     GHashTable *options;
-    GError *error = NULL;
     GValue *gvalue = NULL;
 
     options = g_hash_table_new(g_str_hash, g_str_equal);
@@ -93,16 +92,6 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     g_value_set_string(gvalue, value);
     g_hash_table_insert(options, key, gvalue);
 
-    /*if (geoclue_provider_set_options(GEOCLUE_PROVIDER(instance), options, &error) == FALSE) {
-        LS_LOG_ERROR("[DEBUG] CEll Error geoclue_provider_set_options(%s) : %s", gvalue, error->message);
-        g_error_free(error);
-        error = NULL;
-        g_hash_table_destroy(options);
-        g_free(gvalue);
-        return FALSE;
-    } else {
-        LS_LOG_DEBUG("[DEBUG] Success to geoclue_provider_set_options(%s)", gvalue);
-    }*/
     geoclue_provider_set_options_async(GEOCLUE_PROVIDER(instance), options, set_options_cb, instance);
     g_free(gvalue);
     g_hash_table_destroy(options);
@@ -142,6 +131,7 @@ static void position_cb_async(GeocluePosition *position,
     g_return_if_fail(plugin_data);
 
     if (error) {
+        LS_LOG_ERROR("position_cb_async error %s",error->message);
         g_error_free(error);
         (*plugin_data->pos_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, plugin_data->userdata, HANDLER_CELLID);
     } else {

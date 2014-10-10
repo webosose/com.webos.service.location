@@ -625,6 +625,7 @@ static int geofence_process_request (gpointer handle,
                 g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueGps->geoclue_geofence)),
                                                      G_CALLBACK(geofence_resume_cb),
                                                      geoclueGps);
+
                 error_code = ERROR_NOT_AVAILABLE;
             } else {
                 geoclueGps->resumeRequestCounter++;
@@ -640,6 +641,11 @@ static int geofence_process_request (gpointer handle,
         }
     }
         break;
+    }
+
+    if (error != NULL) {
+        LS_LOG_ERROR("geofence_process_request error %s",error->message);
+        g_error_free(error);
     }
 
     return error_code;

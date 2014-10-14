@@ -1382,11 +1382,23 @@ bool LocationService::getAllLocationHandlers(LSHandle *sh, LSMessage *message, v
     jvalue_ref handlersArray = NULL;
     jvalue_ref serviceObject = NULL;
     jvalue_ref parsedObj = NULL;
-
+    bool isSubscription = false;
+    bool bRetVal;
     LSError mLSError;
 
     if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_ALL_LOCATION_HANDLERS, &parsedObj)) {
         return true;
+    }
+
+    /*Handle subscription case*/
+    if ((isSubscribeTypeValid(sh, message, false, &isSubscription)) && isSubscription) {
+
+        if (LSSubscriptionAdd(sh, SUBSC_GETALLLOCATIONHANDLERS, message, &mLSError) == false) {
+            LS_LOG_ERROR("Failed to add getAllLocationHandlers to subscription list");
+            LSErrorPrintAndFree(&mLSError);
+            LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR);
+            return true;
+        }
     }
 
     handlersArrayItem = jobject_create();
@@ -1437,7 +1449,7 @@ bool LocationService::getAllLocationHandlers(LSHandle *sh, LSMessage *message, v
     jobject_put(serviceObject, J_CSTR_TO_JVAL("handlers"), handlersArray);
 
     LS_LOG_DEBUG("Inside LSMessageReply");
-    bool bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
+    bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
 
     if (bRetVal == false)
         LSErrorPrintAndFree(&mLSError);
@@ -1617,6 +1629,14 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     LPAppHandle lpHandle = 0;
     jvalue_ref parsedObj = NULL;
     jvalue_ref serviceObject = NULL;
+    jvalue_ref getAllLocationHandlersReplyObject = NULL;
+    jvalue_ref handlersArrayItem = NULL;
+    jvalue_ref handlersArrayItem1 = NULL;
+    jvalue_ref handlersArray = NULL;
+    LocationErrorCode errorCode = LOCATION_SUCCESS;
+
+    jvalue_ref handlerObj = NULL;
+    jvalue_ref stateObj = NULL;
 
     if (!LSMessageValidateSchema(sh, message, JSCHEMA_SET_STATE, &parsedObj)) {
         LS_LOG_ERROR("Schema Error in setState");
@@ -1624,15 +1644,44 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
     }
 
     serviceObject = jobject_create();
+
     if (jis_null(serviceObject)) {
-        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM);
-        return true;
+        errorCode = LOCATION_OUT_OF_MEM;
+        goto EXIT;
+    }
+
+    getAllLocationHandlersReplyObject = jobject_create();
+
+    if (jis_null(getAllLocationHandlersReplyObject)) {
+        errorCode = LOCATION_OUT_OF_MEM;
+        goto EXIT;
+    }
+
+    handlersArrayItem = jobject_create();
+
+    if (jis_null(handlersArrayItem)) {
+        errorCode = LOCATION_OUT_OF_MEM;
+        goto EXIT;
+    }
+
+    handlersArrayItem1 = jobject_create();
+
+    if (jis_null(handlersArrayItem1)) {
+        errorCode = LOCATION_OUT_OF_MEM;
+        j_release(&handlersArrayItem);
+        goto EXIT;
+    }
+
+    handlersArray = jarray_create(NULL);
+
+    if (jis_null(handlersArray)) {
+        errorCode = LOCATION_OUT_OF_MEM;
+        j_release(&handlersArrayItem1);
+        j_release(&handlersArrayItem);
+        goto EXIT;
     }
 
     //Read Handler from json
-    jvalue_ref handlerObj = NULL;
-    jvalue_ref stateObj = NULL;
-
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("Handler"), &handlerObj)){
         raw_buffer handler_buf = jstring_get(handlerObj);
         handler = g_strdup(handler_buf.m_str);
@@ -1652,8 +1701,11 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 
         location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
         bool bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-
         char subscription_key[MAX_GETSTATE_PARAM];
+
+        if (bRetVal == false)
+            LSErrorPrintAndFree(&mLSError);
+
         strcpy(subscription_key, handler);
         strcat(subscription_key, SUBSC_GET_STATE_KEY);
 
@@ -1669,6 +1721,34 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
 
             if (bRetVal == false)
                 LSErrorPrintAndFree(&mLSError);
+
+            //*getAllLocationHandlers subscription reply
+            jobject_put(handlersArrayItem, J_CSTR_TO_JVAL("name"), jstring_create(GPS));
+            jobject_put(handlersArrayItem, J_CSTR_TO_JVAL("state"), jboolean_create(mGpsStatus));
+            jarray_append(handlersArray, handlersArrayItem);
+            jobject_put(handlersArrayItem1, J_CSTR_TO_JVAL("name"), jstring_create(NETWORK));
+            jobject_put(handlersArrayItem1, J_CSTR_TO_JVAL("state"), jboolean_create(mNwStatus));
+            jarray_append(handlersArray, handlersArrayItem1);
+
+            /*Form the json object*/
+            location_util_form_json_reply(getAllLocationHandlersReplyObject, true, LOCATION_SUCCESS);
+            jobject_put(getAllLocationHandlersReplyObject, J_CSTR_TO_JVAL("handlers"), handlersArray);
+
+            bRetVal = LSSubscriptionRespond(mServiceHandle,
+                                            SUBSC_GETALLLOCATIONHANDLERS,
+                                            jvalue_tostring_simple(getAllLocationHandlersReplyObject),
+                                            &mLSError);
+
+            if (bRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
+            bRetVal = LSSubscriptionRespond(mlgeServiceHandle,
+                                            SUBSC_GETALLLOCATIONHANDLERS,
+                                            jvalue_tostring_simple(getAllLocationHandlersReplyObject),
+                                            &mLSError);
+            if (bRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
 
             if (state == false)
                 handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, true);
@@ -1687,20 +1767,60 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
             if (bRetVal == false)
                 LSErrorPrintAndFree(&mLSError);
 
+            //*getAllLocationHandlers subscription reply
+            jobject_put(handlersArrayItem, J_CSTR_TO_JVAL("name"), jstring_create(GPS));
+            jobject_put(handlersArrayItem, J_CSTR_TO_JVAL("state"), jboolean_create(mGpsStatus));
+            jarray_append(handlersArray, handlersArrayItem);
+            jobject_put(handlersArrayItem1, J_CSTR_TO_JVAL("name"), jstring_create(NETWORK));
+            jobject_put(handlersArrayItem1, J_CSTR_TO_JVAL("state"), jboolean_create(mNwStatus));
+            jarray_append(handlersArray, handlersArrayItem1);
+
+            /*Form the json object*/
+            location_util_form_json_reply(getAllLocationHandlersReplyObject, true, LOCATION_SUCCESS);
+            jobject_put(getAllLocationHandlersReplyObject, J_CSTR_TO_JVAL("handlers"), handlersArray);
+
+            bRetVal = LSSubscriptionRespond(mServiceHandle,
+                                            SUBSC_GETALLLOCATIONHANDLERS,
+                                            jvalue_tostring_simple(getAllLocationHandlersReplyObject),
+                                            &mLSError);
+
+            if (bRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
+            bRetVal = LSSubscriptionRespond(mlgeServiceHandle,
+                                            SUBSC_GETALLLOCATIONHANDLERS,
+                                            jvalue_tostring_simple(getAllLocationHandlersReplyObject),
+                                            &mLSError);
+            if (bRetVal == false)
+                LSErrorPrintAndFree(&mLSError);
+
             if (state == false) {
                 handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, true);
                 handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, true);
             }
         }
 
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        j_release(&serviceObject);
     } else {
         LS_LOG_DEBUG("LPAppGetHandle is not created");
-        LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR);
+        j_release(&handlersArrayItem1);
+        j_release(&handlersArrayItem);
+        j_release(&handlersArray);
+        errorCode = LOCATION_UNKNOWN_ERROR;
     }
+
+EXIT:
+
+    if (errorCode != LOCATION_SUCCESS)
+        LSMessageReplyError(sh, message, errorCode);
+
+    if (!jis_null(getAllLocationHandlersReplyObject))
+        j_release(&getAllLocationHandlersReplyObject);
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    if (!jis_null(serviceObject))
+        j_release(&serviceObject);
 
     if (handler != NULL)
         g_free(handler);

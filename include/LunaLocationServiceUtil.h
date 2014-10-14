@@ -45,7 +45,8 @@
 /*
  * JSON SCHEMA: getAllLocationHandlers ()
  */
-#define JSCHEMA_GET_ALL_LOCATION_HANDLERS                   SCHEMA_ANY
+#define JSCHEMA_GET_ALL_LOCATION_HANDLERS                   STRICT_SCHEMA(\
+        PROPS_1(PROP(subscribe, boolean)))
 
 /*
  * JSON SCHEMA: getCurrentPosition ([int accuracy], [int maximumAge], [int responseTime])

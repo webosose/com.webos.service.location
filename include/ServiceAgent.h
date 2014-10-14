@@ -26,6 +26,7 @@
 #define SUBSC_GET_GEOCODE_KEY "getGeoCodeLocation"
 #define SUBSC_GET_REVGEOCODE_KEY "getReverseLocation"
 #define SUBSC_GET_STATE_KEY "getState"
+#define SUBSC_GETALLLOCATIONHANDLERS "getAllLocationHandlers"
 #define GPS_CRITERIA_KEY "gps/startTrackingCriteriaBased"
 #define NW_CRITERIA_KEY "nw/startTrackingCriteriaBased"
 #define GPS_NW_CRITERIA_KEY "gpsnw/startTrackingCriteriaBased"

@@ -57,7 +57,7 @@ G_DEFINE_TYPE_WITH_CODE(LbsHandler, lbs_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTE
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int lbs_handler_start(Handler *handler_data)
+static int lbs_handler_start(Handler *handler_data, int handler_type, const char* license_key)
 {
     int ret = ERROR_NONE;
     LS_LOG_INFO("[DEBUG] lbs_handler_start");
@@ -75,7 +75,7 @@ static int lbs_handler_start(Handler *handler_data)
         return ERROR_NONE;
     }
 
-    ret = priv->lbs_plugin->ops.start(priv->lbs_plugin->plugin_handler, handler_data);
+    ret = priv->lbs_plugin->ops.start(priv->lbs_plugin->plugin_handler, handler_data, license_key);
 
     if (ret == ERROR_NONE)
         priv->is_started = TRUE;

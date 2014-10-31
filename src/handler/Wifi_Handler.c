@@ -114,7 +114,7 @@ static void wifi_handler_position_cb(gboolean enable_cb,
 
 
 
-static int wifi_handler_start(Handler *handler_data)
+static int wifi_handler_start(Handler *handler_data, int handler_type, const char* license_key)
 {
     LS_LOG_INFO("[DEBUG]wifi_handler_start Called\n");
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(handler_data);
@@ -132,7 +132,7 @@ static int wifi_handler_start(Handler *handler_data)
         return ERROR_NONE;
     }
 
-    ret = priv->wifi_plugin->ops.start(priv->wifi_plugin->plugin_handler, handler_data);
+    ret = priv->wifi_plugin->ops.start(priv->wifi_plugin->plugin_handler, handler_data, license_key);
 
     if (ret == ERROR_NONE)
         priv->is_started = TRUE;

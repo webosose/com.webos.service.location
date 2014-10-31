@@ -14,6 +14,9 @@
 #include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
 #include <LocationService_Log.h>
+#include <LocationService.h>
+
+LocationService *loc_svc_ptr = NULL;
 
 typedef struct locErrorTextPair {
     LocationErrorCode code;
@@ -126,12 +129,12 @@ void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode)
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message)
 {
     const char *subscribe_answer = "{\"returnValue\":true, \"subscribed\":true}";
-    LSError mLSError;
-    LSErrorInit(&mLSError);
+    LSError lsError;
+    LSErrorInit(&lsError);
 
-    if (LSMessageReply(sh, message, subscribe_answer, &mLSError) == false) {
-        LSErrorPrint(&mLSError, stderr);
-        LSErrorFree(&mLSError);
+    if (LSMessageReply(sh, message, subscribe_answer, &lsError) == false) {
+        LSErrorPrint(&lsError, stderr);
+        LSErrorFree(&lsError);
         return false;
     }
 
@@ -179,4 +182,113 @@ bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema
     }
 
     return ret;
+}
+
+bool secure_storage_get_cb(LSHandle *sh, LSMessage *reply, void *ctx)
+{
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+    raw_buffer nameBuf;
+
+    if (ctx == NULL) {
+        return true;
+    }
+
+    if (!LSMessageValidateSchema(sh, reply, SCHEMA_ANY, &parsedObj)) {
+        return true;
+    }
+
+    if (strcmp("nwkey",(char*) ctx) == 0) {
+        //store key
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("buff"), &jsonSubObject)) {
+            nameBuf = jstring_get(jsonSubObject);
+
+            if (loc_svc_ptr) {
+                loc_svc_ptr->updateNwKey(nameBuf.m_str);
+            }
+
+            jstring_free_buffer(nameBuf);
+        }
+    } else if (strcmp("lbskey",(char*) ctx) == 0) {
+
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("buff"), &jsonSubObject)) {
+            nameBuf = jstring_get(jsonSubObject);
+
+            if (loc_svc_ptr) {
+                loc_svc_ptr->updateLbsKey(nameBuf.m_str);
+            }
+            jstring_free_buffer(nameBuf);
+        }
+    }
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    return true;
+}
+
+bool secure_storage_set_cb(LSHandle *sh, LSMessage *reply, void *ctx)
+{
+    LSError lsError;
+    LSErrorInit(&lsError);
+
+    if (ctx == NULL) {
+        return true;
+    }
+
+    if (strcmp("nwkey",(char*) ctx) == 0) {
+        if (!LSCall(sh,
+                    "palm://com.palm.securestorage/keystorageget",
+                    SECURE_PAYLOAD_NW_GET,
+                    secure_storage_get_cb,
+                    ctx,
+                    NULL,
+                    &lsError)) {
+           LSErrorPrint(&lsError, stderr);
+           LSErrorFree(&lsError);
+       }
+
+    } else if (strcmp("lbskey",(char*) ctx) == 0) {
+        if (!LSCall(sh,
+                   "palm://com.palm.securestorage/keystorageget",
+                   SECURE_PAYLOAD_LBS_GET,
+                   secure_storage_get_cb,
+                   ctx,
+                   NULL,
+                   &lsError)) {
+            LSErrorPrint(&lsError, stderr);
+            LSErrorFree(&lsError);
+        }
+
+    }
+    return true;
+}
+
+void securestorage_set(LSHandle *sh, void *ptr)
+{
+    LSError lsError;
+    LSErrorInit(&lsError);
+    loc_svc_ptr = (LocationService *)ptr;
+
+    if (!LSCall(sh,
+                "palm://com.palm.securestorage/keystorageset",
+                SECURE_PAYLOAD_NW_SET,
+                secure_storage_set_cb,
+                "nwkey",
+                NULL,
+                &lsError)) {
+        LSErrorPrint(&lsError, stderr);
+        LSErrorFree(&lsError);
+    }
+
+    if (!LSCall(sh,
+                "palm://com.palm.securestorage/keystorageset",
+                SECURE_PAYLOAD_LBS_SET,
+                secure_storage_set_cb,
+                "lbskey",
+                NULL,
+                &lsError)) {
+        LSErrorPrint(&lsError, stderr);
+        LSErrorFree(&lsError);
+    }
 }

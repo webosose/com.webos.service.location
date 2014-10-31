@@ -47,6 +47,7 @@ typedef struct {
     PositionCallback position_cb;
     StartTrackingCallBack tracking_cb;
     gpointer userdata;
+    char *license_key;
 } GeoclueWifi;
 
 #define LGE_WIFI_SERVICE_NAME       "org.freedesktop.Geoclue.Providers.LgeWifiService"
@@ -296,7 +297,7 @@ static gboolean intialize_wifi_geoclue_service(GeoclueWifi *geoclueWifi)
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-static int start(gpointer handle, gpointer userdata)
+static int start(gpointer handle, gpointer userdata, const char *license_key)
 {
     GeoclueWifi *geoclueWifi = (GeoclueWifi *) handle;
 
@@ -307,6 +308,9 @@ static int start(gpointer handle, gpointer userdata)
 
     if (intialize_wifi_geoclue_service(geoclueWifi) == FALSE)
         return ERROR_NOT_AVAILABLE;
+
+    geoclueWifi->license_key = g_strdup(license_key);
+
 
     return ERROR_NONE;
 }
@@ -324,6 +328,9 @@ static int stop(gpointer handle)
 
     LS_LOG_INFO("[DEBUG] WIFI stop called\n");
     unreference_geoclue(geoclueWifi);
+
+    if (geoclueWifi->license_key != NULL)
+        g_free(geoclueWifi->license_key);
 
     return ERROR_NONE;
 }
@@ -343,6 +350,10 @@ static int get_position(gpointer handle, PositionCallback pos_cb)
     g_return_val_if_fail(geoclueWifi, ERROR_NOT_AVAILABLE);
     g_return_val_if_fail(geoclueWifi->geoclue_pos, ERROR_NOT_AVAILABLE);
 
+    if (send_geoclue_command(geoclueWifi->geoclue_pos, "GEOLOCATION", geoclueWifi->license_key) == TRUE) {
+        LS_LOG_WARNING("License key Sent Success\n");
+    } else
+        return ERROR_NOT_AVAILABLE;
     geoclueWifi->position_cb = pos_cb;
     geoclue_position_get_position_async(geoclueWifi->geoclue_pos, (GeocluePositionCallback) position_cb_async, geoclueWifi);
 
@@ -366,6 +377,11 @@ static int start_tracking(gpointer handle, gboolean enable, StartTrackingCallBac
     geoclueWifi->tracking_cb = NULL;
 
     if (enable) {
+        if (send_geoclue_command(geoclueWifi->geoclue_pos, "GEOLOCATION", geoclueWifi->license_key) == TRUE) {
+            LS_LOG_WARNING("License key Sent Success\n");
+        } else
+            return ERROR_NOT_AVAILABLE;
+
         if (send_geoclue_command(geoclueWifi->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATESON") == FALSE) {
             LS_LOG_ERROR("[DEBUG] WIFI start_tracking: tracking on failed\n");
             return ERROR_NOT_AVAILABLE;

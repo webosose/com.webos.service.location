@@ -21,7 +21,12 @@
 
 #include <lunaservice.h>
 #include "JsonUtility.h"
+// temproray so keeping hardcoded value
+#define SECURE_PAYLOAD_NW_SET      "{\"keyname\":\"com.palm.location.geolocation\",\"pdata\":\"AIzaSyC3gspakPjzPZ-zctl0JBxKVtSlTBSL4BY\",\"cdata\":39}"
+#define SECURE_PAYLOAD_LBS_SET     "{\"keyname\":\"com.palm.location.geocode\",\"pdata\":\"CDgvGzYI33BE0XvF54xrqaDmBrY=\",\"cdata\":28}"
 
+#define SECURE_PAYLOAD_NW_GET      "{\"keyname\":\"com.palm.location.geolocation\"}"
+#define SECURE_PAYLOAD_LBS_GET     "{\"keyname\":\"com.palm.location.geocode\"}"
 /*
  * JSON SCHEMA: criteria/getLocationCriteriaHandlerDetails (string Handler)
  */
@@ -236,14 +241,17 @@
  * JSON SCHEMA: addGeofenceArea (double latitude, double longitude, double radius, [bool subscribe])
  */
 #define JSCHEMA_ADD_GEOFENCE_AREA                           STRICT_SCHEMA(\
-        PROPS_4(PROP(latitude, number), PROP(longitude, number), PROP(radius, number), PROP(subscribe, boolean)) \
+        PROPS_4(PROP_WITH_OPT(latitude, number, "minimum":-90, "maximum":90), \
+                PROP_WITH_OPT(longitude, number, "minimum":-180, "maximum":180), \
+                PROP_WITH_OPT(radius, number, "minimum":0, "exclusiveMinimum":true), \
+                PROP(subscribe, boolean)) \
         REQUIRED_3(latitude, longitude, radius))
 
 /*
  * JSON SCHEMA: removeGeofenceArea (integer geofenceid)
  */
 #define JSCHEMA_REMOVE_GEOFENCE_AREA                        STRICT_SCHEMA(\
-        PROPS_1(PROP(geofenceid, integer)) \
+        PROPS_1(PROP_WITH_OPT(geofenceid, integer, "minimum":0, "exclusiveMinimum":true)) \
         REQUIRED_1(geofenceid))
 
 /*
@@ -299,4 +307,5 @@ void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSMessageReplySuccess(LSHandle *sh, LSMessage *message);
 bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);
+void securestorage_set(LSHandle *sh, void *ptr);
 #endif

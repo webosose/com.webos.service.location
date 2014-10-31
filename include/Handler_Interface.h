@@ -47,7 +47,7 @@ typedef struct _Handler Handler;
  */
 typedef struct _HandlerInterface HandlerInterface;
 
-typedef int (*TYPE_START_FUNC)(Handler *self, int handler_type);
+typedef int (*TYPE_START_FUNC)(Handler *self, int handler_type, const char *license_key);
 typedef int (*TYPE_STOP_FUNC)(Handler *self, int handler_type, gboolean forcestop);
 typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
 typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
@@ -118,7 +118,7 @@ struct _HandlerInterface {
  */
 GType handler_interface_get_type(void);
 
-int handler_start(Handler *self, int handler_type);
+int handler_start(Handler *self, int handler_type, const char *license_key);
 
 int handler_stop(Handler *self, int handler_type, gboolean forcestop);
 

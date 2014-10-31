@@ -42,7 +42,7 @@ typedef struct {
     GeoclueGoogleGeocoder *google_geocoder;
     GeoCodeCallback geocode_cb;
     GeoCodeCallback rev_geocode_cb;
-
+    char *license_key;
     gpointer userdata;
 } GeoclueLbs;
 
@@ -135,11 +135,50 @@ void rev_geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, const char *respons
     }
 }
 
+/**
+ **
+ * <Funciton >   send_geoclue_command
+ * <Description>  send geoclue command
+ * @return    int
+ */
+static gboolean send_geoclue_command(GeoclueGoogleGeocoder *instance, gchar *key, gchar *value)
+{
+    GHashTable *options;
+    GValue *gvalue;
+    GError *error = NULL;
+    options = g_hash_table_new(g_str_hash, g_str_equal);
+    gvalue = g_new0(GValue, 1);
+
+    g_value_init(gvalue, G_TYPE_STRING);
+    g_value_set_string(gvalue, value);
+    g_hash_table_insert(options, key, gvalue);
+
+    if (!geoclue_provider_set_options(GEOCLUE_PROVIDER(instance), options, &error)) {
+        LS_LOG_ERROR("[LBS Error geoclue_provider_set_options(%s) : %s", gvalue, error->message);
+        g_value_unset(gvalue);
+        g_error_free(error);
+        g_free(gvalue);
+        g_hash_table_destroy(options);
+        return FALSE;
+    }
+
+    LS_LOG_INFO("LBS Success to geoclue_provider_set_options(%s)", gvalue);
+    g_value_unset(gvalue);
+    g_free(gvalue);
+    g_hash_table_destroy(options);
+
+    return TRUE;
+}
 
 int get_google_geocode(gpointer handle, const char *data, GeoCodeCallback geocode_cb)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
+    if (send_geoclue_command(geoclueLbs->google_geocoder, "GEOCODING", geoclueLbs->license_key) == TRUE) {
+        LS_LOG_WARNING("License key Sent Success\n");
+    } else
+        return ERROR_NOT_AVAILABLE;
 
     geoclueLbs->geocode_cb = geocode_cb;
     geoclue_google_geocoder_process_geocoder_request_async (geoclueLbs->google_geocoder,
@@ -154,6 +193,11 @@ int get_reverse_google_geocode(gpointer handle, const char *data, GeoCodeCallbac
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) handle;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
+
+    if (send_geoclue_command(geoclueLbs->google_geocoder, "GEOCODING", geoclueLbs->license_key) == TRUE) {
+        LS_LOG_WARNING("License key Sent Success\n");
+    } else
+        return ERROR_NOT_AVAILABLE;
 
     geoclueLbs->rev_geocode_cb = rev_geocode_cb;
     geoclue_google_geocoder_process_geocoder_request_async (geoclueLbs->google_geocoder,
@@ -206,7 +250,7 @@ static gboolean intialize_lbs_geoclue_service(GeoclueLbs *geoclueLbs)
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-static int start(gpointer plugin_data, gpointer handler_data)
+static int start(gpointer plugin_data, gpointer handler_data, const char *license_key)
 {
     LS_LOG_INFO("[DEBUG] LBS plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) plugin_data;
@@ -217,6 +261,8 @@ static int start(gpointer plugin_data, gpointer handler_data)
     if (intialize_lbs_geoclue_service(geoclueLbs) == FALSE) {
         return ERROR_NOT_AVAILABLE;
     }
+
+    geoclueLbs->license_key = g_strdup(license_key);
 
     return ERROR_NONE;
 }
@@ -242,6 +288,9 @@ static int stop(gpointer handle)
                                          G_CALLBACK(geocoder_cb),
                                          geoclueLbs);
     unreference_geoclue(geoclueLbs);
+
+    if (geoclueLbs->license_key != NULL)
+        g_free(geoclueLbs->license_key);
 
     return ERROR_NONE;
 }

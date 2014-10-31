@@ -26,7 +26,6 @@
 
 static void handler_interface_base_init(gpointer g_class)
 {
-    static gboolean is_initialized = FALSE;
 }
 
 GType handler_interface_get_type(void)
@@ -48,14 +47,14 @@ GType handler_interface_get_type(void)
  * @throws
  * @return          int
  */
-int handler_start(Handler *self, int handler_type)
+int handler_start(Handler *self, int handler_type, const char *license_key)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->start, ERROR_NOT_AVAILABLE);
 
     LS_LOG_DEBUG("handler_start\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->start(self, handler_type);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->start(self, handler_type, license_key);
 }
 
 /**

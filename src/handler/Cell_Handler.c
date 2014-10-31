@@ -128,7 +128,7 @@ static void cell_handler_position_cb(gboolean enable_cb, Position *position, Acc
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int cell_handler_start(Handler *handler_data)
+static int cell_handler_start(Handler *handler_data, int handler_type, const char* license_key)
 {
     LS_LOG_INFO("[DEBUG]cell_handler_start Called");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(handler_data);
@@ -146,7 +146,7 @@ static int cell_handler_start(Handler *handler_data)
         return ERROR_NONE;
     }
 
-    ret = priv->cell_plugin->ops.start(priv->cell_plugin->plugin_handler, handler_data);
+    ret = priv->cell_plugin->ops.start(priv->cell_plugin->plugin_handler, handler_data, license_key);
 
     if (ret == ERROR_NONE)
         priv->is_started = TRUE;
@@ -550,9 +550,9 @@ static void cell_handler_get_location_updates(Handler *self,
                                               LSMessage *msg)
 {
     LS_LOG_INFO("[DEBUG]Cell handler get location updates called ");
-    gboolean mRet = false;
-    LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
+    LSError lserror;
+    gboolean mRet = FALSE;
 
     if (priv == NULL || priv->cell_plugin->ops.start_tracking == NULL) {
         if (loc_update_cb)

@@ -68,6 +68,7 @@
 #define MAX_GEOFENCE_ID                     200
 #define MIN_GEOFENCE_RANGE                  1000
 #define MAX_GEOFENCE_RANGE                  1200
+#define MAX_API_KEY_LENGTH                  256
 
 #define LSERROR_CHECK_AND_PRINT(ret)\
     do {                          \
@@ -459,6 +460,23 @@ public:
         updateWifiInternetState(Internet_state);
     }
 
+    void updateNwKey(char *nwKey) {
+
+        if(nwKey && (strlen(nwKey) < MAX_API_KEY_LENGTH))
+           strcpy(nwGeolocationKey, nwKey);
+    }
+
+    void updateLbsKey(char *lbsKey) {
+
+        if(lbsKey && (strlen(lbsKey) < MAX_API_KEY_LENGTH))
+           strcpy(lbsGeocodeKey, lbsKey);
+    }
+    // For deprecated API once depercated API removed this will also be removed
+    char* getNwKey() {
+        return nwGeolocationKey;
+    }
+
+
     bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
     bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
     bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
@@ -545,6 +563,8 @@ private:
         "transitionUncertain"   // GEOFENCE_TRANSITION_UNCERTAIN
     };
 
+    char nwGeolocationKey[MAX_API_KEY_LENGTH] = {0x00};
+    char lbsGeocodeKey[MAX_API_KEY_LENGTH] = {0x00};
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
     bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);
@@ -576,7 +596,7 @@ private:
     bool handler_Selection(LSHandle *sh, LSMessage *message, void *data, int *, int *, unsigned char *,jvalue_ref );
     bool replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char);
     int  convertResponseTimeFromLevel(int accLevel, int responseTimeLevel);
-    bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh);
+    bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh, const char *key);
     bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc, int type);
 
     void startTracking_reply(Position *pos, Accuracy *acc, int, int);

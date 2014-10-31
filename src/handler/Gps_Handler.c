@@ -313,7 +313,7 @@ void gps_handler_geofence_pause_cb(int32_t geofence_id, int32_t status, gpointer
  * @param           <self> <In> <Handler GObject>
  * @return          int
  */
-static int gps_handler_start(Handler *self)
+static int gps_handler_start(Handler *self, int handler_type, const char* license_key)
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
@@ -411,8 +411,6 @@ static int gps_handler_get_position(Handler *self,
                                     LSHandle *sh)
 {
     int result = ERROR_NONE;
-    gboolean mRet;
-    LSError lserror;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
@@ -544,8 +542,6 @@ static void gps_handler_start_tracking(Handler *self,
 {
     LS_LOG_INFO("GPS handler start Tracking called\n");
     int result = ERROR_NONE;
-    gboolean mRet;
-    LSError lserror;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
 
     if ((priv == NULL) || (priv->gps_plugin->ops.get_gps_data == NULL)) {
@@ -611,9 +607,6 @@ static void gps_handler_start_tracking_criteria(Handler *self,
 {
     LS_LOG_INFO("GPS handler start Tracking criteria called\n");
     int result = ERROR_NONE;
-    gboolean mRet;
-    LSError lserror;
-
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
 
     if ((priv == NULL)) {
@@ -673,9 +666,6 @@ static void gps_handler_get_location_updates(Handler *self,
 {
     LS_LOG_INFO("GPS handler get location updates called\n");
     int result = ERROR_NONE;
-    gboolean mRet;
-    LSError lserror;
-
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
 
     if ((priv == NULL)) {

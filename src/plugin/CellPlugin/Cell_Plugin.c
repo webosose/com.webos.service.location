@@ -50,6 +50,7 @@ typedef struct {
     StartTrackingCallBack track_cb;
     gboolean track_started;
     gpointer userdata;
+    char *license_key;
 } GeoclueCell;
 
 #define LGE_CELL_SERVICE_NAME "org.freedesktop.Geoclue.Providers.LgeCellService"
@@ -93,6 +94,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     g_hash_table_insert(options, key, gvalue);
 
     geoclue_provider_set_options_async(GEOCLUE_PROVIDER(instance), options, set_options_cb, instance);
+    g_value_unset(gvalue);
     g_free(gvalue);
     g_hash_table_destroy(options);
 
@@ -278,6 +280,11 @@ static int get_position(gpointer handle, PositionCallback positionCB, gpointer a
 
     g_return_val_if_fail(geoclueCell->geoclue_pos, ERROR_NOT_AVAILABLE);
 
+    if (send_geoclue_command(geoclueCell->geoclue_pos, "GEOLOCATION", geoclueCell->license_key) == TRUE) {
+        LS_LOG_WARNING("License key Sent Success\n");
+    } else
+        return ERROR_NOT_AVAILABLE;
+
     if (send_geoclue_command(geoclueCell->geoclue_pos, "CELLDATA", agent_userdata) == TRUE) {
         LS_LOG_WARNING("[DEBUG] cell data sent  done\n");
     } else
@@ -345,7 +352,7 @@ static gboolean intialize_cell_geoclue_service(GeoclueCell *geoclueCell)
  * @param     <userdata> <In> <Gobject private instance>
  * @return    int
  */
-static int start(gpointer plugin_data, gpointer handler_data)
+static int start(gpointer plugin_data, gpointer handler_data, const char *license_key)
 {
     LS_LOG_INFO("[DEBUG] cell plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
     GeoclueCell *geoclueCell = (GeoclueCell *) plugin_data;
@@ -354,6 +361,8 @@ static int start(gpointer plugin_data, gpointer handler_data)
     geoclueCell->userdata = handler_data;
 
     if (intialize_cell_geoclue_service(geoclueCell) == FALSE) return ERROR_NOT_AVAILABLE;
+
+    geoclueCell->license_key = g_strdup(license_key);
 
     return ERROR_NONE;
 }
@@ -384,6 +393,12 @@ static int start_tracking(gpointer plugin_data, gboolean enableTracking, StartTr
             geoclueCell->track_started = TRUE;
             LS_LOG_DEBUG("[DEBUG] registered position-changed signal \n");
         }
+
+        if (send_geoclue_command(geoclueCell->geoclue_pos, "GEOLOCATION", geoclueCell->license_key) == TRUE) {
+            LS_LOG_WARNING("License key Sent Success\n");
+        } else
+            return ERROR_NOT_AVAILABLE;
+
         if (send_geoclue_command(geoclueCell->geoclue_pos, "CELLDATA", celldata) == TRUE) {
 
             if (send_geoclue_command(geoclueCell->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATESON") == FALSE) {
@@ -423,6 +438,9 @@ static int stop(gpointer handle)
     g_return_val_if_fail(geoclueCell, ERROR_NOT_AVAILABLE);
 
     unreference_geoclue(geoclueCell);
+
+    if (geoclueCell->license_key != NULL)
+        g_free(geoclueCell->license_key);
 
     return ERROR_NONE;
 }

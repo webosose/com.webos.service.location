@@ -44,13 +44,12 @@ typedef struct _NwHandlerPrivate {
 
 } NwHandlerPrivate;
 
-#define GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), HANDLER_TYPE_NW, NwHandlerPrivate))
 
 static void nw_handler_interface_init(HandlerInterface *interface);
 
 G_DEFINE_TYPE_WITH_CODE(NwHandler, nw_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, nw_handler_interface_init));
 
-#define WIFI_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_NW, NwHandlerPrivate))
+#define NW_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_NW, NwHandlerPrivate))
 static void intialize_nw_handler(Handler *handler_data, int handler_type);
 /**
  * <Funciton >   position_cb
@@ -63,7 +62,7 @@ static void intialize_nw_handler(Handler *handler_data, int handler_type);
 void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
     LS_LOG_INFO("[DEBUG]NW  nw_handler_position_wifi_cb callback called  %d , type %d\n", enable_cb, type);
-    NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(privateIns);
 
     g_return_if_fail(priv->pos_cb_arr[type]);
 
@@ -79,7 +78,7 @@ void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accurac
  */
 void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
-    NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(privateIns);
 
     g_return_if_fail(priv);
     if (priv->track_cb)
@@ -102,7 +101,7 @@ void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *ac
 void nw_handler_position_cell_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
 {
     LS_LOG_INFO("[DEBUG]NW  nw_handler_position_cellid_cb callback called  %d \n", enable_cb);
-    NwHandlerPrivate *priv = GET_PRIVATE(privateIns);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(privateIns);
 
     g_return_if_fail(priv->pos_cb_arr[type]);
 
@@ -114,10 +113,10 @@ void nw_handler_position_cell_cb(gboolean enable_cb, Position *position, Accurac
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int nw_handler_start(Handler *handler_data, int handler_type)
+static int nw_handler_start(Handler *handler_data, int handler_type, const char* license_key)
 {
     LS_LOG_INFO("[DEBUG]nw_handler_start Called handler type%d ", handler_type);
-    NwHandlerPrivate *priv = GET_PRIVATE(handler_data);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(handler_data);
     int ret = ERROR_NOT_AVAILABLE;
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
@@ -128,7 +127,7 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
             intialize_nw_handler(handler_data, handler_type);
             g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
             priv->nw_cb_arr[handler_type] = nw_handler_position_wifi_cb;
-            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj [handler_type]), handler_type);
+            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj [handler_type]), handler_type, license_key);
 
             if (ret == ERROR_NONE)
                 LS_LOG_INFO("wifi_handler_start started \n");
@@ -139,7 +138,7 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
             intialize_nw_handler(handler_data, handler_type);
             g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
             priv->nw_cb_arr[handler_type] = nw_handler_position_cell_cb;
-            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj[handler_type]), handler_type);
+            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj[handler_type]), handler_type, license_key);
             break;
 
         default:
@@ -151,7 +150,7 @@ static int nw_handler_start(Handler *handler_data, int handler_type)
 
 static void intialize_nw_handler(Handler *handler_data, int handler_type)
 {
-    NwHandlerPrivate *priv = GET_PRIVATE(handler_data);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(handler_data);
 
     switch (handler_type) {
         case HANDLER_WIFI:
@@ -180,7 +179,7 @@ static void intialize_nw_handler(Handler *handler_data, int handler_type)
 static int nw_handler_stop(Handler *self, int handlertype, gboolean forcestop)
 {
     LS_LOG_INFO("[DEBUG]nw_handler_stop() \n");
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
     int ret = ERROR_NONE;
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
@@ -202,7 +201,7 @@ static int nw_handler_stop(Handler *self, int handlertype, gboolean forcestop)
 static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handle, int handlertype, LSHandle *sh)
 {
     int result = ERROR_NONE;
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
@@ -230,7 +229,7 @@ static void nw_handler_start_tracking(Handler *self,
                                       LSHandle *sh)
 {
     int result = ERROR_NONE;
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
 
     if (priv == NULL) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
@@ -250,7 +249,7 @@ static void nw_handler_start_tracking_criteria(Handler *self, gboolean enable, S
         LSHandle *sh)
 {
     int result = ERROR_NONE;
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
 
     if (priv == NULL) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
@@ -272,7 +271,7 @@ static void nw_handler_get_location_updates(Handler *self, gboolean enable, Star
         LSHandle *sh)
 {
     int result = ERROR_NONE;
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
 
     if (priv == NULL) {
         track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
@@ -300,7 +299,7 @@ static void nw_handler_get_location_updates(Handler *self, gboolean enable, Star
 static int nw_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy, int handlertype)
 {
     int ret = ERROR_NONE;
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
 
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
@@ -335,7 +334,7 @@ static void nw_handler_dispose(GObject *gobject)
 static void nw_handler_finalize(GObject *gobject)
 {
     LS_LOG_DEBUG(" [DEBUG]nw_handler_finalize");
-    NwHandlerPrivate *priv = GET_PRIVATE(gobject);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(gobject);
     int handler;
 
     for (handler = 0; handler < MAX_HANDLER_TYPE ; handler++) {
@@ -391,7 +390,7 @@ static void nw_handler_interface_init(HandlerInterface *interface)
  */
 static void nw_handler_init(NwHandler *self)
 {
-    NwHandlerPrivate *priv = GET_PRIVATE(self);
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
     g_return_if_fail(priv);
 
     memset(priv, 0x00, sizeof(NwHandlerPrivate));

@@ -94,8 +94,6 @@ bool LunaCriteriaCategoryHandler::startTrackingCriteriaBased(LSHandle *sh,
     char sub_key_gps[KEY_MAX] = { 0x00 };
     char sub_key_nw[KEY_MAX] = { 0x00 };
     char sub_key_gps_nw[KEY_MAX] = { 0x00 };
-    Position pos;
-    Accuracy acc;
     LSError mLSError;
     jvalue_ref serviceObj = NULL;
     LocationErrorCode errorCode = LOCATION_SUCCESS;
@@ -420,7 +418,7 @@ bool LunaCriteriaCategoryHandler::enableNwHandler(unsigned char *startedHandlers
         if ((LocationService::getInstance()->getWifiState() == true) && (LocationService::getInstance()->getConnectionManagerState()
             || LocationService::getInstance()->getWifiInternetState())) { //wifistate == true)
             ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]),
-                                HANDLER_WIFI);
+                                HANDLER_WIFI, LocationService::getInstance()->getNwKey());
 
             if (ret != ERROR_NONE) {
                 LS_LOG_ERROR("WIFI handler not started");
@@ -437,7 +435,7 @@ bool LunaCriteriaCategoryHandler::enableNwHandler(unsigned char *startedHandlers
             || LocationService::getInstance()->getWifiInternetState())) {
 
             ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]),
-                                HANDLER_CELLID);
+                                HANDLER_CELLID, LocationService::getInstance()->getNwKey());
 
             if (ret != ERROR_NONE) {
                 LS_LOG_ERROR("CELLID handler not started");
@@ -462,7 +460,7 @@ bool LunaCriteriaCategoryHandler::enableGpsHandler(unsigned char *startedHandler
         bool ret = false;
         LS_LOG_DEBUG("gps is on in Settings");
         ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]),
-                            HANDLER_GPS);
+                            HANDLER_GPS, NULL);
 
         if (ret != ERROR_NONE) {
             LS_LOG_ERROR("GPS handler not started");

@@ -129,7 +129,7 @@ void lbs_handler_rev_geocode_cb(gboolean enable_cb, char *response, int error, g
     LbsHandlerPrivate *priv = GET_PRIVATE(userdata);
     g_return_if_fail(priv);
 
-    priv->api_progress_flag &= ~LBS_GEOCODE_ON;
+    priv->api_progress_flag &= ~LBS_REVGEOCODE_ON;
     priv->rev_geocode_cb (enable_cb, response, error, userdata, type);
 }
 
@@ -139,7 +139,7 @@ void lbs_handler_geocode_cb(gboolean enable_cb, char *response, int error, gpoin
     LbsHandlerPrivate *priv = GET_PRIVATE(userdata);
     g_return_if_fail(priv);
 
-    priv->api_progress_flag &= ~LBS_REVGEOCODE_ON;
+    priv->api_progress_flag &= ~LBS_GEOCODE_ON;
     priv->geocode_cb (enable_cb, response, error, userdata, type);
 }
 #endif

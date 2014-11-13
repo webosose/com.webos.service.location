@@ -588,6 +588,14 @@ static void gps_handler_start_tracking(Handler *self,
     }
 }
 
+static gboolean gps_handler_get_handler_status(Handler *self, int handler_type)
+{
+    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
+    g_return_val_if_fail(priv, 0);
+    return priv->is_started;
+}
+
+
 static void gps_handler_get_location_updates(Handler *self,
                                                 gboolean enable,
                                                 StartTrackingCallBack loc_update_cb,
@@ -899,6 +907,7 @@ static void handler_interface_init(HandlerInterface *iface)
     iface->resume_geofence = (TYPE_RESUME_GEOFENCE) gps_handler_resume_geofence;
     iface->pause_geofence = (TYPE_PAUSE_GEOFENCE) gps_handler_pause_geofence;
     iface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) gps_handler_get_location_updates;
+    iface->get_handler_status = (TYPE_GET_HANDLER_STATUS) gps_handler_get_handler_status;
 }
 
 /**

@@ -110,6 +110,12 @@ void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBac
     HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking(self, enable, track_cb, handlerobj, handlertype, sh);
 }
 
+gboolean handler_get_handler_status(Handler *self, int handlertype)
+{
+    g_return_val_if_fail(HANDLER_IS_INTERFACE(self),0);
+    LS_LOG_DEBUG("handler_get_handler_status");
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_handler_status(self, handlertype);
+}
 /**
  * <Funciton>       handler_start_tracking
  * <Description>    Continous position updates

@@ -439,6 +439,13 @@ static void cell_handler_start_tracking(Handler *self,
     }
 }
 
+static gboolean cell_handler_get_handler_status(Handler *self, int handler_type)
+{
+    CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
+    g_return_val_if_fail(priv, 0);
+
+    return priv->is_started;
+}
 
 /**
  * <Funciton >   handler_stop
@@ -610,6 +617,7 @@ static void cell_handler_interface_init(HandlerInterface *interface)
     interface->start_tracking = (TYPE_START_TRACK) cell_handler_start_tracking;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) cell_handler_get_last_position;
     interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) cell_handler_get_location_updates;
+    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) cell_handler_get_handler_status;
 }
 
 /**

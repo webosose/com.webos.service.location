@@ -104,7 +104,9 @@ LocationService::LocationService() :
                  mIsStartFirstReply(true),
                  mIsGetNmeaSubProgress(false),
                  mIsGetSatSubProgress(false),
-                 mIsStartTrackProgress(false)
+                 mIsStartTrackProgress(false),
+                 m_lifeCycleMonitor(0),
+                 m_enableSuspendBlocker(true)
 {
     LS_LOG_DEBUG("LocationService object created");
 }
@@ -164,6 +166,13 @@ bool LocationService::init(GMainLoop *mainLoop)
     }
 
     securestorage_set(LSPalmServiceGetPrivateConnection(mServiceHandle), this);
+
+    if (!m_lifeCycleMonitor) {
+        m_lifeCycleMonitor = new LifeCycleMonitor();
+    }
+
+    m_lifeCycleMonitor->registerSuspendMonitor(LSPalmServiceGetPrivateConnection(mServiceHandle));
+
     return true;
 }
 
@@ -251,6 +260,11 @@ LocationService::~LocationService()
         LSErrorPrint(&m_LSErr, stderr);
         LSErrorFree(&m_LSErr);
     }
+
+    if (m_lifeCycleMonitor) {
+        delete m_lifeCycleMonitor;
+        m_lifeCycleMonitor = NULL;
+    }
 }
 
 /*****API's exposed to applications****/
@@ -317,10 +331,13 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data)
     if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
         LS_LOG_ERROR("Error in getNmeaData");
         errorCode = LOCATION_UNKNOWN_ERROR;
+        goto EXIT;
     }
 
-EXIT:
+    if (m_enableSuspendBlocker)
+        m_lifeCycleMonitor->setWakeLock(true);
 
+EXIT:
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
@@ -552,11 +569,14 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
             errorCode = LOCATION_UNKNOWN_ERROR;
             goto EXIT;
         }
-
     } else {
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
         errorCode = LOCATION_START_FAILURE;
+        goto EXIT;
     }
+
+    if (m_enableSuspendBlocker)
+        m_lifeCycleMonitor->setWakeLock(true);
 
 EXIT:
     if (!jis_null(parsedObj))
@@ -651,7 +671,7 @@ bool LocationService::getNominatiumGeocode(LSHandle *sh, LSMessage *message, voi
     ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), HANDLER_LBS, lbsGeocodeKey);
 
     if (ret == ERROR_NONE) {
-        LS_LOG_ERROR ("value of addr.freeformaddr %s", addr.freeformaddr);
+        LS_LOG_INFO("value of addr.freeformaddr %s", addr.freeformaddr);
         ret = handler_get_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), &addr, &pos, &acc);
         handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
 
@@ -831,7 +851,7 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), HANDLER_LBS, lbsGeocodeKey);
 
     if (ret == ERROR_NONE) {
-        LS_LOG_ERROR ("value of addr.freeformaddr %s", addr.freeformaddr);
+        LS_LOG_INFO("value of addr.freeformaddr %s", addr.freeformaddr);
         ret = handler_get_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), address_data->str, wrapper_geocoding_cb);
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
 
@@ -850,8 +870,11 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     } else {
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
         errorCode = LOCATION_START_FAILURE;
-        LS_LOG_INFO("value of lattitude..2");
+        goto EXIT;
     }
+
+    if (m_enableSuspendBlocker)
+        m_lifeCycleMonitor->setWakeLock(true);
 
 EXIT:
     if (errorCode != LOCATION_SUCCESS)
@@ -1452,29 +1475,35 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
         jstring_free_buffer(handler_buf);
     }
 
-    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS, NULL);
+    if (strcmp(command, "enable_suspend_blocker") == 0) {
+        m_enableSuspendBlocker = true;
+    } else if (strcmp(command, "disable_suspend_blocker") == 0) {
+        m_enableSuspendBlocker = false;
+    } else {
+        ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS, NULL);
 
-    if (ret != ERROR_NONE) {
-        LS_LOG_ERROR("GPS Handler starting failed");
-        LSMessageReplyError(sh, message, LOCATION_START_FAILURE);
-        j_release(&parsedObj);
-        g_free(command);
-        return true;
-    }
-    LS_LOG_INFO("command = %s", command);
+        if (ret != ERROR_NONE) {
+            LS_LOG_ERROR("GPS Handler starting failed");
+            LSMessageReplyError(sh, message, LOCATION_START_FAILURE);
+            j_release(&parsedObj);
+            g_free(command);
+            return true;
+        }
+        LS_LOG_INFO("command = %s", command);
 
-    int err = handler_send_extra_command(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), command);
+        int err = handler_send_extra_command(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), command);
 
-    if (err == ERROR_NOT_AVAILABLE) {
-        LS_LOG_ERROR("Error in %s", command);
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
+        if (err == ERROR_NOT_AVAILABLE) {
+            LS_LOG_ERROR("Error in %s", command);
+            LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
+            handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
+            j_release(&parsedObj);
+            g_free(command);
+            return true;
+        }
+
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-        j_release(&parsedObj);
-        g_free(command);
-        return true;
     }
-
-    handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
 
     serviceObject = jobject_create();
 
@@ -1633,10 +1662,13 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
 
     if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
         errorCode = LOCATION_UNKNOWN_ERROR;
+        goto EXIT;
     }
 
-EXIT:
+    if (m_enableSuspendBlocker)
+        m_lifeCycleMonitor->setWakeLock(true);
 
+EXIT:
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
@@ -2026,7 +2058,6 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
     }
 
     if (enableHandlers(sel_handler, key, &startedHandlers) || (sel_handler == LocationService::GETLOC_UPDATE_PASSIVE)) {
-
         struct timeval tv;
         gettimeofday(&tv, (struct timezone *) NULL);
         long long reqTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
@@ -2103,15 +2134,21 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
                                           LSPalmServiceGetPrivateConnection(mServiceHandle));
 
         }
-
     } else {
         LS_LOG_ERROR("Unable to start handlers");
         errorCode = getConnectionErrorCode();
         goto EXIT;
     }
 
-EXIT:
+    if (m_enableSuspendBlocker) {
+        // To filter out passive requests
+        if ((startedHandlers & HANDLER_GPS_BIT) ||
+            (startedHandlers & HANDLER_WIFI_BIT) ||
+            (startedHandlers & HANDLER_CELLID_BIT))
+            m_lifeCycleMonitor->setWakeLock(true);
+    }
 
+EXIT:
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
@@ -3567,6 +3604,10 @@ void LocationService::stopSubcription(LSHandle *sh,const char *key)
         handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
 
     }
+    //No Requests release Wakelock
+    if (isLocationRequestEmpty()) {
+        m_lifeCycleMonitor->setWakeLock(false);
+    }
 
 }
 
@@ -3598,6 +3639,10 @@ void LocationService::stopNonSubcription(const char *key) {
                                      NULL, HANDLER_WIFI, NULL);
         handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
 
+    }
+    //No Requests release Wakelock
+    if (isLocationRequestEmpty()) {
+        m_lifeCycleMonitor->setWakeLock(false);
     }
 }
 

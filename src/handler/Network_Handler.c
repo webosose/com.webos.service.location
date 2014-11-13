@@ -237,7 +237,19 @@ static void nw_handler_start_tracking(Handler *self,
     LS_LOG_INFO("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);
 }
 
+static gboolean nw_handler_get_handler_status(Handler *self, int handlertype)
+{
+    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
+    int ret = 0;
 
+    g_return_val_if_fail(priv, 0);
+
+    // This should call cell id stop or Wifi stop
+    if (priv->handler_obj[handlertype] != NULL)
+        ret = handler_get_handler_status(HANDLER_INTERFACE(priv->handler_obj[handlertype]), handlertype);
+
+    return ret;
+}
 static void nw_handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handleobj, int handlertype,
         LSHandle *sh)
 {
@@ -350,6 +362,7 @@ static void nw_handler_interface_init(HandlerInterface *interface)
     interface->resume_geofence = (TYPE_RESUME_GEOFENCE) nw_handler_function_not_implemented;
     interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) nw_handler_function_not_implemented;
     interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) nw_handler_get_location_updates;
+    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) nw_handler_get_handler_status;
 }
 
 /**

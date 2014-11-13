@@ -122,6 +122,14 @@ static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 
     return ret;
 }
+
+gboolean lbs_handler_get_handler_status(Handler *self, int handler_type)
+{
+    LbsHandlerPrivate *priv = GET_PRIVATE(self);
+    g_return_val_if_fail(priv, 0);
+    return priv->is_started;
+}
+
 #ifndef NOMINATIUM_LBS
 void lbs_handler_rev_geocode_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type)
 {
@@ -329,6 +337,7 @@ static void lbs_handler_interface_init(HandlerInterface *interface)
     interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) lbs_handler_function_not_implemented;
     interface->resume_geofence = (TYPE_RESUME_GEOFENCE) lbs_handler_function_not_implemented;
     interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) lbs_handler_function_not_implemented;
+    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) lbs_handler_get_handler_status;
 }
 
 /**

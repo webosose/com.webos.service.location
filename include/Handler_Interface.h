@@ -56,6 +56,7 @@ typedef int (*TYPE_GET_TTFF)(Handler *self);
 typedef int (*TYPE_GET_SAT)(Handler *self, gboolean enable_satellite, SatelliteCallback sat_cb);
 typedef int (*TYPE_GET_NMEA)(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
 typedef int (*TYPE_SEND_EXTRA)(Handler *self , char *command);
+typedef gboolean (*TYPE_GET_HANDLER_STATUS)(Handler *self,int type);
 #ifdef NOMINATIUM_LBS
 typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, Position *pos, Accuracy *ac);
 typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, Address *address);
@@ -109,6 +110,7 @@ struct _HandlerInterface {
 #endif
 
     TYPE_GET_LOCATION_UPDATES get_location_updates;
+    TYPE_GET_HANDLER_STATUS get_handler_status;
 };
 
 /*
@@ -160,6 +162,7 @@ int handler_remove_geofence(Handler *self, gboolean enable, int32_t *geofence_id
 int handler_pause_geofence(Handler *self, gboolean enable, int32_t *geofence_id, GeofencePauseCallback pause_cb);
 
 int handler_resume_geofence(Handler *self, gboolean enable, int32_t *geofence_id, int *monitor_transitions, GeofenceResumeCallback resume_cb);
+gboolean handler_get_handler_status(Handler *self, int type);
 G_END_DECLS
 
 #endif /* _HANDLER_INTERFACE_H_ */

@@ -265,6 +265,12 @@ static void wifi_handler_start_tracking(Handler *self,
     LS_LOG_INFO("[DEBUG] return from wifi_handler_start_tracking , %d  \n", result);
 }
 
+gboolean wifi_handler_get_handler_status(Handler *self, int handler_type)
+{
+    WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
+    g_return_val_if_fail(priv, 0);
+    return priv->is_started;
+}
 
 static void wifi_handler_get_location_updates(Handler *self,
                                               gboolean enable,
@@ -381,6 +387,7 @@ static void wifi_handler_interface_init(HandlerInterface *interface)
     interface->start_tracking = (TYPE_START_TRACK) wifi_handler_start_tracking;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) wifi_handler_get_last_position;
     interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) wifi_handler_get_location_updates;
+    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) wifi_handler_get_handler_status;
 }
 
 static void wifi_handler_init(WifiHandler *self)

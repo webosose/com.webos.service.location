@@ -36,6 +36,7 @@
 #include <loc_log.h>
 #include <pbnjson.h>
 #include <sys/time.h>
+#include <LifeCycleMonitor.h>
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -211,6 +212,17 @@ public:
     bool init(GMainLoop *);
     bool locationServiceRegister(char *srvcname, GMainLoop *mainLoop, LSPalmService **mServiceHandle);
     static LocationService *getInstance();
+
+    bool isLocationRequestEmpty() {
+        bool ret = !(handler_get_handler_status(handler_array[HANDLER_NW], HANDLER_WIFI) ||
+                     handler_get_handler_status(handler_array[HANDLER_GPS], HANDLER_GPS) ||
+                     handler_get_handler_status(handler_array[HANDLER_NW], HANDLER_CELLID) ||
+                     handler_get_handler_status(handler_array[HANDLER_NW], HANDLER_LBS));
+
+        LS_LOG_INFO("isLocationRequestEmpty ret %d\n", ret);
+
+        return ret;
+    }
 
     // /**Callback called from Handlers********/
     static void wrapper_getNmeaData_cb(gboolean enable_cb, int64_t timestamp, char *nmea, int length, gpointer privateIns);
@@ -500,6 +512,9 @@ private:
         "transitionUncertain"   // GEOFENCE_TRANSITION_UNCERTAIN
     };
 
+    LifeCycleMonitor *m_lifeCycleMonitor;
+    bool m_enableSuspendBlocker;
+
     char nwGeolocationKey[MAX_API_KEY_LENGTH] = {0x00};
     char lbsGeocodeKey[MAX_API_KEY_LENGTH] = {0x00};
     LocationService();
@@ -509,7 +524,7 @@ private:
     bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
     bool get_nominatium_geocode(LSHandle *sh, LSMessage *message, void *data);
     bool get_nominatium_reverse_geocode(LSHandle *sh, LSMessage *message, void *data);
-    void LocationService::geocodeFreeAddress(Address *addr);
+    void geocodeFreeAddress(Address *addr);
     bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
     bool getGpsStatus(LSHandle *sh, LSMessage *message, void *data);
     bool getState(LSHandle *sh, LSMessage *message, void *data);

@@ -505,40 +505,18 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
     if (jis_null(serviceObject)) {
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmSrvHandle,
-                                                           key1,
-                                                           LSMessageGetErrorReply(LOCATION_OUT_OF_MEM),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmLgeSrvHandle,
                                                            key1,
                                                            LSMessageGetErrorReply(LOCATION_OUT_OF_MEM),
                                                            &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
+        LSERROR_CHECK_AND_PRINT(bRetVal);
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmSrvHandle,
-                                                           key2,
-                                                           LSMessageGetErrorReply(LOCATION_OUT_OF_MEM),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmLgeSrvHandle,
                                                            key2,
                                                            LSMessageGetErrorReply(LOCATION_OUT_OF_MEM),
                                                            &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
+        LSERROR_CHECK_AND_PRINT(bRetVal);
         return;
     }
 
@@ -551,43 +529,20 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
 
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmSrvHandle,
-                                                           key1,
-                                                           jvalue_tostring_simple(serviceObject),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmLgeSrvHandle,
                                                            key1,
                                                            jvalue_tostring_simple(serviceObject),
                                                            &mLSError);
 
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-
+        LSERROR_CHECK_AND_PRINT(bRetVal);
         /*reply to gps_nw subscription list*/
         bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmSrvHandle,
-                                                           key2,
-                                                           jvalue_tostring_simple(serviceObject),
-                                                           &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-        bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                            mpalmLgeSrvHandle,
                                                            key2,
                                                            jvalue_tostring_simple(serviceObject),
                                                            &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-
-
+        LSERROR_CHECK_AND_PRINT(bRetVal);
         //Store last lat and long
         mlastLat = pos->latitude;
         mlastLong = pos->longitude;
@@ -611,74 +566,47 @@ void LunaCriteriaCategoryHandler::startTrackingCriteriaBased_reply(Position *pos
         if (trackhandlerstate == 0) {
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
-                                                               GPS_CRITERIA_KEY,
-                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
-                                                               &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
-
-            bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                GPS_CRITERIA_KEY,
                                                                LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
+            LSERROR_CHECK_AND_PRINT(bRetVal);
 
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
-                                                               NW_CRITERIA_KEY,
-                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
-                                                               &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
-
-            bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                NW_CRITERIA_KEY,
                                                                LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
-
+            LSERROR_CHECK_AND_PRINT(bRetVal);
             /*reply to gps nw subscription list */
 
             bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmSrvHandle,
-                                                               GPS_NW_CRITERIA_KEY,
-                                                               LSMessageGetErrorReply(LOCATION_TIME_OUT),
-                                                               &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
-
-            bRetVal = LSSubscriptionNonSubMeetsCriteriaRespond(pos,
                                                                mpalmLgeSrvHandle,
                                                                GPS_NW_CRITERIA_KEY,
                                                                LSMessageGetErrorReply(LOCATION_TIME_OUT),
                                                                &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
+            LSERROR_CHECK_AND_PRINT(bRetVal);
         }
     }
-
     j_release(&serviceObject);
 }
 
 bool LunaCriteriaCategoryHandler::LSSubscriptionNonSubMeetsCriteriaRespond(Position *pos,
                                                                            LSPalmService *psh,
+                                                                           LSPalmService *psh_lge,
                                                                            const char *key,
                                                                            const char *payload,
                                                                            LSError *lserror)
 {
     LSHandle *public_bus = LSPalmServiceGetPublicConnection(psh);
     LSHandle *private_bus = LSPalmServiceGetPrivateConnection(psh);
-    bool retVal = LSSubscriptionNonMeetsCriteriaReply(pos, public_bus, key, payload, lserror);
+    LSHandle *public_bus_lge = LSPalmServiceGetPublicConnection(psh_lge);
+    LSHandle *private_bus_lge  = LSPalmServiceGetPrivateConnection(psh_lge);
+    bool retVal;
+
+    retVal = LSSubscriptionNonMeetsCriteriaReply(pos, public_bus, key, payload, lserror);
 
     if (retVal == false)
         return retVal;
@@ -687,6 +615,18 @@ bool LunaCriteriaCategoryHandler::LSSubscriptionNonSubMeetsCriteriaRespond(Posit
 
     if (retVal == false)
         return retVal;
+
+    retVal = LSSubscriptionNonMeetsCriteriaReply(pos, public_bus_lge, key, payload, lserror);
+
+    if (retVal == false)
+        return retVal;
+
+
+    retVal = LSSubscriptionNonMeetsCriteriaReply(pos, private_bus_lge, key, payload, lserror);
+
+    if (retVal == false)
+        return retVal;
+
 }
 
 bool LunaCriteriaCategoryHandler::LSSubscriptionNonMeetsCriteriaReply(Position *pos,
@@ -808,77 +748,6 @@ bool LunaCriteriaCategoryHandler::LSMessageReplyCriteria(LSMessage *msg,
         LSSubscriptionRemove(iter);
 
     return retVal;
-}
-
-/* Vincenty formula. WGS-84 */
-//minDistance(minDistance,pos->latitude,pos->latitude,mlastLat,mlastLong)
-bool LunaCriteriaCategoryHandler::minDistance(int minimumDistance, double latitude1, double longitude1, double latitude2 , double longitude2)
-{
-    double lambdaP, iter_limit = 100.0;
-    double sin_sigma, sin_alpha, cos_sigma, sigma,  sq_cos_alpha, cos_2sigma, C;
-    double sq_u, cal1, cal2, delta_sigma, cal_dist;
-    double sin_lambda, cos_lambda;
-
-    const double a = 6378137.0, b = 6356752.314245,  f = 1 / 298.257223563;
-    double delta_lon = ((longitude2 - longitude1) * MATH_PI / 180);
-    double u_1 = atan((1 - f) * tan((latitude1) * MATH_PI / 180));
-    double u_2 = atan((1 - f) * tan((latitude2) * MATH_PI / 180));
-
-    double lambda = delta_lon;
-    double sin_u1 = sin(u_1);
-    double cos_u1 = cos(u_1);
-    double sin_u2 = sin(u_2);
-    double cos_u2 = cos(u_2);
-
-    LS_LOG_DEBUG("latitude1 = %f longitude1 = %f latitude2 = %f longitude2 = %f",latitude1,longitude1,latitude2,longitude2);
-    do {
-        sin_lambda = sin(lambda);
-        cos_lambda = cos(lambda);
-        sin_sigma = sqrt((cos_u2 * sin_lambda) * (cos_u2 * sin_lambda) + \
-                         (cos_u1 * sin_u2 - sin_u1 * cos_u2 * cos_lambda) * \
-                         (cos_u1 * sin_u2 - sin_u1 * cos_u2 * cos_lambda));
-
-        if (sin_sigma == 0) {
-            LS_LOG_DEBUG("co-incident points");
-            return false;  // co-incident points
-        }
-
-        cos_sigma = sin_u1 * sin_u2 + cos_u1 * cos_u2 * cos_lambda;
-        sigma = atan2(sin_sigma, cos_sigma);
-        sin_alpha = cos_u1 * cos_u2 * sin_lambda / sin_sigma;
-        sq_cos_alpha = 1.0 - sin_alpha * sin_alpha;
-        cos_2sigma = cos_sigma - 2.0 * sin_u1 * sin_u2 / sq_cos_alpha;
-
-        if (isnan(cos_2sigma))
-            cos_2sigma = 0;
-
-        C = f / 16.0 * sq_cos_alpha * (4.0 + f * (4.0 - 3.0 * sq_cos_alpha));
-        lambdaP = lambda;
-        lambda = delta_lon + (1.0 - C) * f * sin_alpha * \
-                 (sigma + C * sin_sigma * (cos_2sigma + C * cos_sigma * (-1.0 + 2.0 * cos_2sigma * cos_2sigma)));
-    } while (abs(lambda - lambdaP) > 1e-12 && --iter_limit > 0);
-
-    if (iter_limit == 0)
-    {
-       LS_LOG_DEBUG("iter_limit");
-       return false;
-    }
-
-    sq_u = sq_cos_alpha * (a * a - b * b) / (b * b);
-    cal1 = 1.0 + sq_u / 16384.0 * (4096.0 + sq_u * (-768.0 + sq_u * (320.0 - 175.0 * sq_u)));
-    cal2 = sq_u / 1024.0 * (256.0 + sq_u * (-128.0 + sq_u * (74.0 - 47.0 * sq_u)));
-    delta_sigma = cal2 * sin_sigma * (cos_2sigma + cal2 / 4.0 * (cos_sigma * (-1.0 + 2.0 * cos_2sigma * cos_2sigma) - \
-                                      cal2 / 6.0 * cos_2sigma * (-3.0 + 4.0 * sin_sigma * sin_sigma) * (-3.0 + 4.0 * cos_2sigma * cos_2sigma)));
-    cal_dist = b * cal1 * (sigma - delta_sigma);
-
-    LS_LOG_DEBUG("Cal_distance = %f minimumDistance = %d",cal_dist, minimumDistance);
-
-    if (cal_dist >= minimumDistance) {
-        LS_LOG_DEBUG("Meets Minimum Distance creteria");
-        return true;
-    }
-    LS_LOG_DEBUG("Fails to meet Minimum Distance creteria");
-    return false;
 }
 
 bool LunaCriteriaCategoryHandler::getLocationCriteriaHandlerDetails(LSHandle *sh, LSMessage *message)
@@ -1049,7 +918,7 @@ bool LunaCriteriaCategoryHandler::meetsCriteria(LSMessage *msg,
                     double lastLat = it->get()->getLatitude();
                     double lastLong = it->get()->getLongitude();
 
-                    if (isFirst || minDistance(minDist, pos->latitude, pos->longitude, lastLat, lastLong)){
+                    if (isFirst || LocationService::getInstance()->minDistance(minDist, pos->latitude, pos->longitude, lastLat, lastLong)){
                         LS_LOG_DEBUG("Minimum Distance meets criteria");
                         it->get()->updateLatAndLong(pos->latitude,pos->longitude);
                         return true;

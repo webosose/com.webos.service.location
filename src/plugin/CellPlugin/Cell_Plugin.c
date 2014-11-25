@@ -56,7 +56,7 @@ typedef struct {
 #define LGE_CELL_SERVICE_NAME "org.freedesktop.Geoclue.Providers.LgeCellService"
 #define LGE_CELL_SERVICE_PATH "/org/freedesktop/Geoclue/Providers/LgeCellService"
 
-static void position_cb(GeocluePosition *position,
+static void cell_position_cb(GeocluePosition *position,
                         GeocluePositionFields fields,
                         int64_t timestamp,
                         double latitude,
@@ -137,7 +137,7 @@ static void position_cb_async(GeocluePosition *position,
         g_error_free(error);
         (*plugin_data->pos_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, plugin_data->userdata, HANDLER_CELLID);
     } else {
-        position_cb(position, fields, timestamp, latitude, longitude, altitude, accuracy, userdata);
+        cell_position_cb(position, fields, timestamp, latitude, longitude, altitude, accuracy, userdata);
     }
 }
 
@@ -155,7 +155,7 @@ static void position_cb_async(GeocluePosition *position,
  * @param     <self> <In> <userdata userdata cellplugin instance>
  * @return    void
  */
-static void position_cb(GeocluePosition *position,
+static void cell_position_cb(GeocluePosition *position,
                         GeocluePositionFields fields,
                         int64_t timestamp,
                         double latitude,
@@ -305,7 +305,7 @@ static void unreference_geoclue(GeoclueCell *geoclueCell)
 {
     if (geoclueCell->geoclue_pos) {
         g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)),
-                                             G_CALLBACK(position_cb),
+                                             G_CALLBACK(cell_position_cb),
                                              geoclueCell);
         g_object_unref(geoclueCell->geoclue_pos);
         geoclueCell->geoclue_pos = NULL;

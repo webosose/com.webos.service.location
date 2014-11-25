@@ -487,7 +487,7 @@ static int  set_gps_parameters(gpointer handle , char *command){
  * @param     <Accuracy> <In> <Accuracy info>
  * @return    int
  */
-static int get_position(gpointer handle, PositionCallback positionCB)
+static int get_gps_position(gpointer handle, PositionCallback positionCB)
 {
     GeoclueGps *geoclueGps = (GeoclueGps *) handle;
 
@@ -899,7 +899,7 @@ EXPORT_API gpointer init(GpsPluginOps *ops)
     LS_LOG_INFO("[DEBUG]gps plugin init\n");
     ops->start = start;
     ops->stop = stop;
-    ops->get_position = get_position;
+    ops->get_position = get_gps_position;
     ops->get_gps_data = get_gps_data;
     ops->send_extra_command = send_extra_command;
     ops->set_gps_parameters = set_gps_parameters;

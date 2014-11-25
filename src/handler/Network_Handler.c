@@ -32,19 +32,15 @@
 #include <Plugin_Loader.h>
 #include <LocationService_Log.h>
 #include <Location.h>
-
-typedef struct _NwHandlerPrivate {
+typedef struct _NwHandlerPrivate NwHandlerPrivate;
+struct _NwHandlerPrivate {
     HandlerObject *handler_obj[MAX_HANDLER_TYPE];
     PositionCallback pos_cb_arr[MAX_HANDLER_TYPE];
     PositionCallback nw_cb_arr[MAX_HANDLER_TYPE];
     StartTrackingCallBack track_cb;
     StartTrackingCallBack track_criteria_cb;
     StartTrackingCallBack track_get_loc_update_cb;
-
-
-} NwHandlerPrivate;
-
-
+};
 static void nw_handler_interface_init(HandlerInterface *interface);
 
 G_DEFINE_TYPE_WITH_CODE(NwHandler, nw_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, nw_handler_interface_init));

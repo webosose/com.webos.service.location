@@ -94,6 +94,18 @@ struct _Satellite {
     SatelliteInfo *sat_used;
 };
 
+struct _Address {
+    gchar *freeformaddr;
+    gchar *locality;
+    gchar *region;
+    gchar *country;
+    gchar *countrycode;
+    gchar *area;
+    gchar *street;
+    gchar *postcode;
+    gboolean freeform;
+};
+
 Position *position_create(gint64 timestamp,
                           gdouble latitude,
                           gdouble longitude,

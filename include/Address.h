@@ -28,17 +28,6 @@
 #include <glib-object.h>
 #include <Position.h>
 G_BEGIN_DECLS
-struct _Address {
-    gchar *freeformaddr;
-    gchar *locality;
-    gchar *region;
-    gchar *country;
-    gchar *countrycode;
-    gchar *area;
-    gchar *street;
-    gchar *postcode;
-    gboolean freeform;
-};
 
 Address *address_create(const gchar *street, const gchar *locality, const gchar *area, const gchar *region,
                         const gchar *country,

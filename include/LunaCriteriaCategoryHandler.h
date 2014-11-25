@@ -62,6 +62,7 @@ public:
     void startTrackingCriteriaBased_reply(Position *pos, Accuracy *accuracy, int error, int type);
     bool LSSubscriptionNonSubMeetsCriteriaRespond(Position *pos,
                                                   LSPalmService *psh,
+                                                  LSPalmService *lgepsh,
                                                   const char *key,
                                                   const char *payload,
                                                   LSError *lserror);

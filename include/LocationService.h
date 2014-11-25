@@ -571,6 +571,9 @@ private:
     bool startTracking(LSHandle *sh, LSMessage *message, void *data);
     bool getReverseLocation(LSHandle *sh, LSMessage *message, void *data);
     bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
+    bool get_nominatium_geocode(LSHandle *sh, LSMessage *message, void *data);
+    bool get_nominatium_reverse_geocode(LSHandle *sh, LSMessage *message, void *data);
+    void LocationService::geocodeFreeAddress(Address *addr);
     bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
     bool getGpsStatus(LSHandle *sh, LSMessage *message, void *data);
     bool getState(LSHandle *sh, LSMessage *message, void *data);
@@ -618,6 +621,14 @@ private:
     void criteriaStopSubscription(LSHandle *sh, LSMessage *message);
     int getHandlerVal(char *handlerName);
     Position comparePositionTimeStamps(Position pos1, Position pos2, Position pos3, Accuracy acc1, Accuracy acc2, Accuracy acc3, Accuracy *retAcc);
+    int getConnectionErrorCode();
+    void replyHandlerState(HandlerTypes handler, bool state, char *subscription_key, jvalue_ref *serviceObject, jvalue_ref *getAllLocationHandlersReplyObject);
+    void reqHandlerTracking(unsigned char *startedHandlers, unsigned char *trackhandlerstate, HanlderRequestType handler_bit, HandlerTypes handler_type,
+                            HandlerTypes subHandlerType, pthread_mutex_t *plock);
+    void getAddressNominatiumData(jvalue_ref *serviceObject, Address *address);
+    bool getNominatiumReverseGeocode(LSHandle *sh, LSMessage *message, void *data);
+    void getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos_data, Position *pos);
+    bool getNominatiumGeocode(LSHandle *sh, LSMessage *message, void *data);
 
 };
 

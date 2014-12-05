@@ -11,7 +11,6 @@ set(SRC
         ${PROJECT_SOURCE_DIR}/ServiceAgent/ConnectionStateObserver.cpp
         ${PROJECT_SOURCE_DIR}/ServiceAgent/JsonUtility.c
         ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaLocationServiceUtil.cpp
-        ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaCriteriaCategoryHandler.cpp
         Gps_Handler.c
         Wifi_Handler.c
         Handler_Interface.c

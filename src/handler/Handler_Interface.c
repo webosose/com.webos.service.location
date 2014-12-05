@@ -111,25 +111,6 @@ void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBac
 }
 
 /**
-/**
- * <Funciton>       handler_start_tracking
- * <Description>    Continous position updates
- * @param           <self> <In> <Handler GObject>
- * @param           <enable> <In> <true : enabel tracking, false : disable tracking, callback not required in false case>
- * @param           <track_cb> <In> <callback function to get result>
- * @return          void
- */
-void handler_start_tracking_criteria(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
-{
-    g_return_if_fail(HANDLER_IS_INTERFACE(self));
-    g_return_if_fail(track_cb);
-    g_return_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking_criteria);
-    LS_LOG_DEBUG("handler_start_tracking_criteria\n");
-    HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking_criteria(self, enable, track_cb, handlerobj, handlertype, sh);
-}
-
-
-/**
  * <Funciton>       handler_start_tracking
  * <Description>    Continous position updates
  * @param           <self> <In> <Handler GObject>

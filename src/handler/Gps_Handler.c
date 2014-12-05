@@ -43,7 +43,6 @@ typedef struct _GpsHandlerPrivate {
 
     NmeaCallback nmea_cb;
     StartTrackingCallBack track_cb;
-    StartTrackingCallBack track_criteria_cb;
     GeofenceAddCallBack add_cb;
     GeofenceResumeCallback resume_cb;
     GeofencePauseCallback pause_cb;
@@ -85,9 +84,6 @@ static gboolean gps_timeout_cb(gpointer user_data)
 
     if (priv->track_cb)
         (*priv->track_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
-
-    if (priv->track_criteria_cb)
-        (*priv->track_criteria_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
 
     if (priv->loc_update_cb)
          (*priv->loc_update_cb)(TRUE, position, accuracy, ERROR_TIMEOUT, priv, HANDLER_GPS);
@@ -195,9 +191,6 @@ void gps_handler_tracking_cb(gboolean enable_cb,
 
     if (priv->track_cb != NULL)
         (*priv->track_cb)(enable_cb, position, accuracy, error, user_data, type);
-
-    if (priv->track_criteria_cb != NULL)
-        (*priv->track_criteria_cb)(enable_cb, position, accuracy, error, user_data, type);
 
     if (priv->loc_update_cb != NULL)
         (*priv->loc_update_cb)(enable_cb, position, accuracy, error, user_data, type);
@@ -557,8 +550,7 @@ static void gps_handler_start_tracking(Handler *self,
 
         priv->track_cb = track_cb;
         LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_cb %d\n", priv->track_cb);
-        if ((!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON)) &&
-            (!(priv->api_progress_flag & LOCATION_UPDATES_ON))) {
+        if ((!(priv->api_progress_flag & LOCATION_UPDATES_ON))) {
 
             result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler,
                                                         enable,
@@ -577,8 +569,7 @@ static void gps_handler_start_tracking(Handler *self,
         priv->api_progress_flag |= START_TRACKING_ON;
 
     } else {
-        if ((!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON) ) &&
-            (!(priv->api_progress_flag & LOCATION_UPDATES_ON) )) {
+        if ((!(priv->api_progress_flag & LOCATION_UPDATES_ON) )) {
 
             if (priv->pos_timer) {
                g_source_remove(priv->pos_timer);
@@ -597,65 +588,6 @@ static void gps_handler_start_tracking(Handler *self,
         LS_LOG_DEBUG("gps_handler_start_tracking Clearing bit\n");
     }
 }
-
-static void gps_handler_start_tracking_criteria(Handler *self,
-                                                gboolean enable,
-                                                StartTrackingCallBack track_cb,
-                                                gpointer handlerobj,
-                                                int handlertype,
-                                                LSHandle *sh)
-{
-    LS_LOG_INFO("GPS handler start Tracking criteria called\n");
-    int result = ERROR_NONE;
-    GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
-
-    if ((priv == NULL)) {
-        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_GPS);
-        return;
-    }
-
-
-    if ((enable == TRUE)&& (priv->api_progress_flag & START_TRACKING_CRITERIA_ON))
-        return;
-
-
-    if (enable) {
-
-        priv->track_criteria_cb = track_cb;
-        LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_criteria_cb %d\n", priv->track_criteria_cb);
-
-        if ((!(priv->api_progress_flag & START_TRACKING_ON)) &&
-            (!(priv->api_progress_flag & LOCATION_UPDATES_ON))){
-
-            result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
-
-            if (result == ERROR_NONE) {
-                if (!priv->pos_timer)
-                   priv->pos_timer = g_timeout_add_seconds(GPS_UPDATE_INTERVAL_MAX, gps_timeout_cb, self);
-        } else {
-            track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, HANDLER_GPS);
-        }
-
-        }
-        priv->api_progress_flag |= START_TRACKING_CRITERIA_ON;
-
-    } else {
-        if ((!(priv->api_progress_flag & START_TRACKING_ON)) &&
-            (!(priv->api_progress_flag & LOCATION_UPDATES_ON))) {
-
-            if (priv->pos_timer) {
-                g_source_remove(priv->pos_timer);
-                priv->pos_timer = 0;
-            }
-            priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
-        }
-
-        priv->track_criteria_cb = NULL;
-        priv->api_progress_flag &= ~START_TRACKING_CRITERIA_ON;
-        LS_LOG_DEBUG("gps_handler_start_tracking_criteria Clearing bit\n");
-    }
-}
-
 
 static void gps_handler_get_location_updates(Handler *self,
                                                 gboolean enable,
@@ -681,10 +613,9 @@ static void gps_handler_get_location_updates(Handler *self,
     if (enable) {
 
         priv->loc_update_cb = loc_update_cb;
-        LS_LOG_DEBUG("gps_handler_get_location_updates: priv->track_criteria_cb %d\n", priv->loc_update_cb);
+        LS_LOG_DEBUG("gps_handler_get_location_updates: priv->loc_update_cb %d\n", priv->loc_update_cb);
 
-        if ((!(priv->api_progress_flag & START_TRACKING_ON) ) &&
-            (!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON))){
+        if ((!(priv->api_progress_flag & START_TRACKING_ON) )){
             result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
 
             if (result == ERROR_NONE) {
@@ -698,8 +629,7 @@ static void gps_handler_get_location_updates(Handler *self,
         priv->api_progress_flag |= LOCATION_UPDATES_ON;
 
     } else {
-        if  ((!(priv->api_progress_flag & START_TRACKING_ON)) &&
-             (!(priv->api_progress_flag & START_TRACKING_CRITERIA_ON))) {
+        if  ((!(priv->api_progress_flag & START_TRACKING_ON))) {
 
             if (priv->pos_timer) {
                 g_source_remove(priv->pos_timer);
@@ -965,7 +895,6 @@ static void handler_interface_init(HandlerInterface *iface)
 #endif
     iface->get_gps_status = (TYPE_GET_GPS_STATUS) gps_handler_get_gps_status;
     iface->set_gps_params = (TYPE_SET_GPS_PARAMETERS) gps_handler_set_gps_parameters;
-    iface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) gps_handler_start_tracking_criteria;
     iface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) gps_handler_add_geofence_area;
     iface->remove_geofence = (TYPE_REMOVE_GEOFENCE) gps_handler_remove_geofence;
     iface->resume_geofence = (TYPE_RESUME_GEOFENCE) gps_handler_resume_geofence;

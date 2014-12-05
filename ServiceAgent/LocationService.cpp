@@ -46,8 +46,6 @@ using namespace std;
  */
 LSMethod LocationService::rootMethod[] = {
     { "getNmeaData", LocationService::_getNmeaData },
-    { "getCurrentPosition",LocationService::_getCurrentPosition },
-    { "startTracking", LocationService::_startTracking },
     { "getReverseLocation",LocationService::_getReverseLocation },
     { "getGeoCodeLocation",LocationService::_getGeoCodeLocation },
     { "getAllLocationHandlers", LocationService::_getAllLocationHandlers },
@@ -146,26 +144,12 @@ bool LocationService::init(GMainLoop *mainLoop)
     mNwStatus = loadHandlerStatus(NETWORK);
 
     if (pthread_mutex_init(&lbs_geocode_lock, NULL) ||  pthread_mutex_init(&lbs_reverse_lock, NULL)
-        || pthread_mutex_init(&track_lock, NULL) || pthread_mutex_init(&pos_lock, NULL)
         || pthread_mutex_init(&nmea_lock, NULL) || pthread_mutex_init(&sat_lock, NULL)
-        || pthread_mutex_init(&track_wifi_lock, NULL) || pthread_mutex_init(&track_cell_lock, NULL)
-        || pthread_mutex_init(&pos_nw_lock, NULL) || pthread_mutex_init(&geofence_add_lock, NULL)
-        || pthread_mutex_init(&geofence_pause_lock, NULL) || pthread_mutex_init(&geofence_remove_lock, NULL)
-        || pthread_mutex_init(&geofence_resume_lock, NULL)){
+        || pthread_mutex_init(&geofence_add_lock, NULL) || pthread_mutex_init(&geofence_pause_lock, NULL)
+        || pthread_mutex_init(&geofence_remove_lock, NULL) || pthread_mutex_init(&geofence_resume_lock, NULL)) {
         return false;
     }
 
-    criteriaCatSvrc = NULL;
-    criteriaCatSvrc = LunaCriteriaCategoryHandler::getInstance();
-
-    if (criteriaCatSvrc == NULL) {
-        LS_LOG_ERROR("criteriaCatSvrc is NULL");
-        return false;
-    }
-
-    LS_LOG_DEBUG("handler_array[HANDLER_GPS] = %u",handler_array[HANDLER_GPS]);
-
-    criteriaCatSvrc->init(mServiceHandle, mlgeServiceHandle, handler_array);
     LS_LOG_INFO("Successfully LocationService object initialized");
     if (LSMessageInitErrorReply() == false) {
         return false;
@@ -227,10 +211,6 @@ LocationService::~LocationService()
     // If only GetCurrentPosition is called and if service is killed then we need to free the memory allocated for handler.
     bool ret;
 
-    if (m_reqlist.empty() == false) {
-        m_reqlist.clear();
-    }
-
     if (handler_array[HANDLER_GPS])
        g_object_unref(handler_array[HANDLER_GPS]);
 
@@ -247,13 +227,10 @@ LocationService::~LocationService()
         htPseudoGeofence = NULL;
     }
 
-    if (pthread_mutex_destroy(&lbs_geocode_lock)
-        || pthread_mutex_destroy(&lbs_reverse_lock)|| pthread_mutex_destroy(&track_lock)
-        || pthread_mutex_destroy(&pos_lock) || pthread_mutex_destroy(&nmea_lock)
-        || pthread_mutex_destroy(&sat_lock) || pthread_mutex_destroy(&track_wifi_lock)
-        || pthread_mutex_destroy(&track_cell_lock) || pthread_mutex_destroy(&pos_nw_lock)
-        || pthread_mutex_destroy(&geofence_add_lock) ||  pthread_mutex_destroy(&geofence_pause_lock)
-        ||  pthread_mutex_destroy(&geofence_remove_lock) ||  pthread_mutex_destroy(&geofence_resume_lock))
+    if (pthread_mutex_destroy(&lbs_geocode_lock)|| pthread_mutex_destroy(&lbs_reverse_lock)
+     || pthread_mutex_destroy(&nmea_lock) || pthread_mutex_destroy(&sat_lock)
+     || pthread_mutex_destroy(&geofence_add_lock) || pthread_mutex_destroy(&geofence_pause_lock)
+        || pthread_mutex_destroy(&geofence_remove_lock) || pthread_mutex_destroy(&geofence_resume_lock))
     {
         LS_LOG_DEBUG("Could not destroy mutex &map->lock");
     }
@@ -352,358 +329,6 @@ EXIT:
     return true;
 }
 
-/**
- * <Funciton >   getCurrentPosition
- * <Description>  gets the location from handler
- * @param     LunaService handle
- * @param     LunaService message
- * @param     user data
- * @return    bool, if successful return true else false
- */
-bool LocationService::getCurrentPosition(LSHandle *sh, LSMessage *message, void *data)
-{
-    LS_LOG_INFO("======getCurrentPosition=======");
-    LSMessageRef(message);
-    int accuracyLevel = 0;
-    int responseTimeLevel = 0;
-    int maximumAge = 0;
-    unsigned char reqHandlerType = 0;
-    TimerData *timerdata = NULL;
-    Request *request = NULL;
-    LSError mLSError;
-    bool isGpsReqSucess = false, isCellIdReqSucess = false, isWifiReqSucess = false;
-    bool bRetVal = false;
-    bool mboolmaximumAge = false;
-    //HandlerStatus handlerStatus;
-    unsigned char handlerStatus = 0;
-    LocationErrorCode errorCode = LOCATION_SUCCESS;
-    jvalue_ref serviceObject = NULL;
-    jvalue_ref maximumAgeObj = NULL;
-    jvalue_ref parsedObj = NULL;
-
-    LSErrorInit(&mLSError);
-
-    if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_CURRENT_POSITION, &parsedObj)) {
-        LS_LOG_ERROR("Schema Error in getCurrentPosition");
-        return true;
-    }
-
-    serviceObject = jobject_create();
-
-    if (jis_null(serviceObject)) {
-        LSMessageReplyError(sh, message, LOCATION_OUT_OF_MEM);
-        return true;
-    }
-
-    //TODO check posistion data with maximum age in cache
-    if (handler_Selection(sh, message, data, &accuracyLevel, &responseTimeLevel, &handlerStatus, parsedObj) == false) {
-        errorCode = LOCATION_INVALID_INPUT;
-        goto EXIT;
-    }
-
-    //check in cache first if maximumAge is -1
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("maximumAge"), &maximumAgeObj)) {
-        mboolmaximumAge=true;
-        jnumber_get_i32(maximumAgeObj,&maximumAge);
-    }
-
-    if (mboolmaximumAge && maximumAge != READ_FROM_CACHE) {
-        LS_LOG_DEBUG("maximumAge= %d", maximumAge);
-        bRetVal = readLocationfromCache(sh, message, serviceObject, maximumAge, accuracyLevel, handlerStatus);
-
-        if (bRetVal == true) {
-            return true;
-        }
-    }
-
-    //Before selecting Handler check all handlers disabled from settings then throw LocationServiceOFF error
-    if ((getHandlerStatus(GPS) == HANDLER_STATE_DISABLED) && (getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
-        LS_LOG_ERROR("Both handler are OFF\n");
-        errorCode = LOCATION_LOCATION_OFF;
-        goto EXIT;
-    }
-
-    //Only wifi request, check wifistate
-    if (!(handlerStatus & HANDLER_GPS_BIT) && (handlerStatus & HANDLER_WIFI_BIT) && !(handlerStatus & HANDLER_CELLID_BIT) && wifistate == false) {
-        LS_LOG_ERROR("wifi disabled");
-        errorCode = LOCATION_WIFI_CONNECTION_OFF;
-        // data connection off throw error.
-        goto EXIT;
-    }
-
-    //Only wifi or cellid request, check dataconnection state
-    if (!(handlerStatus & HANDLER_GPS_BIT) && ((handlerStatus & HANDLER_WIFI_BIT) || (handlerStatus & HANDLER_CELLID_BIT))
-        && (isInternetConnectionAvailable == false && isWifiInternetAvailable == false)) {
-        LS_LOG_ERROR("No Internet Connection");
-        errorCode = LOCATION_DATA_CONNECTION_OFF;
-        // data connection off throw error.
-        goto EXIT;
-    }
-
-    /*Handler GPS*/
-    if ((handlerStatus & HANDLER_GPS_BIT) && getHandlerStatus(GPS)) {
-        LOCATION_ASSERT(pthread_mutex_lock(&pos_lock) == 0);
-        isGpsReqSucess = reqLocationToHandler(HANDLER_GPS, &reqHandlerType, HANDLER_GPS, sh, NULL);
-        LOCATION_ASSERT(pthread_mutex_unlock(&pos_lock) == 0);
-    }
-
-    /*Handler WIFI*/
-    if ((handlerStatus & HANDLER_WIFI_BIT) && getHandlerStatus(NETWORK) && (wifistate) && (isInternetConnectionAvailable || isWifiInternetAvailable)) {
-        LOCATION_ASSERT(pthread_mutex_lock(&pos_nw_lock) == 0);
-        isWifiReqSucess = reqLocationToHandler(HANDLER_NW, &reqHandlerType, HANDLER_WIFI, sh, nwGeolocationKey);
-        LOCATION_ASSERT(pthread_mutex_unlock(&pos_nw_lock) == 0);
-    }
-
-    //NETWORK HANDLER start and make request of type cellid
-
-    /*Handler CELL-ID*/
-    if ((handlerStatus & HANDLER_CELLID_BIT) && getHandlerStatus(NETWORK) && (isTelephonyAvailable && (isInternetConnectionAvailable || isWifiInternetAvailable))) {
-        LOCATION_ASSERT(pthread_mutex_lock(&pos_nw_lock) == 0);
-        isCellIdReqSucess = reqLocationToHandler(HANDLER_NW, &reqHandlerType, HANDLER_CELLID, sh, nwGeolocationKey);
-        LOCATION_ASSERT(pthread_mutex_unlock(&pos_nw_lock) == 0);
-    }
-
-    if ((isGpsReqSucess == false) && (isWifiReqSucess == false) && (isCellIdReqSucess == false)) {
-        LS_LOG_ERROR("No handlers started");
-        errorCode = LOCATION_LOCATION_OFF;
-        goto EXIT;
-    } else {
-        //Start Timer
-        int timeinSec = 0;
-        int responseTime = 0;
-        guint timerID = 0;
-
-        responseTime = convertResponseTimeFromLevel(accuracyLevel, responseTimeLevel);
-        timeinSec = responseTime / TIME_SCALE_SEC;
-        timerdata = new(std::nothrow) TimerData(message, sh, reqHandlerType, NULL);
-
-        if (timerdata == NULL) {
-            LS_LOG_ERROR("timerdata null Out of memory");
-            errorCode = LOCATION_OUT_OF_MEM;
-            goto EXIT;
-        }
-
-        timerID = g_timeout_add_seconds(timeinSec, &TimerCallback, timerdata);
-        LS_LOG_DEBUG("Add to Requestlist handlerType=%x timerID=%d", reqHandlerType, timerID);
-        //Add to Requestlist
-        request = new(std::nothrow) Request(message, sh, timerID, reqHandlerType, timerdata);
-
-        if (request == NULL) {
-            LS_LOG_ERROR("req null Out of memory");
-            errorCode = LOCATION_OUT_OF_MEM;
-            goto EXIT;
-        }
-
-        boost::shared_ptr<Request> req(request);
-        m_reqlist.push_back(req);
-        LS_LOG_DEBUG("message=%p sh=%p", message, sh);
-        LS_LOG_INFO("Handler Started are gpsHandlerStarted=%d,wifiHandlerStarted=%d,cellidHandlerStarted=%d", isGpsReqSucess, isWifiReqSucess,
-                    isCellIdReqSucess);
-    }
-
-EXIT:
-
-        if (!jis_null(parsedObj))
-            j_release(&parsedObj);
-
-        if (!jis_null(serviceObject))
-            j_release(&serviceObject);
-
-        if (errorCode != LOCATION_SUCCESS) {
-            LSMessageReplyError(sh, message, errorCode);
-            LSMessageUnref(message);
-        }
-
-        return true;
-}
-
-bool LocationService::reqLocationToHandler(int handler_type,
-                                           unsigned char *reqHandlerType,
-                                           int subHandlerType,
-                                           LSHandle *sh,
-                                           const char *key)
-{
-    int ret;
-    LS_LOG_DEBUG("reqLocationToHandler handler_type %d subHandlerType %d", handler_type, subHandlerType);
-    ret = handler_start(HANDLER_INTERFACE(handler_array[handler_type]), subHandlerType, key);
-
-    if (ret != ERROR_NONE) {
-        LS_LOG_ERROR("Failed to start handler errorcode %d", ret);
-        return false;
-    } else {
-        //LS_LOG_DEBUG("%s handler started successfully",handlerNames[subHandlerType]);
-        ret = handler_get_position(HANDLER_INTERFACE(handler_array[handler_type]), START, wrapper_getCurrentPosition_cb, NULL, subHandlerType, sh);
-
-        if (ret == ERROR_NOT_AVAILABLE) {
-            LS_LOG_ERROR("getCurrentPosition failed errorcode %d", ret);
-            handler_get_position(HANDLER_INTERFACE(handler_array[handler_type]), STOP, wrapper_getCurrentPosition_cb, NULL, subHandlerType, sh);
-            handler_stop(HANDLER_INTERFACE(handler_array[handler_type]), subHandlerType, false);
-            return false;
-        }
-
-        *reqHandlerType |= REQ_HANDLER_TYPE(subHandlerType);
-        return true;
-    }
-}
-
-int convertAccuracyLeveltoAccuracy(int accuracylevel)
-{
-    int accuracy;
-
-    switch (accuracylevel) {
-        case ACCURACY_LEVEL_LOW :     //read from cellid
-            accuracy = 2000;
-            break;
-
-        case ACCURACY_LEVEL_MEDIUM:   //read from wifi
-            accuracy = 500;
-            break;
-
-        case ACCURACY_LEVEL_HIGH :    //read from gps
-            accuracy = 100;
-            break;
-
-        default:
-            accuracy = 2000;
-    }
-
-    return accuracy;
-}
-
-/**
- * <Funciton >   readLocationfromCache
- * <Description>  gets the location from cache
- * @param     LunaService handle
- * @param     LunaService message
- * @param     json_object serviceObject
- * @param     int maxAge
- * @param     HandlerStatus handlerstatus
- * @return    bool, if successful return true else false
- */
-bool LocationService::readLocationfromCache(LSHandle *sh,
-                                            LSMessage *message,
-                                            jvalue_ref serviceObject,
-                                            int maxAge,
-                                            int accuracylevel,
-                                            unsigned char handlerstatus)
-{
-    LS_LOG_INFO("=======readLocationfromCache=======");
-    bool gpsCacheSuccess = false;
-    bool wifiCacheSuccess = false;
-    bool cellCacheSucess = false;
-    bool bRetVal;
-    Position pos;
-    Accuracy acc;
-    Position gpspos;
-    Accuracy gpsacc;
-    Position wifipos;
-    Accuracy wifiacc;
-    Position cellidpos;
-    Accuracy cellidacc;
-    LSError mLSError;
-
-    LSErrorInit(&mLSError);
-
-    memset(&gpspos, 0, sizeof(Position));
-    memset(&wifipos, 0, sizeof(Position));
-    memset(&cellidpos, 0, sizeof(Position));
-    memset(&gpsacc, 0, sizeof(Accuracy));
-    memset(&wifiacc, 0, sizeof(Accuracy));
-    memset(&cellidacc, 0, sizeof(Accuracy));
-    memset(is_geofenceId_used,0,sizeof(is_geofenceId_used));
-
-    if (getCachedDatafromHandler(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), &gpspos, &gpsacc, HANDLER_GPS))
-        gpsCacheSuccess = true;
-
-    if (getCachedDatafromHandler(HANDLER_INTERFACE(handler_array[HANDLER_NW]), &wifipos, &wifiacc, HANDLER_WIFI))
-        wifiCacheSuccess = true;
-
-    if (getCachedDatafromHandler(HANDLER_INTERFACE(handler_array[HANDLER_NW]), &cellidpos, &cellidacc, HANDLER_CELLID))
-        cellCacheSucess = true;
-
-    int accuracy = convertAccuracyLeveltoAccuracy(accuracylevel);
-
-    if (maxAge == ALWAYS_READ_FROM_CACHE) {
-        //Match accuracy in all cached data
-        if (gpsCacheSuccess && (gpsacc.horizAccuracy <= accuracy)) {
-            pos = gpspos;
-            acc = gpsacc;
-        } else if (wifiCacheSuccess && (wifiacc.horizAccuracy <= accuracy)) {
-            pos = wifipos;
-            acc = wifiacc;
-        } else if (cellCacheSucess && (cellidacc.horizAccuracy <= accuracy)) {
-            pos = cellidpos;
-            acc = cellidacc;
-        } else {
-            LS_LOG_INFO("No Cache data present");
-            LSMessageReplyError(sh, message, LOCATION_POS_NOT_AVAILABLE);
-
-            return true;
-        }
-
-        //Read according to accuracy value
-        location_util_add_pos_json(serviceObject, &pos);
-        location_util_add_acc_json(serviceObject, &acc);
-
-        if (pos.latitude != 0 && pos.longitude != 0) {
-            bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-
-            if (bRetVal == false)
-                LSErrorPrintAndFree(&mLSError);
-
-            return true;
-        } else
-            return FALSE;
-    } else {
-        struct timeval tv;
-        gettimeofday(&tv, (struct timezone *) NULL);
-        long long currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-        long long longmaxAge = maxAge * TIME_SCALE_SEC;
-
-        //More accurate data return first
-        if (gpsCacheSuccess && (longmaxAge >= currentTime - gpspos.timestamp) && (gpsacc.horizAccuracy <= accuracy)) {
-            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-            location_util_add_pos_json(serviceObject, &gpspos);
-            location_util_add_acc_json(serviceObject, &gpsacc);
-
-            bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-
-            if (bRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-            } else
-                return true;
-        } else if (wifiCacheSuccess && (longmaxAge >= currentTime - wifipos.timestamp) && (wifiacc.horizAccuracy <= accuracy)) {
-            LS_LOG_DEBUG("currentTime %lld wifipos.timestamp %lld longmaxAge %lld", currentTime, wifipos.timestamp, longmaxAge);
-            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-            location_util_add_pos_json(serviceObject, &wifipos);
-            location_util_add_acc_json(serviceObject, &wifiacc);
-
-            bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-
-            if (bRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-            }
-            else
-              return true;
-        } else if (cellCacheSucess && (longmaxAge >= currentTime - cellidpos.timestamp) && (cellidacc.horizAccuracy <= accuracy)) {
-            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-            location_util_add_pos_json(serviceObject, &cellidpos);
-            location_util_add_acc_json(serviceObject, &cellidacc);
-
-            bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-
-            if (bRetVal == false) {
-                LSErrorPrintAndFree(&mLSError);
-            }
-            else
-                return true;
-        }
-
-        return false;
-    }
-}
-
 bool LocationService::getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc, int type)
 {
     bool ret;
@@ -717,205 +342,6 @@ bool LocationService::getCachedDatafromHandler(Handler *hdl, Position *pos, Accu
        return false;
 }
 
-/**
- * <Funciton >  handler_Selection
- * <Description>  Getting respective handler based on accuracy and power requirement
- * @param     LunaService handle
- * @param     LunaService message
- * @param     user data
- * @return    handler if successful else NULL
- */
-bool LocationService::handler_Selection(LSHandle *sh,
-                                        LSMessage *message,
-                                        void *data,
-                                        int *accuracy,
-                                        int *responseTime,
-                                        unsigned char *handlerStatus,
-                                        jvalue_ref  parsedObj)
-{
-    LS_LOG_INFO("handler_Selection");
-    bool mboolRespose = false;
-    bool mboolAcc = false;
-    jvalue_ref accuracyObj = NULL;
-    jvalue_ref responseTimeObj = NULL;
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("accuracy"), &accuracyObj)){
-        jnumber_get_i32(accuracyObj, accuracy);
-        LS_LOG_DEBUG("accuracy=%d", *accuracy);
-        mboolAcc = true;
-    }
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("responseTime"), &responseTimeObj)){
-        jnumber_get_i32(responseTimeObj, responseTime);
-        LS_LOG_DEBUG("responseTime=%d", *responseTime );
-        mboolRespose=true;
-    }
-
-    LS_LOG_INFO("accuracy=%d responseTime=%d", *accuracy, *responseTime);
-
-    if (mboolAcc || mboolRespose) {
-        if (ACCURACY_LEVEL_LOW == *accuracy && RESPONSE_LEVEL_LOW == *responseTime) {
-            *handlerStatus |= HANDLER_CELLID_BIT;  //CELLID
-            //NEW REQUIREMENT to give position from any source quickly 25/10/2013[START]
-            *handlerStatus |= HANDLER_WIFI_BIT;    //WIFI
-            //NEW REQUIREMENT to give position from any source quickly 25/10/2013[END]
-        } else if (*accuracy != ACCURACY_LEVEL_HIGH)
-            *handlerStatus |= HANDLER_WIFI_BIT; //WIFI;
-
-        if (*accuracy != ACCURACY_LEVEL_LOW)
-            *handlerStatus |= HANDLER_GPS_BIT; //GPS;
-    } else {
-        LS_LOG_INFO("Default gps handler assigned\n");
-        *handlerStatus |= HANDLER_GPS_BIT;   //GPS;
-        //NEW REQUIREMENT to give position from any source quickly 25/10/2013[START]
-        *handlerStatus |= HANDLER_CELLID_BIT;  //CELLID
-        *handlerStatus |= HANDLER_WIFI_BIT;    //WIFI
-        //NEW REQUIREMENT to give position from any source quickly 25/10/2013[END]
-    }
-
-    return true;
-}
-
-int LocationService::convertResponseTimeFromLevel(int accLevel, int responseTimeLevel)
-{
-    int responseTime;
-
-    switch(responseTimeLevel) {
-
-        case RESPONSE_LEVEL_LOW:
-            responseTime = SHORT_RESPONSE_TIME;
-        break;
-
-        case RESPONSE_LEVEL_MEDIUM:
-            responseTime = MEDIUM_RESPONSE_TIME;
-        break;
-
-        default:
-            responseTime = LONG_RESPONSE_TIME;
-        break;
-    }
-
-    LS_LOG_DEBUG("responseTime=%d", responseTime);
-    return responseTime;
-}
-
-//only for GPS Handler
-/**
- * <Funciton >   startTracking
- * <Description>  API to get repeated updates about location if subscribe is set to TRUE
- * @param     LunaService handle
- * @param     LunaService message
- * @param     user data
- * @return    bool if successful return true else false
- */
-bool LocationService::startTracking(LSHandle *sh, LSMessage *message, void *data)
-{
-    LS_LOG_INFO("=======startTracking=======");
-    //LSMessageRef(message); //Not required as the message is not stored
-    unsigned char startedHandlers = 0;
-    int ret;
-    LSError mLSError;
-    bool bRetVal;
-    jvalue_ref parsedObj = NULL;
-    LocationErrorCode errorCode = LOCATION_SUCCESS;
-    LSErrorInit(&mLSError);
-
-    if (!LSMessageValidateSchema(sh, message, JSCHEMA_START_TRACKING, &parsedObj)) {
-        LS_LOG_ERROR("Schema Error in startTracking");
-        return true;
-    }
-
-    //GPS and NW both are off
-    if ((getHandlerStatus(GPS) == HANDLER_STATE_DISABLED) && (getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
-        LS_LOG_ERROR("GPS & NW status is OFF");
-        errorCode = LOCATION_LOCATION_OFF;
-        goto EXIT;
-    }
-
-    if (getHandlerStatus(GPS)) {
-        LS_LOG_DEBUG("gps is on in Settings");
-        ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS, NULL);
-
-        if (ret == ERROR_NONE)
-            startedHandlers |= HANDLER_GPS_BIT;
-        else
-            LS_LOG_DEBUG("GPS handler not started");
-    }
-
-    if (getHandlerStatus(NETWORK)) {
-        LS_LOG_DEBUG("network is on in Settings");
-
-        if (wifistate == true) {
-            ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]), HANDLER_WIFI, nwGeolocationKey);
-
-            if (ret == ERROR_NONE)
-                startedHandlers |= HANDLER_WIFI_BIT;
-            else
-                LS_LOG_DEBUG("WIFI handler not started");
-        }
-
-        LS_LOG_INFO("Location Service isInternetConnectionAvailable %d isTelephonyAvailable %d", isInternetConnectionAvailable, isTelephonyAvailable);
-
-        if (isTelephonyAvailable && (isInternetConnectionAvailable || wifistate)) {
-            ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_NW]), HANDLER_CELLID, nwGeolocationKey);
-
-            if (ret == ERROR_NONE)
-                startedHandlers |= HANDLER_CELLID_BIT;
-            else
-                LS_LOG_DEBUG("CELLID handler not started");
-        }
-
-        // Add to subsciption list with method+handler as key
-    }
-
-    if (startedHandlers == HANDLER_STATE_DISABLED) {
-        LS_LOG_ERROR("None of the handlers started");
-        errorCode = LOCATION_UNKNOWN_ERROR;
-        goto EXIT;
-    }
-
-    bRetVal = LSSubscriptionAdd(sh, SUBSC_START_TRACK_KEY, message, &mLSError);
-
-    if (bRetVal == false) {
-        LSErrorPrintAndFree(&mLSError);
-        errorCode = LOCATION_UNKNOWN_ERROR;
-        goto EXIT;
-    }
-    reqHandlerTracking(&startedHandlers, &trackhandlerstate, HANDLER_GPS_BIT, HANDLER_GPS, HANDLER_GPS, &track_lock);
-    reqHandlerTracking(&startedHandlers, &trackhandlerstate, HANDLER_WIFI_BIT, HANDLER_NW, HANDLER_WIFI, &track_wifi_lock);
-    reqHandlerTracking(&startedHandlers, &trackhandlerstate, HANDLER_CELLID_BIT, HANDLER_NW, HANDLER_CELLID, &track_cell_lock);
-
-EXIT :
-
-    if (!jis_null(parsedObj))
-        j_release(&parsedObj);
-
-    if (errorCode != LOCATION_SUCCESS)
-        LSMessageReplyError(sh, message, errorCode);
-
-    return true;
-}
-
-void LocationService::reqHandlerTracking(unsigned char *startedHandlers,
-                                         unsigned char *trackhandlerstate,
-                                         HanlderRequestType handler_bit,
-                                         HandlerTypes handler_type,
-                                         HandlerTypes subHandlerType,
-                                         pthread_mutex_t *plock) {
-
-    if (*startedHandlers & handler_bit) {
-        LOCATION_ASSERT(pthread_mutex_lock(plock) == 0);
-        handler_start_tracking((Handler *) handler_array[handler_type],
-                               START,
-                               wrapper_startTracking_cb,
-                               NULL,
-                               subHandlerType,
-                               LSPalmServiceGetPrivateConnection(mServiceHandle));
-        *trackhandlerstate |= handler_bit;
-        LOCATION_ASSERT(pthread_mutex_unlock(plock) == 0);
-    }
-
-}
 void LocationService::getAddressNominatiumData(jvalue_ref *serviceObject, Address *address) {
 
     address->street != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("street"), jstring_create(address->street))
@@ -1532,6 +958,7 @@ bool LocationService::getGpsStatus(LSHandle *sh, LSMessage *message, void *data)
     bool isSubscription = false;
     jvalue_ref serviceObject = NULL;
     jvalue_ref parsedObj = NULL;
+    int state = 0;
     LSErrorInit(&mLSError);
     LS_LOG_INFO("=======Subscribe for getGpsStatus=======\n");
 
@@ -1553,6 +980,13 @@ bool LocationService::getGpsStatus(LSHandle *sh, LSMessage *message, void *data)
         goto DONE_GET_GPS_STATUS;
     }
 
+    state = handler_get_gps_status((Handler *)handler_array[HANDLER_GPS], wrapper_gpsStatus_cb);
+
+    if (state == GPS_STATUS_AVAILABLE)
+        mCachedGpsEngineStatus = true;
+    else
+        mCachedGpsEngineStatus = false;
+
     if ((isSubscribeTypeValid(sh, message, false, &isSubscription)) && isSubscription) {
         LS_LOG_ERROR("Subscription call\n");
 
@@ -1561,13 +995,6 @@ bool LocationService::getGpsStatus(LSHandle *sh, LSMessage *message, void *data)
             LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR);
             goto DONE_GET_GPS_STATUS;
         }
-
-        int state = handler_get_gps_status((Handler *)handler_array[HANDLER_GPS], wrapper_gpsStatus_cb);
-
-        if (state == GPS_STATUS_AVAILABLE)
-            mCachedGpsEngineStatus = true;
-        else
-            mCachedGpsEngineStatus = false;
 
         location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
         jobject_put(serviceObject, J_CSTR_TO_JVAL("state"),jboolean_create(mCachedGpsEngineStatus));
@@ -2620,8 +2047,8 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
                                                                                       reqTime,
                                                                                       timerID,
                                                                                       timerdata,
-                                                                                      LunaCriteriaCategoryHandler::INVALID_LAT,
-                                                                                      LunaCriteriaCategoryHandler::INVALID_LONG,
+                                                                                      LocationService::INVALID_LAT,
+                                                                                      LocationService::INVALID_LONG,
                                                                                       handlertype);
 
         if (locUpdateReq == NULL) {
@@ -3028,27 +2455,6 @@ int LocationService::getHandlerVal(char *handlerName)
  ********************   Called from handlers********************************************************************
  **************************************************************************************************************/
 
-/**
- * <Funciton >   wrapper_startTracking_cb
- * <Description>  Callback function called for startTracking from handler
- * @param     <enable_cb> <In>
- * @param     <pos> <In> <Position Structure>
- * @param     <accuracy> <In> <Accuracy Structure>
- * @param     <privateIns> <In> <instance of handler>
- * @return    int
- */
-void LocationService::wrapper_startTracking_cb(gboolean enable_cb,
-                                               Position *pos,
-                                               Accuracy *accuracy,
-                                               int error,
-                                               gpointer privateIns,
-                                               int type)
-{
-    LS_LOG_DEBUG("wrapper_startTracking_cb");
-    getInstance()->startTracking_reply(pos, accuracy, error, type);
-}
-
-
 void LocationService::wrapper_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type)
 {
     LS_LOG_DEBUG("wrapper_geocoding_cb");
@@ -3059,21 +2465,6 @@ void LocationService::wrapper_rev_geocoding_cb(gboolean enable_cb, char *respons
 {
     LS_LOG_DEBUG("wrapper_rev_geocoding_cb");
     getInstance()->rev_geocoding_reply(response, error, type);
-}
-
-/**
- * <Funciton >   wrapper_getCurrentPosition_cb
- * <Description>  Callback function called for startTracking from handler
- * @param     <enable_cb> <In>
- * @param     <pos> <In> <Position Structure>
- * @param     <accuracy> <In> <Accuracy Structure>
- * @param     <privateIns> <In> <instance of handler>
- * @return    int
- */
-void LocationService::wrapper_getCurrentPosition_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int handlerType)
-{
-    LS_LOG_DEBUG("wrapper_getCurrentPosition_cb called back from handlerType=%d", handlerType);
-    getInstance()->getCurrentPosition_reply(position, accuracy, error, handlerType);
 }
 
 /**
@@ -3147,93 +2538,6 @@ void LocationService::wrapper_getLocationUpdate_cb(gboolean enable_cb, Position 
 
 /********************************Response to Application layer*********************************************************************/
 
-void LocationService::startTracking_reply(Position *pos, Accuracy *accuracy, int error, int type)
-{
-    LSError mLSError;
-    jvalue_ref serviceObject = NULL;
-    char *retString = NULL;
-    long long current_time = 0;
-
-    LS_LOG_DEBUG("==========startTracking_reply called============");
-
-    LSErrorInit(&mLSError);
-
-    serviceObject = jobject_create();
-    if (jis_null(serviceObject)) {
-        LS_LOG_ERROR("Out of memory\n");
-        retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
-        goto EXIT;
-    }
-
-    if (error != ERROR_NONE) {
-        switch (type) {
-        case HANDLER_GPS:
-            trackhandlerstate &= ~HANDLER_GPS_BIT;
-            break;
-
-        case HANDLER_WIFI:
-            trackhandlerstate &= ~HANDLER_WIFI_BIT;
-            break;
-
-        case HANDLER_CELLID:
-            trackhandlerstate &= ~HANDLER_CELLID_BIT;
-            break;
-        }
-
-        if (trackhandlerstate == 0) {
-            retString = LSMessageGetErrorReply(LOCATION_TIME_OUT);
-        } else {
-            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-        }
-
-        goto EXIT;
-    }
-
-    location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-    location_util_add_pos_json(serviceObject, pos);
-    location_util_add_acc_json(serviceObject, accuracy);
-    struct timeval tv;
-    gettimeofday(&tv, (struct timezone *) NULL);
-    current_time = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-
-    if (mIsStartFirstReply || accuracy->horizAccuracy < MINIMAL_ACCURACY) {
-        mlastTrackingReplyTime = current_time;
-        mIsStartFirstReply = false;
-    } else {
-        LS_LOG_DEBUG("Accuracy is not 100m current_time = %lld mlastTrackingReplyTime = %lld",current_time,mlastTrackingReplyTime);
-
-        if (current_time - mlastTrackingReplyTime > 60000) {
-            mlastTrackingReplyTime = current_time;
-        } else {
-
-            if (!jis_null(serviceObject))
-                j_release(&serviceObject);
-
-            return;
-        }
-    }
-
-    retString = jvalue_tostring_simple(serviceObject);
-
-EXIT:
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              SUBSC_START_TRACK_KEY,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
-
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                              SUBSC_START_TRACK_KEY,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
-
-    if (!jis_null(serviceObject))
-        j_release(&serviceObject);
-}
-
 void LocationService::get_nmea_reply(long long timestamp, char *data, int length)
 {
     LSError mLSError;
@@ -3279,106 +2583,6 @@ EXIT:
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
-}
-
-void LocationService::getCurrentPosition_reply(Position *pos, Accuracy *accuracy, int error, int handlerType)
-{
-    int count = 0;
-    LSError mLSError;
-    TimerData *timerdata = NULL;
-    jvalue_ref serviceObject = NULL;
-    char *retString = NULL;
-
-    LS_LOG_INFO("======getCurrentPosition_reply called=======\n");
-
-    LSErrorInit(&mLSError);
-    serviceObject = jobject_create();
-    if (jis_null(serviceObject)) {
-        LS_LOG_ERROR("Out of memory\n");
-        retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
-
-        if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                                  SUBSC_GPS_GET_CURR_POSITION_KEY,
-                                                  retString,
-                                                  &mLSError)) {
-            LSErrorPrintAndFree(&mLSError);
-        }
-
-        if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                                  SUBSC_GPS_GET_CURR_POSITION_KEY,
-                                                  retString,
-                                                  &mLSError)) {
-            LSErrorPrintAndFree(&mLSError);
-        }
-
-        return;
-    }
-
-    if (error == ERROR_NONE) {
-        location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-        location_util_add_pos_json(serviceObject, pos);
-        location_util_add_acc_json(serviceObject, accuracy);
-
-        retString = jvalue_tostring_simple(serviceObject);
-    } else {
-        retString = LSMessageGetErrorReply(LOCATION_POS_NOT_AVAILABLE);
-    }
-
-    /*List Implementation*/
-    std::vector<Requestptr>::iterator it = m_reqlist.begin();
-    int size = m_reqlist.size();
-
-    if (size <= 0) {
-        LS_LOG_ERROR("List is empty");
-        j_release(&serviceObject);
-        return;
-    }
-
-    for (it = m_reqlist.begin(); count < size; ++it, count++) {
-         LS_LOG_DEBUG("count = %d size= %d", count, size);
-
-        //Match Handlertype and GetReqhandlerType
-         if (*it != NULL) {
-             LS_LOG_DEBUG("it->get()->GetReqHandlerType()=%d", it->get()->GetReqHandlerType());
-
-             if ((1u << handlerType) & it->get()->GetReqHandlerType()) {
-                 LS_LOG_DEBUG("handlerType = %d bit is set in the Request", handlerType);
-                 LS_LOG_DEBUG("it->get()->GetHandle() = %p it->get()->GetMessage() = %p", it->get()->GetHandle(), it->get()->GetMessage());
-                 LS_LOG_DEBUG("Payload=%s", LSMessageGetPayload(it->get()->GetMessage()));
-                 LS_LOG_DEBUG("App ID = %s", LSMessageGetApplicationID(it->get()->GetMessage()));
-
-                 if (handlerType == HANDLER_WIFI || handlerType == HANDLER_CELLID)
-                     handler_stop(handler_array[HANDLER_NW], handlerType, false);
-                 else {
-                     handler_get_position(handler_array[HANDLER_GPS], STOP, wrapper_getCurrentPosition_cb, NULL, HANDLER_GPS, NULL);
-                     handler_stop(handler_array[handlerType], handlerType, false);
-                 }
-
-                //Multiple handler started, one failed then wait for other reply [START]
-                 it->get()->UpdateReqHandlerType((it->get()->GetReqHandlerType()) ^ (1u << handlerType));
-                 LS_LOG_INFO("Resetting bit handlerType %d after reset it->get()->GetReqHandlerType() = %d", handlerType,
-                             it->get()->GetReqHandlerType());
-
-                 if (it->get()->GetReqHandlerType() == 0 || error == ERROR_NONE) {
-                     LSMessageReply(it->get()->GetHandle(), it->get()->GetMessage(), retString, &mLSError);
-                     LSMessageUnref(it->get()->GetMessage());
-                     //Remove timer
-                     g_source_remove(it->get()->GetTimerID());
-                     timerdata = it->get()->GetTimerData();
-
-                     if (timerdata != NULL) {
-                         delete timerdata;
-                         timerdata = NULL;
-                     }
-
-                     //Remove from list
-                     m_reqlist.erase(it);
-                 }
-            }
-        }
-    }
-
-    j_release(&serviceObject);
 }
 
 void LocationService::getGpsSatelliteData_reply(Satellite *sat)
@@ -4239,11 +3443,7 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
                                   wrapper_geofence_add_cb,
                                   wrapper_geofence_breach_cb,
                                   wrapper_geofence_status_cb);
-    } else if (key != NULL && (strcmp(key, CRITERIA_KEY) == 0)) {
-        criteriaStopSubscription(sh, message);
-
-    //check for getLocUpdatelist key list
-    } else if (key != NULL && (strcmp(key, GET_LOC_UPDATE_KEY) == 0)) {
+    }else if (key != NULL && (strcmp(key, GET_LOC_UPDATE_KEY) == 0)) {
         getLocRequestStopSubscription(sh, message);
     } else  {
         LS_LOG_DEBUG("NOT CRITERIA_KEY");
@@ -4268,45 +3468,6 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
     }
     return true;
 }
-
-
-/**
- * <Funciton >   criteriaStopSubscription
-
- * <Description>  Stop gps engine handling for criteria request when all gps request are empty
-
- * @param     LunaService handle
-
- * @param     LunaService message
-
- * @return    void
- */
-void LocationService::criteriaStopSubscription(LSHandle *sh, LSMessage *message) {
-
-    LS_LOG_DEBUG("criteriaStopSubscription");
-
-    if (!isSubscListFilled(sh, message, NW_CRITERIA_KEY, true) &&
-        !isSubscListFilled(sh, message, GPS_NW_CRITERIA_KEY, true)) {
-        LS_LOG_INFO("criteriaStopSubscription Stopping NW handler");
-        stopSubcription(sh, NW_CRITERIA_KEY);
-    }
-
-    if (!isSubscListFilled(sh, message, GPS_CRITERIA_KEY, true) &&
-        !isSubscListFilled(sh, message, GPS_NW_CRITERIA_KEY, true)) {
-        LS_LOG_INFO("criteriaStopSubscription Stopping GPS Engine");
-        stopSubcription(sh, GPS_CRITERIA_KEY);
-    }
-
-    if (!isSubscListFilled(sh, message,NW_CRITERIA_KEY, true) &&
-        !isSubscListFilled(sh, message,GPS_NW_CRITERIA_KEY, true)) {
-        LS_LOG_INFO("criteriaStopSubscription Stopping NW handler");
-        stopSubcription(sh, NW_CRITERIA_KEY);
-    }
-
-
-    criteriaCatSvrc->removeMessageFromCriteriaReqList(message);
-}
-
 
 /**
  * <Funciton >   getLocRequestStopSubscription
@@ -4376,34 +3537,7 @@ bool LocationService::loadHandlerStatus(const char *handler)
 
 void LocationService::stopSubcription(LSHandle *sh,const char *key)
 {
-    if (strcmp(key, SUBSC_START_TRACK_KEY) == 0) {
-
-        //STOP GPS
-        if (!(getHandlerStatus(GPS) == HANDLER_STATE_DISABLED)) {
-
-            handler_start_tracking(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb,
-                                   NULL, HANDLER_GPS, NULL);
-            handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-
-        }
-
-        //STOP CELLID
-        if (!(getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
-
-            handler_start_tracking(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-                                   NULL, HANDLER_CELLID, NULL);
-            handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
-
-            //STOP WIFI
-            handler_start_tracking(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-                                   NULL, HANDLER_WIFI, NULL);
-            handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
-
-        }
-        this->mIsStartFirstReply = true;
-        mIsStartTrackProgress = false;
-
-    } else if (strcmp(key, SUBSC_GPS_GET_NMEA_KEY) == 0) {
+    if (strcmp(key, SUBSC_GPS_GET_NMEA_KEY) == 0) {
 
         handler_get_nmea_data((Handler *) handler_array[HANDLER_GPS], STOP,
                                wrapper_getNmeaData_cb, NULL);
@@ -4417,29 +3551,10 @@ void LocationService::stopSubcription(LSHandle *sh,const char *key)
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
         mIsGetSatSubProgress = false;
 
-    } else if (strcmp(key,GPS_CRITERIA_KEY) == 0) {
-
-        //STOP GPS
-        handler_start_tracking_criteria(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb,
-                                        NULL, HANDLER_GPS, NULL);
-        handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-
-    } else if (strcmp(key,NW_CRITERIA_KEY) == 0) {
-
-        //STOP CELLID
-        handler_start_tracking_criteria(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-                                        NULL, HANDLER_CELLID, NULL);
-        handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
-
-        //STOP WIFI
-        handler_start_tracking_criteria(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-                                        NULL, HANDLER_WIFI, NULL);
-        handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
-
     } else if (strcmp(key,SUBSC_GET_LOC_UPDATES_GPS_KEY) == 0) {
 
         //STOP GPS TODO change to proper Handler API after handler implementation
-        handler_get_location_updates(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb,
+        handler_get_location_updates(handler_array[HANDLER_GPS], STOP, wrapper_getLocationUpdate_cb,
                                      NULL, HANDLER_GPS, NULL);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
 
@@ -4447,11 +3562,11 @@ void LocationService::stopSubcription(LSHandle *sh,const char *key)
 
         //STOP CELLID TODO change to proper Handler API after handler implementation
         handler_get_location_updates(handler_array[HANDLER_NW], STOP,
-                                     wrapper_startTracking_cb, NULL, HANDLER_CELLID, NULL);
+                                     wrapper_getLocationUpdate_cb, NULL, HANDLER_CELLID, NULL);
         handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
 
         //STOP WIFI
-        handler_get_location_updates(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
+        handler_get_location_updates(handler_array[HANDLER_NW], STOP, wrapper_getLocationUpdate_cb,
                                      NULL, HANDLER_WIFI, NULL);
         handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
 
@@ -4460,27 +3575,7 @@ void LocationService::stopSubcription(LSHandle *sh,const char *key)
 }
 
 void LocationService::stopNonSubcription(const char *key) {
-    if (strcmp(key, SUBSC_START_TRACK_KEY) == 0) {
-        //STOP GPS
-        if (!(getHandlerStatus(GPS) == HANDLER_STATE_DISABLED)) {
-            handler_start_tracking(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb,
-            NULL, HANDLER_GPS, NULL);
-            handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-        }
-
-        if (!(getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
-            //STOP CELLID
-            handler_start_tracking(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-            NULL, HANDLER_CELLID, NULL);
-            handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
-
-            //STOP WIFI
-            handler_start_tracking(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-            NULL, HANDLER_WIFI, NULL);
-            handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
-        }
-
-    } else if (strcmp(key, SUBSC_GPS_GET_NMEA_KEY) == 0) {
+    if (strcmp(key, SUBSC_GPS_GET_NMEA_KEY) == 0) {
         handler_get_nmea_data(handler_array[HANDLER_GPS], STOP,
                                wrapper_getNmeaData_cb, NULL);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
@@ -4490,72 +3585,24 @@ void LocationService::stopNonSubcription(const char *key) {
                                        wrapper_getGpsSatelliteData_cb);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
 
-    }  else if ((strcmp(key, GPS_CRITERIA_KEY) == 0) ) {
-        //STOP GPS
-        if (!(getHandlerStatus(GPS) == HANDLER_STATE_DISABLED)) {
-            handler_start_tracking_criteria(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb,
-                                            NULL, HANDLER_GPS, NULL);
-            handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-        }
-    } else if ((strcmp(key, NW_CRITERIA_KEY) == 0)) {
-
-        if (!(getHandlerStatus(NETWORK) == HANDLER_STATE_DISABLED)) {
-            //STOP CELLID
-            handler_start_tracking_criteria(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-                                            NULL, HANDLER_CELLID, NULL);
-            handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
-
-            //STOP WIFI
-            handler_start_tracking_criteria(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
-                                            NULL, HANDLER_WIFI, NULL);
-            handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
-        }
-
     } else if (strcmp(key,SUBSC_GET_LOC_UPDATES_GPS_KEY) == 0) {
         //STOP GPS
-        handler_get_location_updates(handler_array[HANDLER_GPS], STOP, wrapper_startTracking_cb,
+        handler_get_location_updates(handler_array[HANDLER_GPS], STOP, wrapper_getLocationUpdate_cb,
                                      NULL, HANDLER_GPS, NULL);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
 
     } else if (strcmp(key,SUBSC_GET_LOC_UPDATES_NW_KEY) == 0) {
         //STOP CELLID
-        handler_get_location_updates(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
+        handler_get_location_updates(handler_array[HANDLER_NW], STOP, wrapper_getLocationUpdate_cb,
                                      NULL, HANDLER_CELLID, NULL);
         handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
 
         //STOP WIFI
-        handler_get_location_updates(handler_array[HANDLER_NW], STOP, wrapper_startTracking_cb,
+        handler_get_location_updates(handler_array[HANDLER_NW], STOP, wrapper_getLocationUpdate_cb,
                                      NULL, HANDLER_WIFI, NULL);
         handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
 
     }
-}
-
-/*Timer Implementation START */
-gboolean LocationService::_TimerCallback(void *data)
-{
-    TimerData *timerdata = (TimerData *) data;
-
-    if (timerdata == NULL) {
-        LS_LOG_ERROR("TimerCallback timerdata is null");
-        return false;
-    }
-
-    LSMessage *message = timerdata->GetMessage();
-    LSHandle *sh = timerdata->GetHandle();
-    unsigned char handlerType = timerdata->GetHandlerType();
-
-    if (message == NULL || sh == NULL) {
-        LS_LOG_ERROR("message or Handle is null");
-        return false;
-    } else {
-        //Remove from list
-        if (replyAndRemoveFromRequestList(sh, message, handlerType) == false)
-            LS_LOG_DEBUG("Failed in replyAndRemoveFromRequestList");
-    }
-
-    // return false otherwise it will be called repeatedly until it returns false
-    return false;
 }
 
 gboolean LocationService::_TimerCallbackLocationUpdate(void *data)
@@ -4605,59 +3652,6 @@ gboolean LocationService::_TimerCallbackLocationUpdate(void *data)
     }
 
     return false;
-}
-bool LocationService::replyAndRemoveFromRequestList(LSHandle *sh, LSMessage *message, unsigned char handlerType)
-{
-    bool found = false;
-    std::vector<Requestptr>::iterator it = m_reqlist.begin();
-    int size = m_reqlist.size();
-    int count = 0;
-    LSError mLSError;
-    TimerData *timerdata;
-
-    LSErrorInit(&mLSError);
-
-    if (size <= 0) {
-        LS_LOG_ERROR("List is empty");
-        return false;
-    }
-
-    for (it = m_reqlist.begin(); count < size; ++it, count++) {
-        if (it->get()->GetMessage() == message) {
-            LS_LOG_INFO("Timeout Message is found in the list");
-
-            if (HANDLER_GPS_BIT & handlerType) {
-                handler_get_position(handler_array[HANDLER_GPS], STOP, wrapper_getCurrentPosition_cb, NULL, HANDLER_GPS, NULL);
-                handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-            }
-
-            if (HANDLER_WIFI_BIT & handlerType) {
-                handler_get_position(handler_array[HANDLER_NW], STOP, wrapper_getCurrentPosition_cb, NULL, HANDLER_WIFI, NULL);
-                handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, false);
-            }
-
-            if (HANDLER_CELLID_BIT & handlerType) {
-                handler_get_position(handler_array[HANDLER_NW], STOP, wrapper_getCurrentPosition_cb, NULL, HANDLER_CELLID, NULL);
-                handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, false);
-            }
-
-            LSMessageReplyError(sh, message, LOCATION_TIME_OUT);
-            LSMessageUnref(message);
-            timerdata = it->get()->GetTimerData();
-
-            if (timerdata != NULL) {
-                delete timerdata;
-                timerdata = NULL;
-            }
-
-            m_reqlist.erase(it);
-            found = true;
-            break;
-        }
-    }
-
-    /*message not found in the list*/
-    return found;
 }
 
 /*Timer Implementation END */

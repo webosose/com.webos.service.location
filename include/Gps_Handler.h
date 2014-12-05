@@ -54,8 +54,7 @@ typedef enum {
     START_TRACKING_ON = 1 << 1,
     NMEA_GET_DATA_ON = 1 << 2,
     SATELLITE_GET_DATA_ON = 1 << 3,
-    START_TRACKING_CRITERIA_ON = 1 << 4,
-    LOCATION_UPDATES_ON = 1 << 5
+    LOCATION_UPDATES_ON = 1 << 4
 } HandlerStateFlags;
 
 G_END_DECLS

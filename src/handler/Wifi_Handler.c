@@ -36,7 +36,6 @@ typedef struct _WifiHandlerPrivate {
 
     PositionCallback pos_cb;
     StartTrackingCallBack track_cb;
-    StartTrackingCallBack track_criteria_cb;
     StartTrackingCallBack loc_update_cb;
 
     gpointer nwhandler;
@@ -87,9 +86,6 @@ static void wifi_handler_tracking_cb(gboolean enable_cb,
 
     if (priv->track_cb)
         (*(priv->track_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
-
-    if (priv->track_criteria_cb)
-        (*(priv->track_criteria_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
 
     if (priv->loc_update_cb)
         (*(priv->loc_update_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
@@ -233,9 +229,8 @@ static void wifi_handler_start_tracking(Handler *self,
         priv->track_cb = track_cb;
         priv->nwhandler = handlerobj;
 
-        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_CRITERIA_ON)) &&
-            (!(priv->api_progress_flag & WIFI_GET_LOCATION_UPDATES_ON))) {
-            result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
+        if  ((!(priv->api_progress_flag & WIFI_GET_LOCATION_UPDATES_ON))) {
+             result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
                                                            TRUE,
                                                            wifi_handler_tracking_cb);
 
@@ -245,8 +240,7 @@ static void wifi_handler_start_tracking(Handler *self,
                 (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_WIFI);
         }
     } else {
-        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_CRITERIA_ON)) &&
-            (!(priv->api_progress_flag & WIFI_GET_LOCATION_UPDATES_ON))) {
+        if ((!(priv->api_progress_flag & WIFI_GET_LOCATION_UPDATES_ON))) {
             result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
                                                            FALSE,
                                                            NULL);
@@ -271,70 +265,6 @@ static void wifi_handler_start_tracking(Handler *self,
     LS_LOG_INFO("[DEBUG] return from wifi_handler_start_tracking , %d  \n", result);
 }
 
-static void wifi_handler_start_tracking_criteria(Handler *self,
-                                                 gboolean enable,
-                                                 StartTrackingCallBack track_cb,
-                                                 gpointer handlerobj)
-{
-    int result = ERROR_NONE;
-    WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
-
-    if (priv == NULL || priv->wifi_plugin->ops.start_tracking == NULL) {
-        if (track_cb)
-            (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_WIFI);
-
-        return;
-    }
-
-    if (enable && !track_cb)
-        return;
-
-    if (enable) {
-        if (priv->api_progress_flag & WIFI_START_TRACKING_CRITERIA_ON) {
-            if (priv->tracking_pos && priv->tracking_acc)
-                (*track_cb)(TRUE, priv->tracking_pos, priv->tracking_acc, ERROR_NONE, handlerobj, HANDLER_WIFI);
-
-            return;
-        }
-
-        priv->track_criteria_cb = track_cb;
-        priv->nwhandler = handlerobj;
-
-        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_ON)) &&
-            (!(priv->api_progress_flag & WIFI_GET_LOCATION_UPDATES_ON))) {
-            result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
-                                                           TRUE,
-                                                           wifi_handler_tracking_cb);
-
-            if (result == ERROR_NONE)
-                priv->api_progress_flag |= WIFI_START_TRACKING_CRITERIA_ON;
-            else
-                (*track_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_WIFI);
-        }
-    } else {
-        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_ON)) &&
-            (!(priv->api_progress_flag & WIFI_GET_LOCATION_UPDATES_ON))) {
-            result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
-                                                           FALSE,
-                                                           NULL);
-
-            if (result == ERROR_NONE) {
-                if (priv->tracking_pos) {
-                    free(priv->tracking_pos);
-                    priv->tracking_pos = NULL;
-                }
-
-                if (priv->tracking_acc) {
-                    free(priv->tracking_acc);
-                    priv->tracking_acc = NULL;
-                }
-            }
-        }
-
-        priv->track_criteria_cb = NULL;
-        priv->api_progress_flag &= ~WIFI_START_TRACKING_CRITERIA_ON;
-    }
-}
 
 static void wifi_handler_get_location_updates(Handler *self,
                                               gboolean enable,
@@ -365,8 +295,7 @@ static void wifi_handler_get_location_updates(Handler *self,
         priv->loc_update_cb = loc_update_cb;
         priv->nwhandler = handlerobj;
 
-        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_ON)) &&
-            (!(priv->api_progress_flag & WIFI_START_TRACKING_CRITERIA_ON))) {
+        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_ON))) {
             result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
                                                            TRUE,
                                                            wifi_handler_tracking_cb);
@@ -377,8 +306,7 @@ static void wifi_handler_get_location_updates(Handler *self,
                 loc_update_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_WIFI);
         }
     } else {
-        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_ON)) &&
-            (!(priv->api_progress_flag & WIFI_START_TRACKING_CRITERIA_ON))) {
+        if ((!(priv->api_progress_flag & WIFI_START_TRACKING_ON))) {
             result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
                                                            FALSE,
                                                            NULL);
@@ -396,7 +324,7 @@ static void wifi_handler_get_location_updates(Handler *self,
             }
         }
 
-        priv->track_criteria_cb = NULL;
+        priv->loc_update_cb = NULL;
         priv->api_progress_flag &= ~WIFI_GET_LOCATION_UPDATES_ON;
     }
 }
@@ -451,7 +379,6 @@ static void wifi_handler_interface_init(HandlerInterface *interface)
     interface->stop = (TYPE_STOP_FUNC) wifi_handler_stop;
     interface->get_position = (TYPE_GET_POSITION) wifi_handler_get_position;
     interface->start_tracking = (TYPE_START_TRACK) wifi_handler_start_tracking;
-    interface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) wifi_handler_start_tracking_criteria;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) wifi_handler_get_last_position;
     interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) wifi_handler_get_location_updates;
 }

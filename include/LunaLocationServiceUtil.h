@@ -27,38 +27,12 @@
 
 #define SECURE_PAYLOAD_NW_GET      "{\"keyname\":\"com.palm.location.geolocation\"}"
 #define SECURE_PAYLOAD_LBS_GET     "{\"keyname\":\"com.palm.location.geocode\"}"
-/*
- * JSON SCHEMA: criteria/getLocationCriteriaHandlerDetails (string Handler)
- */
-#define JSCHEMA_GET_LOCATION_CRITERIA_HANDLER_DETAILS       STRICT_SCHEMA(\
-        PROPS_1(ENUM_PROP(Handler, string, "gps", "network")) \
-        REQUIRED_1(Handler))
-
-/*
- * JSON SCHEMA: criteria/startTrackingCriteriaBased ([bool subscribe],
- *                                                   [int minimumInterval],
- *                                                   [int minimumDistance],
- *                                                   [string Handler],
- *                                                   [int accuracyLevel],
- *                                                   [int powerLevel])
- */
-#define JSCHEMA_START_TRACKING_CRITERIA_BASED               STRICT_SCHEMA(\
-        PROPS_6(PROP(subscribe, boolean), PROP(minimumInterval, integer), \
-        PROP(minimumDistance, integer), ENUM_PROP(Handler, string, "gps", "network"), \
-        ENUM_PROP(accuracyLevel, integer, 1, 2), ENUM_PROP(powerLevel, integer, 1, 2)))
 
 /*
  * JSON SCHEMA: getAllLocationHandlers ()
  */
 #define JSCHEMA_GET_ALL_LOCATION_HANDLERS                   STRICT_SCHEMA(\
         PROPS_1(PROP(subscribe, boolean)))
-
-/*
- * JSON SCHEMA: getCurrentPosition ([int accuracy], [int maximumAge], [int responseTime])
- */
-#define JSCHEMA_GET_CURRENT_POSITION                        STRICT_SCHEMA(\
-        PROPS_3(ENUM_PROP(accuracy, integer, 1, 2, 3), PROP(maximumAge, integer), \
-        ENUM_PROP(responseTime, integer, 1, 2, 3)))
 
 /*
  * JSON SCHEMA: getGeoCodeLocation (string address) - syntax 1
@@ -225,12 +199,6 @@
 #define JSCHEMA_SET_STATE                                   STRICT_SCHEMA(\
         PROPS_2(ENUM_PROP(Handler, string, "gps", "network"), PROP(state, boolean)) \
         REQUIRED_2(Handler, state))
-
-/*
- * JSON SCHEMA: startTracking ([bool subscribe])
- */
-#define JSCHEMA_START_TRACKING                              STRICT_SCHEMA(\
-        PROPS_1(PROP(subscribe, boolean)))
 
 /*
  * JSON SCHEMA: stopGPS ()

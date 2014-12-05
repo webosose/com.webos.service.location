@@ -314,7 +314,6 @@ static void lbs_handler_interface_init(HandlerInterface *interface)
     interface->get_position = (TYPE_GET_POSITION) lbs_handler_function_not_implemented;
     interface->start_tracking = (TYPE_START_TRACK) lbs_handler_function_not_implemented;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) lbs_handler_function_not_implemented;
-    interface->start_tracking_criteria = (TYPE_START_TRACK_CRITERIA) lbs_handler_function_not_implemented;
     interface->get_ttfx = (TYPE_GET_TTFF) lbs_handler_function_not_implemented;
     interface->get_sat_data = (TYPE_GET_SAT) lbs_handler_function_not_implemented;
     interface->get_nmea_data = (TYPE_GET_NMEA) lbs_handler_function_not_implemented;

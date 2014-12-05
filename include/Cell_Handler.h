@@ -52,8 +52,7 @@ typedef enum {
     CELL_PROGRESS_NONE = 0,
     CELL_GET_POSITION_ON = 1 << 0,
     CELL_START_TRACKING_ON = 1 << 1,
-    CELL_START_TRACKING_CRITERIA_ON = 1 << 2,
-    CELL_LOCATION_UPDATES_ON = 1 << 3
+    CELL_LOCATION_UPDATES_ON = 1 << 2
 } CellHandlerStateFlags;
 
 G_END_DECLS

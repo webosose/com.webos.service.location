@@ -65,7 +65,6 @@ typedef int (*TYPE_REV_GOOGLE_GEO_CODE)(Handler *self, const char *data, char **
 #endif
 typedef int (*TYPE_GET_GPS_STATUS)(Handler *self, StatusCallback status_cb);
 typedef int (*TYPE_SET_GPS_PARAMETERS)(Handler *self , char *command);
-typedef void (*TYPE_START_TRACK_CRITERIA)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
 typedef int (*TYPE_ADD_GEOFENCE_AREA) (Handler *self,
                                        gboolean enable,
                                        int32_t *geofence_id,
@@ -100,7 +99,6 @@ struct _HandlerInterface {
 #endif
     TYPE_GET_GPS_STATUS get_gps_status;
     TYPE_SET_GPS_PARAMETERS set_gps_params;
-    TYPE_START_TRACK_CRITERIA start_tracking_criteria;
     TYPE_ADD_GEOFENCE_AREA add_geofence_area;
     TYPE_REMOVE_GEOFENCE remove_geofence;
     TYPE_RESUME_GEOFENCE resume_geofence;
@@ -146,7 +144,6 @@ int handler_get_reverse_google_geo_code(Handler *self, const char *data, GeoCode
 int handler_get_gps_status(Handler *self, StatusCallback gpsStatus_cb);
 
 int handler_set_gps_parameters(Handler *self, char *command);
-void handler_start_tracking_criteria(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
 void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
 int handler_add_geofence_area(Handler *self,
                               gboolean enable,

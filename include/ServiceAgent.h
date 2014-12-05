@@ -16,9 +16,7 @@
 /*
  * Key values used to store Luna subscription list
  */
-#define SUBSC_START_TRACK_KEY "startTracking"
 #define SUBSC_GPS_GET_NMEA_KEY "getNmeaData"
-#define SUBSC_GPS_GET_CURR_POSITION_KEY "getCurrentPosition"
 #define SUBSC_SEND_XTRA_CMD_KEY "sendExtraCommand"
 #define SUBSC_GET_TTFF_KEY "getTimeToFirstFix"
 #define SUBSC_GET_GPS_SATELLITE_DATA "getGpsSatelliteData"
@@ -27,10 +25,6 @@
 #define SUBSC_GET_REVGEOCODE_KEY "getReverseLocation"
 #define SUBSC_GET_STATE_KEY "getState"
 #define SUBSC_GETALLLOCATIONHANDLERS "getAllLocationHandlers"
-#define GPS_CRITERIA_KEY "gps/startTrackingCriteriaBased"
-#define NW_CRITERIA_KEY "nw/startTrackingCriteriaBased"
-#define GPS_NW_CRITERIA_KEY "gpsnw/startTrackingCriteriaBased"
-#define CRITERIA_KEY "startTrackingCriteriaBased"
 #define SUBSC_GEOFENCE_STATUS_KEY "geofenceStatus"
 #define SUBSC_GEOFENCE_PAUSE_AREA_KEY "pauseGeofenceArea"
 #define SUBSC_GEOFENCE_RESUME_AREA_KEY "resumeGeofenceArea"

@@ -184,7 +184,7 @@ bool LocationService::locationServiceRegister(char *srvcname, GMainLoop *mainLoo
     LSERROR_CHECK_AND_PRINT(bRetVal);
 
     // add geofence category
-    bRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/geofence", geofenceMethod, prvMethod, NULL, this, &mLSError);
+    bRetVal = LSPalmServiceRegisterCategory(*msvcHandle, "/geofence", geofenceMethod, NULL, NULL, this, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal);
 
     //Register cancel function cb to publicbus

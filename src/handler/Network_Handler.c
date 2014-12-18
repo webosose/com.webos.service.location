@@ -30,7 +30,7 @@
 #include <Wifi_Handler.h>
 #include <Cell_Handler.h>
 #include <Plugin_Loader.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <Location.h>
 typedef struct _NwHandlerPrivate NwHandlerPrivate;
 struct _NwHandlerPrivate {

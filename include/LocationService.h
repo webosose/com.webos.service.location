@@ -33,7 +33,7 @@
 #include "boost/array.hpp"
 #include <vector>
 #include <pthread.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <pbnjson.h>
 #include <sys/time.h>
 
@@ -440,7 +440,6 @@ public:
                                      LSSubscriptionIter *iter,
                                      LSError *lserror);
     bool meetsCriteria(LSMessage *msg, Position *pos, Accuracy *acc, int minInterval,int minDist);
-    bool minDistance(int minimumDistance, double latitude1, double longitude1, double latitude2 , double longitude2);
     void getLocRequestStopSubscription(LSHandle *sh, LSMessage *message);
     bool LSMessageRemoveReqList(LSMessage *message);
     bool removeTimer(LSMessage *message);

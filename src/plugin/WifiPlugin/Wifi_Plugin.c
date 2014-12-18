@@ -29,7 +29,7 @@
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-provider.h>
 #include <geoclue/geoclue-types.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 
 
 /**

@@ -40,8 +40,8 @@ add_definitions(${LIB2XML_CFLAGS})
 pkg_check_modules(PMLOGLIB REQUIRED PmLogLib)
 add_definitions(${PMLOGLIB_CFLAGS})
 
-pkg_check_modules(HTTPHANDLER REQUIRED httphandler)
-add_definitions(${HTTPHANDLER_CFLAGS})
+pkg_check_modules(LOCUTILS REQUIRED loc-utils)
+add_definitions(${LOCUTILS_CFLAGS})
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 

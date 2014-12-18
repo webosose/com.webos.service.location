@@ -27,10 +27,9 @@
 #include <Handler_Interface.h>
 #include <Gps_Handler.h>
 #include <Plugin_Loader.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <time.h>
 #include <Location.h>
-#include <cjson/json.h>
 
 #define GPS_UPDATE_INTERVAL_MAX     12*60
 

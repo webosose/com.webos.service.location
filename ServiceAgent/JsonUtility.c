@@ -28,7 +28,7 @@
 #include <time.h>
 #include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
-#include "LocationService_Log.h"
+#include <loc_log.h>
 #include "JsonUtility.h"
 
 void location_util_add_pos_json(jvalue_ref serviceObject, Position *pos)

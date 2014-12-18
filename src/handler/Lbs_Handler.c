@@ -29,7 +29,7 @@
 #include <Plugin_Loader.h>
 #include <Location_Plugin.h>
 #include <Address.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <Location.h>
 
 typedef struct _LbsHandlerPrivate {

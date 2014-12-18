@@ -13,7 +13,7 @@
 
 #include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <LocationService.h>
 
 LocationService *loc_svc_ptr = NULL;

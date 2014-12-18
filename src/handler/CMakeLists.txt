@@ -31,6 +31,7 @@ set(LIBRARIES
         ${LUNAPREFS_LDFLAGS}
         ${LIBPBNJSON_LDFLAGS}
         ${PMLOGLIB_LDFLAGS}
+        ${LOCUTILS_LDFLAGS}
 )
 
 add_executable(${LOCATION_SERVICE_NAME} ${SRC})

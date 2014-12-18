@@ -22,7 +22,7 @@
  ********************************************************************/
 
 #include <Handler_Interface.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 
 static void handler_interface_base_init(gpointer g_class)
 {

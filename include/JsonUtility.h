@@ -24,7 +24,6 @@
 #ifndef _JSON_UTILITY_H_
 #define _JSON_UTILITY_H_
 
-#include <cjson/json.h>
 #include <Position.h>
 #include <Location.h>
 #include <Address.h>

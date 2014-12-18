@@ -26,7 +26,7 @@
 #include <lunaservice.h>
 #include <glib.h>
 #include "LocationService.h"
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <ConnectionStateObserver.h>
 
 // PmLogging

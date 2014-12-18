@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <Plugin_Loader.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 
 const char *PLUGIN_PATH = "/usr/lib/location/plugins";
 //const char* PLUGIN_PATH = "/usr/lib";

@@ -25,7 +25,7 @@
 #define _LOCATION_SERVICE_STATE_H_
 
 #include <LocationService.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <iostream>
 #include <set>
 #include <algorithm>

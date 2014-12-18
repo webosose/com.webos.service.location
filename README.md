@@ -26,7 +26,7 @@ Below are the tools and libraries (and their minimum versions) required to build
 * dbus-glib.0.100
 * dbus
 * make (any version)
-* openwebos/cjson 1.8.0
+* openwebos/pbnjson
 * openwebos/cmake-modules-webos 1.0.0 RC3
 * openwebos/luna-service2 3.0.0
 * openwebos/nyx-lib 2.0.0 RC2

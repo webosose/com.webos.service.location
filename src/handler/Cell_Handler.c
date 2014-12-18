@@ -27,7 +27,7 @@
 #include <Handler_Interface.h>
 #include <Cell_Handler.h>
 #include <Plugin_Loader.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 #include <pbnjson.h>
 
 typedef struct _CellHandlerPrivate {

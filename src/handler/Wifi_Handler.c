@@ -28,7 +28,7 @@
 #include <Handler_Interface.h>
 #include <Wifi_Handler.h>
 #include <Plugin_Loader.h>
-#include <LocationService_Log.h>
+#include <loc_log.h>
 
 typedef struct _WifiHandlerPrivate {
     WifiPlugin *wifi_plugin;

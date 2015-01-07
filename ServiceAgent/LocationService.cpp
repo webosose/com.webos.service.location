@@ -3227,7 +3227,6 @@ void LocationService::geocoding_reply(char *response, int error, int type)
 {
     LSError mLSError;
     char *retString = NULL;
-    const char *json_end = NULL;
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
     jvalue_ref serviceObject = NULL;
@@ -3241,7 +3240,6 @@ void LocationService::geocoding_reply(char *response, int error, int type)
         retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
         goto EXIT;
     }
-
 
     serviceObject = jobject_create();
 
@@ -3261,14 +3259,9 @@ void LocationService::geocoding_reply(char *response, int error, int type)
         goto EXIT;
     }
 
-    // Call jdomparser_feed for every part of incoming json string. It will be done byte by byte.
-    json_end = response + strlen(response);
-
-    for (const char *i = response ; i != json_end ; ++i) {
-        if (!jdomparser_feed(parser, i, 1)) {
-            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-            goto EXIT;
-        }
+    if (!jdomparser_feed(parser, response, strlen(response))) {
+        retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+        goto EXIT;
     }
 
     jval = jdomparser_get_result(parser);
@@ -3295,16 +3288,12 @@ EXIT:
 
     if (parser != NULL)
         jdomparser_release(&parser);
-
-    if (response != NULL)
-        g_free(response);
 }
 
 void LocationService::rev_geocoding_reply(char *response, int error, int type)
 {
     LSError mLSError;
     char *retString = NULL;
-    const char *json_end = NULL;
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
     jvalue_ref serviceObject = NULL;
@@ -3329,7 +3318,6 @@ void LocationService::rev_geocoding_reply(char *response, int error, int type)
         goto EXIT;
     }
 
-
     location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
@@ -3341,21 +3329,16 @@ void LocationService::rev_geocoding_reply(char *response, int error, int type)
         goto EXIT;
     }
 
-    // Call jdomparser_feed for every part of incoming json string. It will be done byte by byte.
-    json_end = response + strlen(response);
-
-    for (const char *i = response ; i != json_end ; ++i) {
-        if (!jdomparser_feed(parser, i, 1)) {
-            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-            goto EXIT;
-        }
+    if (!jdomparser_feed(parser, response, strlen(response))) {
+        retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+        goto EXIT;
     }
 
     jval = jdomparser_get_result(parser);
     jobject_put(serviceObject, J_CSTR_TO_JVAL("response"), jval);
     retString = jvalue_tostring_simple(serviceObject);
-EXIT:
 
+EXIT:
     if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
                                               SUBSC_GET_REVGEOCODE_KEY,
                                               retString,
@@ -3375,9 +3358,6 @@ EXIT:
 
     if (parser != NULL)
         jdomparser_release(&parser);
-
-    if (response != NULL)
-        g_free(response);
 }
 
 

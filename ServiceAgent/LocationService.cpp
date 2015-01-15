@@ -1671,7 +1671,7 @@ bool LocationService::getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *
     location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
     jobject_put(serviceObject, J_CSTR_TO_JVAL("TTFF"),jnumber_create_i32(mTTFF));
 
-    LS_LOG_INFO("get time to first fix %lld\n", mTTFF);
+    LS_LOG_INFO("get time to first fix %lld reply payload %s", mTTFF, jvalue_tostring_simple(serviceObject));
 
     bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
 
@@ -1953,7 +1953,7 @@ int LocationService::getConnectionErrorCode() {
 
 bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void *data) {
 
-    LS_LOG_INFO("=======getLocationUpdates=======");
+    LS_LOG_INFO("=======getLocationUpdates=======payload %s",LSMessageGetPayload(message));
     int errorCode = LOCATION_SUCCESS;
     LSError mLSError;
     jvalue_ref parsedObj = NULL;
@@ -1991,7 +1991,7 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
     /* Parse minimumDistance in meters*/
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("minimumDistance"), &serviceObj)) {
         jnumber_get_i32(serviceObj, &minDistance);
-        LS_LOG_DEBUG("minimumDistance %d", minInterval);
+        LS_LOG_DEBUG("minimumDistance %d", minDistance);
     }
     /* Parse Handler name */
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("Handler"), &serviceObj)) {
@@ -2041,8 +2041,10 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         }
 
         LS_LOG_INFO("timerdata %p", timerdata);
-        if (responseTime != 0)
+        if (responseTime != 0) {
             timerID = g_timeout_add_seconds(responseTime, &TimerCallbackLocationUpdate, timerdata);
+            LS_LOG_INFO("timerID %d started for responseTime %d", timerID,responseTime);
+        }
 
         LocationUpdateRequest *locUpdateReq = new(std::nothrow) LocationUpdateRequest(message,
                                                                                       reqTime,
@@ -2145,7 +2147,7 @@ bool LocationService::getCachedPosition(LSHandle *sh, LSMessage *message, void *
     bool bRetVal;
 
     LSErrorInit(&lsError);
-    LS_LOG_INFO("=======getCachedPosition=======");
+    LS_LOG_INFO("=======getCachedPosition======= payload %s",LSMessageGetPayload(message));
 
     if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_CACHED_POSITION, &parsedObj)) {
         LS_LOG_ERROR("Schema Error in getCurrentPosition");
@@ -2179,7 +2181,7 @@ bool LocationService::getCachedPosition(LSHandle *sh, LSMessage *message, void *
         jnumber_get_i32(maximumAgeObj,&maximumAge);
     }
 
-    LS_LOG_DEBUG("maximumAge= %d", maximumAge);
+    LS_LOG_INFO("maximumAge= %d", maximumAge);
 
     if (strcmp(handlerName,GPS) == 0) {
         getCachedDatafromHandler(HANDLER_INTERFACE(handler_array[HANDLER_GPS]),
@@ -2240,6 +2242,7 @@ bool LocationService::getCachedPosition(LSHandle *sh, LSMessage *message, void *
 
 EXIT:
     if (errorCode != LOCATION_SUCCESS ) {
+        LS_LOG_INFO("getCachedPosition reply error %d",errorCode);
         LSMessageReplyError(sh, message, errorCode);
     } else {
         //Read according to accuracy value
@@ -2253,8 +2256,10 @@ EXIT:
             LSErrorPrintAndFree(&lsError);
     }
 
-    if (!jis_null(serviceObj))
+    if (!jis_null(serviceObj)) {
+        LS_LOG_INFO("getCachedPosition reply payload %s", jvalue_tostring_simple(serviceObj));
         j_release(&serviceObj);
+    }
 
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
@@ -2358,7 +2363,7 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
     }
 
     if (*startedHandlers == HANDLER_STATE_DISABLED) {
-        LS_LOG_DEBUG("All handlers disabled");
+        LS_LOG_INFO("All handlers disabled");
         return false;
     }
 
@@ -3129,6 +3134,14 @@ void LocationService::getLocationUpdate_reply(Position *pos, Accuracy *accuracy,
     char *key1 = NULL;
     char *key2 = NULL;
 
+    if(pos)
+        LS_LOG_INFO("latitude %f longitude %f altitude %f timestamp %lld", pos->latitude,
+                                                                           pos->longitude,
+                                                                           pos->altitude,
+                                                                           pos->timestamp);
+    if(accuracy)
+        LS_LOG_INFO("horizAccuracy %f vertAccuracy %f", accuracy->horizAccuracy, accuracy->vertAccuracy);
+
     if (type == HANDLER_GPS) {
         key1 = SUBSC_GET_LOC_UPDATES_GPS_KEY;
         key2 = SUBSC_GET_LOC_UPDATES_HYBRID_KEY;
@@ -3219,8 +3232,10 @@ EXIT:
     if (bRetVal == false)
         LSErrorPrintAndFree(&mLSError);
 
-    if (!jis_null(serviceObject))
+    if (!jis_null(serviceObject)) {
+        LS_LOG_INFO("reply payload %s", jvalue_tostring_simple(serviceObject));
         j_release(&serviceObject);
+    }
 }
 
 void LocationService::geocoding_reply(char *response, int error, int type)

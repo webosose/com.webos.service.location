@@ -72,7 +72,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     g_hash_table_insert(options, key, gvalue);
 
     if (!geoclue_provider_set_options(GEOCLUE_PROVIDER(instance), options, &error)) {
-        LS_LOG_ERROR("[DEBUG] WIFI Error geoclue_provider_set_options(%s) : %s", gvalue, error->message);
+        LS_LOG_ERROR("[DEBUG] WIFI Error geoclue_provider_set_options(%s) : %s", key, error->message);
         g_value_unset(gvalue);
         g_error_free(error);
         g_free(gvalue);
@@ -80,7 +80,7 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
         return FALSE;
     }
 
-    LS_LOG_INFO("[DEBUG] WIFI Success to geoclue_provider_set_options(%s)", gvalue);
+    LS_LOG_INFO("[DEBUG] WIFI Success to geoclue_provider_set_options(%s)", key);
     g_value_unset(gvalue);
     g_free(gvalue);
     g_hash_table_destroy(options);

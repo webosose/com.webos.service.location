@@ -86,7 +86,6 @@ static gboolean send_geoclue_command(GeocluePosition *instance, gchar *key, gcha
     GValue *gvalue = NULL;
 
     options = g_hash_table_new(g_str_hash, g_str_equal);
-    LS_LOG_INFO(" value of sendgeolcuecommand %s ", value);
     gvalue = g_new0(GValue, 1);
 
     g_value_init(gvalue, G_TYPE_STRING);

@@ -164,7 +164,7 @@ static gboolean send_geoclue_command(GeoclueGoogleGeocoder *instance, gchar *key
     g_hash_table_insert(options, key, gvalue);
 
     if (!geoclue_provider_set_options(GEOCLUE_PROVIDER(instance), options, &error)) {
-        LS_LOG_ERROR("[LBS Error geoclue_provider_set_options(%s) : %s", gvalue, error->message);
+        LS_LOG_ERROR("[LBS Error geoclue_provider_set_options(%s) : %s", key, error->message);
         g_value_unset(gvalue);
         g_error_free(error);
         g_free(gvalue);
@@ -172,7 +172,7 @@ static gboolean send_geoclue_command(GeoclueGoogleGeocoder *instance, gchar *key
         return FALSE;
     }
 
-    LS_LOG_INFO("LBS Success to geoclue_provider_set_options(%s)", gvalue);
+    LS_LOG_INFO("LBS Success to geoclue_provider_set_options(%s)", key);
     g_value_unset(gvalue);
     g_free(gvalue);
     g_hash_table_destroy(options);

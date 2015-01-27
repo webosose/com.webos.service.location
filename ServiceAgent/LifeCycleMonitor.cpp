@@ -47,13 +47,13 @@ bool LifeCycleMonitor::registerSuspendMonitor(LSHandle* service)
     m_suspendService = service;
 
     result = LSRegisterServerStatusEx(m_suspendService,
-                                      "com.palm.power",
+                                      "com.palm.sleep",
                                       LifeCycleMonitor::cbPowerdUp,
                                       this,
                                       NULL,
                                       &lsErr);
     if (!result) {
-        LS_LOG_ERROR("Failed to register server status of com.palm.power: %s\n", lsErr.message);
+        LS_LOG_ERROR("Failed to register server status of com.palm.sleep: %s\n", lsErr.message);
         LSErrorFree(&lsErr);
         return false;
     }
@@ -65,7 +65,7 @@ void LifeCycleMonitor::setWakeLock(bool set)
 {
     char message[256];
 
-    if (m_setWakeLock == set)
+    if (!m_registeredWakeLock || m_setWakeLock == set)
         return;
 
     memset(message, 0, 256);
@@ -130,7 +130,7 @@ bool LifeCycleMonitor::cbPowerdUp(LSHandle* sh, const char *serviceName, bool co
         return true;
 
     if (connected) {
-        LS_LOG_INFO("Connected to com.palm.power\n");
+        LS_LOG_INFO("Connected to com.palm.sleep\n");
 
         memset(message, 0, 256);
         sprintf(message, "{\"subscribe\":true,\"clientName\":\"%s\"}", SUSPEND_MONITOR_CLIENT_NAME);
@@ -140,7 +140,7 @@ bool LifeCycleMonitor::cbPowerdUp(LSHandle* sh, const char *serviceName, bool co
                              "palm://com.palm.power/com/palm/power/identify",
                              message);
     } else {
-        LS_LOG_INFO("Disconnected from com.palm.power\n");
+        LS_LOG_INFO("Disconnected from com.palm.sleep\n");
 
         monitor->m_registeredWakeLock = false;
         monitor->m_setWakeLock = false;

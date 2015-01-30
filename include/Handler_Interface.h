@@ -61,8 +61,8 @@ typedef gboolean (*TYPE_GET_HANDLER_STATUS)(Handler *self,int type);
 typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, Position *pos, Accuracy *ac);
 typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, Address *address);
 #else
-typedef int (*TYPE_GOOGLE_GEO_CODE)(Handler *self, const char *data, char **response);
-typedef int (*TYPE_REV_GOOGLE_GEO_CODE)(Handler *self, const char *data, char **response);
+typedef int (*TYPE_GOOGLE_GEO_CODE)(Handler *self, const char *data, GeoCodeCallback geocode_cb);
+typedef int (*TYPE_REV_GOOGLE_GEO_CODE)(Handler *self, const char *data, GeoCodeCallback geocode_cb);
 #endif
 typedef int (*TYPE_GET_GPS_STATUS)(Handler *self, StatusCallback status_cb);
 typedef int (*TYPE_SET_GPS_PARAMETERS)(Handler *self , char *command);

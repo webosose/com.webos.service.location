@@ -210,7 +210,7 @@ public:
     };
     virtual ~LocationService();
     bool init(GMainLoop *);
-    bool locationServiceRegister(char *srvcname, GMainLoop *mainLoop, LSPalmService **mServiceHandle);
+    bool locationServiceRegister(const char *srvcname, GMainLoop *mainLoop, LSPalmService **mServiceHandle);
     static LocationService *getInstance();
 
     bool isLocationRequestEmpty() {
@@ -418,13 +418,13 @@ public:
         updateWifiInternetState(Internet_state);
     }
 
-    void updateNwKey(char *nwKey) {
+    void updateNwKey(const char *nwKey) {
 
         if(nwKey && (strlen(nwKey) < MAX_API_KEY_LENGTH))
            strcpy(nwGeolocationKey, nwKey);
     }
 
-    void updateLbsKey(char *lbsKey) {
+    void updateLbsKey(const char *lbsKey) {
 
         if(lbsKey && (strlen(lbsKey) < MAX_API_KEY_LENGTH))
            strcpy(lbsGeocodeKey, lbsKey);
@@ -502,21 +502,13 @@ private:
     //mapped with HandlerTypes
     Handler *handler_array[HANDLER_MAX];
 
-    char* geofenceStateText[GEOFENCE_MAXIMUM] {
-        "added",                // GEOFENCE_ADD_SUCCESS
-        "removed",              // GEOFENCE_REMOVE_SUCCESS
-        "paused",               // GEOFENCE_PAUSE_SUCCESS
-        "resumed",              // GEOFENCE_RESUME_SUCCESS
-        "transitionEntered",    // GEOFENCE_TRANSITION_ENTERED
-        "transitionExited",     // GEOFENCE_TRANSITION_EXITED
-        "transitionUncertain"   // GEOFENCE_TRANSITION_UNCERTAIN
-    };
+    static const char* geofenceStateText[GEOFENCE_MAXIMUM];
 
     LifeCycleMonitor *m_lifeCycleMonitor;
     bool m_enableSuspendBlocker;
 
-    char nwGeolocationKey[MAX_API_KEY_LENGTH] = {0x00};
-    char lbsGeocodeKey[MAX_API_KEY_LENGTH] = {0x00};
+    char nwGeolocationKey[MAX_API_KEY_LENGTH];
+    char lbsGeocodeKey[MAX_API_KEY_LENGTH];
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
     bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);
@@ -569,6 +561,8 @@ private:
     bool getNominatiumReverseGeocode(LSHandle *sh, LSMessage *message, void *data);
     void getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos_data, Position *pos);
     bool getNominatiumGeocode(LSHandle *sh, LSMessage *message, void *data);
+    void printMessageDetails(const char *usage, LSMessage *msg, LSHandle *sh);
+    bool isListFilled(LSHandle *sh, LSMessage *message, const char *key, bool cancelCase);
 
 };
 

@@ -275,5 +275,5 @@ void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSMessageReplySuccess(LSHandle *sh, LSMessage *message);
 bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);
-void securestorage_set(LSHandle *sh, void *ptr);
+bool securestorage_set(LSHandle *sh, void *ptr);
 #endif

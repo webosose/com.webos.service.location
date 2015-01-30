@@ -63,7 +63,7 @@ static void unreference_geoclue(GeoclueLbs *geoclueLbs)
     }
 }
 
-void geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error ,const char *response, gpointer userdata)
+void geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, gpointer userdata)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) userdata;
     g_return_if_fail(geoclueLbs);
@@ -78,7 +78,7 @@ void geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error ,const char *respon
 }
 
 
-void rev_geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error ,const char *response, gpointer userdata)
+void rev_geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, gpointer userdata)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) userdata;
     g_return_if_fail(geoclueLbs);
@@ -93,7 +93,7 @@ void rev_geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error ,const char *re
 
 }
 
-void geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, const char *response, GError *error, gpointer userdata)
+void geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GError *error, gpointer userdata)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) userdata;
     g_return_if_fail(geoclueLbs);
@@ -119,7 +119,7 @@ void geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, const char *response, G
     }
 }
 
-void rev_geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, const char *response, GError *error, gpointer userdata)
+void rev_geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GError *error, gpointer userdata)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) userdata;
     g_return_if_fail(geoclueLbs);

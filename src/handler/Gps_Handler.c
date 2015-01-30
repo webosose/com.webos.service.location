@@ -101,7 +101,7 @@ static gboolean gps_timeout_cb(gpointer user_data)
  * @param           <user_data> <In> <instance of handler>
  * @return          void
  */
-void gps_handler_status_cb(gboolean enable_cb, GPSStatus status, gpointer user_data)
+void gps_handler_status_cb(gboolean enable_cb, int status, gpointer user_data)
 {
     LS_LOG_INFO("gps_handler_status_cb status = %d", status);
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(user_data);

@@ -264,7 +264,7 @@ bool secure_storage_set_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     return true;
 }
 
-void securestorage_set(LSHandle *sh, void *ptr)
+bool securestorage_set(LSHandle *sh, void *ptr)
 {
     LSError lsError;
     LSErrorInit(&lsError);
@@ -274,21 +274,24 @@ void securestorage_set(LSHandle *sh, void *ptr)
                 "palm://com.palm.securestorage/keystorageset",
                 SECURE_PAYLOAD_NW_SET,
                 secure_storage_set_cb,
-                "nwkey",
+                (char *)"nwkey",
                 NULL,
                 &lsError)) {
         LSErrorPrint(&lsError, stderr);
         LSErrorFree(&lsError);
+        return false;
     }
 
     if (!LSCall(sh,
                 "palm://com.palm.securestorage/keystorageset",
                 SECURE_PAYLOAD_LBS_SET,
                 secure_storage_set_cb,
-                "lbskey",
+                (char *)"lbskey",
                 NULL,
                 &lsError)) {
         LSErrorPrint(&lsError, stderr);
         LSErrorFree(&lsError);
+        return false;
     }
+    return true;
 }

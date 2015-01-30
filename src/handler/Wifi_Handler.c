@@ -29,6 +29,7 @@
 #include <Wifi_Handler.h>
 #include <Plugin_Loader.h>
 #include <loc_log.h>
+#include <stdlib.h>
 
 typedef struct _WifiHandlerPrivate {
     WifiPlugin *wifi_plugin;
@@ -279,6 +280,10 @@ static void wifi_handler_get_location_updates(Handler *self,
 {
     int result = ERROR_NONE;
     WifiHandlerPrivate *priv = WIFI_HANDLER_GET_PRIVATE(self);
+    if(enable)
+        LS_LOG_INFO("wifi_handler_get_location_updates enable ");
+    else
+        LS_LOG_INFO("wifi_handler_get_location_updates disable");
 
     if (priv == NULL || priv->wifi_plugin->ops.start_tracking == NULL) {
         if (loc_update_cb)

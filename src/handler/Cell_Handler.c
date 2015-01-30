@@ -464,7 +464,10 @@ static void cell_handler_get_location_updates(Handler *self,
                                               LSHandle *sh,
                                               LSMessage *msg)
 {
-    LS_LOG_INFO("[DEBUG]Cell handler get location updates called ");
+    if(enable)
+        LS_LOG_INFO("cell_handler_get_location_updates enable ");
+    else
+        LS_LOG_INFO("cell_handler_get_location_updates disable");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
     LSError lserror;
     gboolean mRet = FALSE;

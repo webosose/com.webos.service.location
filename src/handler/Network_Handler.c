@@ -267,8 +267,10 @@ static void nw_handler_get_location_updates(Handler *self, gboolean enable, Star
         priv->track_get_loc_update_cb = track_cb;
     }
     handler_get_location_updates(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
-
-    LS_LOG_INFO("[DEBUG] return from nw_handler_get_location_updates , %d  \n", result);
+    if(enable)
+        LS_LOG_INFO("nw_handler_get_location_updates enable, result %d", result);
+    else
+        LS_LOG_INFO("nw_handler_get_location_updates disable, result %d", result);
 }
 
 
@@ -292,7 +294,7 @@ static int nw_handler_get_last_position(Handler *self, Position *position, Accur
     return ret;
 }
 
-static int nw_handler_function_not_implemented(Handler *self, Position *pos, Address *address)
+static int nw_handler_function_not_implemented(Handler *self, Position *pos, GeoCodeCallback geocode_cb)
 {
     return ERROR_NOT_APPLICABLE_TO_THIS_HANDLER;
 }

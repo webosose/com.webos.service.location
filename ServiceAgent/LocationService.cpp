@@ -3843,7 +3843,6 @@ bool LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh,
             LSMessage *msg = LSSubscriptionNext(iter);
 
             if (LSMessageIsSubscription(msg)) {
-                printMessageDetails("LSSubscriptionNonSubscriptionReply", msg, sh);
                 retVal = LSMessageReply(sh, msg, payload, lserror);
                 if (retVal == false) {
                     return retVal;
@@ -3898,7 +3897,6 @@ bool LocationService::LSSubNonSubReplyLocUpdateCase(Position *pos,
     while (LSSubscriptionHasNext(iter)) {
         msg = LSSubscriptionNext(iter);
 
-        printMessageDetails("LSSubNonSubReplyLocUpdateCase", msg, sh);
         //parse message to get minDistance
         if (!LSMessageIsSubscription(msg))
             isNonSubscibePresent = true;

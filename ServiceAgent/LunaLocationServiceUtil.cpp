@@ -15,6 +15,11 @@
 #include "ServiceAgent.h"
 #include <loc_log.h>
 #include <LocationService.h>
+#include <loc_security.h>
+
+#define GEOLOCKEY_CONFIG_PATH       "/etc/geolocation.conf"
+#define GEOCODEKEY_CONFIG_PATH      "/etc/geocode.conf"
+
 
 LocationService *loc_svc_ptr = NULL;
 
@@ -107,24 +112,6 @@ void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode)
         LSErrorFree(&lserror);
     }
 }
-
-/*void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode, char *errorText)
-{
-    LSError lserror;
-    LSErrorInit(&lserror);
-    char *errorString;
-
-    errorString = g_strdup_printf("{\"returnValue\":true,\"errorText\":\"%s\",\"errorCode\":%d}", errorText, errorCode);
-
-    bool retVal = LSMessageReply(sh, message, errorString, &lserror);
-    if (!retVal)
-    {
-        LSErrorPrint(&lserror, stderr);
-        LSErrorFree(&lserror);
-    }
-
-    g_free(errorString);
-}*/
 
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message)
 {
@@ -227,71 +214,70 @@ bool secure_storage_get_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     return true;
 }
 
-bool secure_storage_set_cb(LSHandle *sh, LSMessage *reply, void *ctx)
-{
-    LSError lsError;
-    LSErrorInit(&lsError);
-
-    if (ctx == NULL) {
-        return true;
-    }
-
-    if (strcmp("nwkey",(char*) ctx) == 0) {
-        if (!LSCall(sh,
-                    "palm://com.palm.securestorage/keystorageget",
-                    SECURE_PAYLOAD_NW_GET,
-                    secure_storage_get_cb,
-                    ctx,
-                    NULL,
-                    &lsError)) {
-           LSErrorPrint(&lsError, stderr);
-           LSErrorFree(&lsError);
-       }
-
-    } else if (strcmp("lbskey",(char*) ctx) == 0) {
-        if (!LSCall(sh,
-                   "palm://com.palm.securestorage/keystorageget",
-                   SECURE_PAYLOAD_LBS_GET,
-                   secure_storage_get_cb,
-                   ctx,
-                   NULL,
-                   &lsError)) {
-            LSErrorPrint(&lsError, stderr);
-            LSErrorFree(&lsError);
-        }
-
-    }
-    return true;
-}
-
-bool securestorage_set(LSHandle *sh, void *ptr)
+bool securestorage_get(LSHandle *sh, void *ptr)
 {
     LSError lsError;
     LSErrorInit(&lsError);
     loc_svc_ptr = (LocationService *)ptr;
 
     if (!LSCall(sh,
-                "palm://com.palm.securestorage/keystorageset",
-                SECURE_PAYLOAD_NW_SET,
-                secure_storage_set_cb,
+                "palm://com.palm.securestorage/keystorageget",
+                SECURE_PAYLOAD_NW_GET,
+                secure_storage_get_cb,
                 (char *)"nwkey",
                 NULL,
                 &lsError)) {
         LSErrorPrint(&lsError, stderr);
         LSErrorFree(&lsError);
+
         return false;
     }
 
     if (!LSCall(sh,
-                "palm://com.palm.securestorage/keystorageset",
-                SECURE_PAYLOAD_LBS_SET,
-                secure_storage_set_cb,
+                "palm://com.palm.securestorage/keystorageget",
+                SECURE_PAYLOAD_LBS_GET,
+                secure_storage_get_cb,
                 (char *)"lbskey",
                 NULL,
                 &lsError)) {
         LSErrorPrint(&lsError, stderr);
         LSErrorFree(&lsError);
+
         return false;
     }
+
     return true;
+}
+
+bool getApiKeys(void *ptr)
+{
+    unsigned char *geoloc_api_key = NULL;
+    unsigned char *geocode_api_key = NULL;
+    int ret_geoloc = LOC_SECURITY_ERROR_FAILURE;
+    int ret_geocode = LOC_SECURITY_ERROR_FAILURE;
+
+    loc_svc_ptr = (LocationService *)ptr;
+    if (loc_svc_ptr == NULL)
+        return false;
+
+    ret_geoloc = loc_security_openssl_decrypt_file(GEOLOCKEY_CONFIG_PATH,
+                                                   &geoloc_api_key);
+
+    ret_geocode = loc_security_openssl_decrypt_file(GEOCODEKEY_CONFIG_PATH,
+                                                    &geocode_api_key);
+
+    if (ret_geoloc == LOC_SECURITY_ERROR_SUCCESS)
+        loc_svc_ptr->updateNwKey((const char *)geoloc_api_key);
+
+    if (ret_geocode == LOC_SECURITY_ERROR_SUCCESS)
+        loc_svc_ptr->updateLbsKey((const char *)geocode_api_key);
+
+    if (geoloc_api_key != NULL)
+        free(geoloc_api_key);
+
+    if (geocode_api_key != NULL )
+        free(geocode_api_key);
+
+    return (ret_geoloc == LOC_SECURITY_ERROR_SUCCESS) &&
+           (ret_geocode == LOC_SECURITY_ERROR_SUCCESS);
 }

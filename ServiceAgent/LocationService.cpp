@@ -115,7 +115,10 @@ LocationService::LocationService() :
                  mIsGetSatSubProgress(false),
                  mIsStartTrackProgress(false),
                  m_lifeCycleMonitor(0),
-                 m_enableSuspendBlocker(true)
+                 m_enableSuspendBlocker(true),
+                 htPseudoGeofence(0),
+                 nwGeolocationKey(0),
+                 lbsGeocodeKey(0)
 {
     LS_LOG_DEBUG("LocationService object created");
 }
@@ -130,8 +133,7 @@ void LocationService::LSErrorPrintAndFree(LSError *ptrLSError)
 
 bool LocationService::init(GMainLoop *mainLoop)
 {
-    memset(nwGeolocationKey, 0x00, MAX_API_KEY_LENGTH);
-    memset(lbsGeocodeKey, 0x00, MAX_API_KEY_LENGTH);
+    memset(is_geofenceId_used, 0x00, MAX_GEOFENCE_ID);
 
     if (locationServiceRegister(LOCATION_SERVICE_NAME, mainLoop, &mServiceHandle) == false) {
         LS_LOG_ERROR("com.palm.location service registration failed");
@@ -176,9 +178,8 @@ bool LocationService::init(GMainLoop *mainLoop)
                                                  (GDestroyNotify)g_free, NULL);
     }
 
-    if(!securestorage_set(LSPalmServiceGetPrivateConnection(mServiceHandle), this)) {
-        LS_LOG_INFO("Service failed get license key from securestorage");
-        return false;
+    if (!getApiKeys(this)) {
+        LS_LOG_ERROR("Failed to get API keys\n");
     }
 
     /* SUSPEND BLOCKER
@@ -251,6 +252,16 @@ LocationService::~LocationService()
     if (htPseudoGeofence) {
         g_hash_table_destroy(htPseudoGeofence);
         htPseudoGeofence = NULL;
+    }
+
+    if (nwGeolocationKey) {
+        g_free(nwGeolocationKey);
+        nwGeolocationKey = NULL;
+    }
+
+    if (lbsGeocodeKey) {
+        g_free(lbsGeocodeKey);
+        lbsGeocodeKey = NULL;
     }
 
     if (pthread_mutex_destroy(&lbs_geocode_lock)|| pthread_mutex_destroy(&lbs_reverse_lock)
@@ -570,6 +581,20 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
         goto EXIT;
     }
 
+    if (lbsGeocodeKey == NULL) {
+        LS_LOG_INFO("LBS API key is invalid, re-trying to read ...\n");
+        /*Read again*/
+        getApiKeys(this);
+
+        if (lbsGeocodeKey == NULL) {
+            LS_LOG_ERROR("Failed to read API keys\n");
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            goto EXIT;
+        }
+
+        LS_LOG_INFO("Succeeded to read API keys\n");
+    }
+
     getReverseGeocodeData(&parsedObj, &pos_data, &pos);
     LOCATION_ASSERT(pthread_mutex_lock(&lbs_reverse_lock) == 0);
     ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), HANDLER_LBS, lbsGeocodeKey);
@@ -838,6 +863,20 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     if (!isInternetConnectionAvailable && !isWifiInternetAvailable) {
         errorCode = LOCATION_DATA_CONNECTION_OFF;
         goto EXIT;
+    }
+
+    if (lbsGeocodeKey == NULL) {
+        LS_LOG_INFO("LBS API key is invalid, re-trying to read ...\n");
+        /*Read again*/
+        getApiKeys(this);
+
+        if (lbsGeocodeKey == NULL) {
+            LS_LOG_ERROR("Failed to read API keys\n");
+            errorCode = LOCATION_UNKNOWN_ERROR;
+            goto EXIT;
+        }
+
+        LS_LOG_INFO("Succeeded to read API keys\n");
     }
 
     if ((!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject)) &&
@@ -2448,6 +2487,19 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
 bool LocationService::enableNwHandler(unsigned char *startedHandlers)
 {
     bool ret = false;
+
+    if (nwGeolocationKey == NULL) {
+        LS_LOG_INFO("Network API key is invalid, re-trying to read ...\n");
+        /*Read again*/
+        getApiKeys(this);
+
+        if (nwGeolocationKey == NULL) {
+            LS_LOG_ERROR("Failed to read API keys\n");
+            return false;
+        }
+
+        LS_LOG_INFO("Succeeded to read API keys\n");
+    }
 
     if (getHandlerStatus(NETWORK)) {
         LS_LOG_DEBUG("network is on in Settings");

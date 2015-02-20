@@ -22,8 +22,6 @@
 #include <lunaservice.h>
 #include "JsonUtility.h"
 // temproray so keeping hardcoded value
-#define SECURE_PAYLOAD_NW_SET      "{\"keyname\":\"com.palm.location.geolocation\",\"pdata\":\"AIzaSyC3gspakPjzPZ-zctl0JBxKVtSlTBSL4BY\",\"cdata\":39}"
-#define SECURE_PAYLOAD_LBS_SET     "{\"keyname\":\"com.palm.location.geocode\",\"pdata\":\"CDgvGzYI33BE0XvF54xrqaDmBrY=\",\"cdata\":28}"
 
 #define SECURE_PAYLOAD_NW_GET      "{\"keyname\":\"com.palm.location.geolocation\"}"
 #define SECURE_PAYLOAD_LBS_GET     "{\"keyname\":\"com.palm.location.geocode\"}"
@@ -275,5 +273,8 @@ void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSMessageReplySuccess(LSHandle *sh, LSMessage *message);
 bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);
-bool securestorage_set(LSHandle *sh, void *ptr);
+
+bool securestorage_get(LSHandle *sh, void *ptr);
+bool getApiKeys(void *ptr);
+
 #endif

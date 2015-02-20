@@ -208,12 +208,12 @@ static void status_cb(GeoclueProvider *provider, gint status, gpointer userdata)
 
     switch (status) {
         case GEOCLUE_STATUS_AVAILABLE:
-            LS_LOG_DEBUG("[DEBUG] gps-plugin status called status GEOCLUE_STATUS_ACQUIRING:\n");
+            LS_LOG_DEBUG("[DEBUG] gps-plugin status called status GEOCLUE_STATUS_AVAILABLE\n");
             (*plugin_data->status_cb)(FALSE, GPS_STATUS_AVAILABLE, plugin_data->userdata);
             break;
 
         case GEOCLUE_STATUS_UNAVAILABLE:
-            LS_LOG_DEBUG("[DEBUG] gps-plugin status called status GEOCLUE_STATUS_AVAILABLE:\n");
+            LS_LOG_DEBUG("[DEBUG] gps-plugin status called status GEOCLUE_STATUS_UNAVAILABLE\n");
             (*plugin_data->status_cb)(TRUE, GPS_STATUS_UNAVAILABLE, plugin_data->userdata);
             break;
 

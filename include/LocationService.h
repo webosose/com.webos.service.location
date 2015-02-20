@@ -68,7 +68,6 @@
 #define MAX_GEOFENCE_ID                     200
 #define MIN_GEOFENCE_RANGE                  1000
 #define MAX_GEOFENCE_RANGE                  1200
-#define MAX_API_KEY_LENGTH                  256
 #define KEY_MAX                             64
 #define MATH_PI                             3.1415926535897932384626433832795
 
@@ -419,21 +418,28 @@ public:
     }
 
     void updateNwKey(const char *nwKey) {
+        if (!nwKey)
+            return;
 
-        if(nwKey && (strlen(nwKey) < MAX_API_KEY_LENGTH))
-           strcpy(nwGeolocationKey, nwKey);
+        if (nwGeolocationKey) {
+            g_free(nwGeolocationKey);
+            nwGeolocationKey = NULL;
+        }
+
+        nwGeolocationKey = g_strdup(nwKey);
     }
 
     void updateLbsKey(const char *lbsKey) {
+        if (!lbsKey)
+            return;
 
-        if(lbsKey && (strlen(lbsKey) < MAX_API_KEY_LENGTH))
-           strcpy(lbsGeocodeKey, lbsKey);
-    }
-    // For deprecated API once depercated API removed this will also be removed
-    char* getNwKey() {
-        return nwGeolocationKey;
-    }
+        if (lbsGeocodeKey) {
+            g_free(lbsGeocodeKey);
+            lbsGeocodeKey = NULL;
+        }
 
+        lbsGeocodeKey = g_strdup(lbsKey);
+    }
 
     bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
     bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
@@ -507,8 +513,8 @@ private:
     LifeCycleMonitor *m_lifeCycleMonitor;
     bool m_enableSuspendBlocker;
 
-    char nwGeolocationKey[MAX_API_KEY_LENGTH];
-    char lbsGeocodeKey[MAX_API_KEY_LENGTH];
+    char *nwGeolocationKey;
+    char *lbsGeocodeKey;
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
     bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);

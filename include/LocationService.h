@@ -26,7 +26,7 @@
 
 #include <lunaservice.h>
 #include <ServiceAgent.h>
-#include<IConnectivityListener.h>
+#include <IConnectivityListener.h>
 #include <string.h>
 #include <Location.h>
 #include "boost/shared_ptr.hpp"
@@ -37,6 +37,7 @@
 #include <pbnjson.h>
 #include <sys/time.h>
 #include <LifeCycleMonitor.h>
+#include <loc_logger.h>
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -515,6 +516,9 @@ private:
 
     char *nwGeolocationKey;
     char *lbsGeocodeKey;
+
+    data_logger_t *location_request_logger;
+
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
     bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);

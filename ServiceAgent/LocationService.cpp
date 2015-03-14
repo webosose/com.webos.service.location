@@ -40,7 +40,13 @@
 #include <string>
 #include <boost/algorithm/string/replace.hpp>
 #include <loc_geometry.h>
+
 using namespace std;
+
+#define LOC_REQ_LOG_MAX_SIZE        (512 * 1024)
+#define LOC_REQ_LOG_MAX_ROTATION    2
+#define LOC_REQ_LOG_TITLE           "location_requests_info"
+
 /**
  @var LSMethod LocationService::rootMethod[]
  methods belonging to root category
@@ -118,7 +124,8 @@ LocationService::LocationService() :
                  m_enableSuspendBlocker(true),
                  htPseudoGeofence(0),
                  nwGeolocationKey(0),
-                 lbsGeocodeKey(0)
+                 lbsGeocodeKey(0),
+                 location_request_logger(0)
 {
     LS_LOG_DEBUG("LocationService object created");
 }
@@ -181,6 +188,15 @@ bool LocationService::init(GMainLoop *mainLoop)
     if (!getApiKeys(this)) {
         LS_LOG_ERROR("Failed to get API keys\n");
     }
+
+    if (location_request_logger == NULL)
+        location_request_logger = loc_logger_create();
+
+    loc_logger_start_logging_with_rotation(&location_request_logger,
+                                           "/var/log",
+                                           LOC_REQ_LOG_TITLE,
+                                           LOC_REQ_LOG_MAX_ROTATION,
+                                           LOC_REQ_LOG_MAX_SIZE);
 
     /* SUSPEND BLOCKER
     if (!m_lifeCycleMonitor) {
@@ -287,6 +303,8 @@ LocationService::~LocationService()
         LSErrorPrint(&m_LSErr, stderr);
         LSErrorFree(&m_LSErr);
     }
+
+    loc_logger_destroy(&location_request_logger);
 
     /* SUSPEND BLOCKER
     if (m_lifeCycleMonitor) {
@@ -4217,10 +4235,12 @@ bool LocationService::isSubscribeTypeValid(LSHandle *sh, LSMessage *message, boo
     j_release(&parsedObj);
     return true;
 }
+
 void LocationService::printMessageDetails(const char *usage, LSMessage *msg, LSHandle *sh)
 {
     const char *service_name = LSHandleGetName(sh);
     LSPalmService *psh = NULL;
+    char log[256];
 
     if (!msg)
         return;
@@ -4230,18 +4250,36 @@ void LocationService::printMessageDetails(const char *usage, LSMessage *msg, LSH
     else if(service_name != NULL && (strcmp(service_name, LOCATION_SERVICE_ALIAS_LGE_NAME) == 0))
         psh = mlgeServiceHandle;
 
-    LS_LOG_INFO("=============== LSMessage Details for %s ===============\n", usage ? usage : "NA");
+    snprintf(log, 256, "=============== LSMessage Details for %s ===============\n", usage ? usage : "NA");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    LS_LOG_INFO(log);
 
-    if(psh)
-        LS_LOG_INFO("Connection \"%s\" on %s bus\n", service_name ? service_name : "None", LSMessageIsPublic(psh, msg) ? "PUBLIC" : "PRIVATE");
+    if (psh) {
+        snprintf(log, 256, "Connection \"%s\" on %s bus\n",
+                 service_name ? service_name : "None",
+                 LSMessageIsPublic(psh, msg) ? "PUBLIC" : "PRIVATE");
+        loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    }
 
-    LS_LOG_INFO("UniqueToken: %s\n", LSMessageGetUniqueToken(msg) ? LSMessageGetUniqueToken(msg) : "NULL");
-    LS_LOG_INFO("Kind: %s\n", LSMessageGetKind(msg) ? LSMessageGetKind(msg) : "NULL");
-    LS_LOG_INFO("ApplicationID: %s\n", LSMessageGetApplicationID(msg) ? LSMessageGetApplicationID(msg) : "NULL");
-    LS_LOG_INFO("Sender: %s\n", LSMessageGetSender(msg) ? LSMessageGetSender(msg) : "NULL");
-    LS_LOG_INFO("SenderServiceName: %s\n", LSMessageGetSenderServiceName(msg) ? LSMessageGetSenderServiceName(msg) : "NULL");
-    LS_LOG_INFO("Category: %s\n", LSMessageGetCategory(msg) ? LSMessageGetCategory(msg) : "NULL");
-    LS_LOG_INFO("Method: %s\n", LSMessageGetMethod(msg) ? LSMessageGetMethod(msg) : "NULL");
-    LS_LOG_INFO("Payload: %s\n", LSMessageGetPayload(msg) ? LSMessageGetPayload(msg) : "NULL");
-    LS_LOG_INFO("=========================================================\n");
+    snprintf(log, 256, "UniqueToken: %s\n", LSMessageGetUniqueToken(msg) ? LSMessageGetUniqueToken(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    snprintf(log, 256, "ApplicationID: %s\n", LSMessageGetApplicationID(msg) ? LSMessageGetApplicationID(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    LS_LOG_INFO(log);
+    snprintf(log, 256, "Sender: %s\n", LSMessageGetSender(msg) ? LSMessageGetSender(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    snprintf(log, 256, "SenderServiceName: %s\n", LSMessageGetSenderServiceName(msg) ? LSMessageGetSenderServiceName(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    LS_LOG_INFO(log);
+    snprintf(log, 256, "Category: %s\n", LSMessageGetCategory(msg) ? LSMessageGetCategory(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    snprintf(log, 256, "Method: %s\n", LSMessageGetMethod(msg) ? LSMessageGetMethod(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    LS_LOG_INFO(log);
+    snprintf(log, 256, "Payload: %s\n", LSMessageGetPayload(msg) ? LSMessageGetPayload(msg) : "NULL");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    LS_LOG_INFO(log);
+    snprintf(log, 256, "==============================================================\n");
+    loc_logger_feed_log(&location_request_logger, log, strlen(log));
+    LS_LOG_INFO(log);
 }

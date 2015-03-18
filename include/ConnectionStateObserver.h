@@ -52,9 +52,20 @@ private:
     bool _tel_service_status_cb(LSHandle *sh, const char *serviceName, bool connected);
 
     static bool wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx);
+    bool _resume_cb(LSHandle* sh, LSMessage* message);
+    bool _suspended_cb(LSHandle* sh, LSMessage* message);
     static bool telephony_status_cb(LSHandle *sh, LSMessage *message, void *ctx) {
         return ((ConnectionStateObserver *) ctx)->_telephony_status_cb(sh, message);
     }
+
+    static bool suspended_cb(LSHandle *sh, LSMessage *message, void *ctx) {
+        return ((ConnectionStateObserver *) ctx)->_suspended_cb(sh, message);
+    }
+
+    static bool resume_cb(LSHandle *sh, LSMessage *message, void *ctx) {
+        return ((ConnectionStateObserver *) ctx)->_resume_cb(sh, message);
+    }
+
     static bool connectivity_status_cb(LSHandle *sh, LSMessage *message, void *ctx) {
         return ((ConnectionStateObserver *) ctx)->_connectivity_status_cb(sh, message);
     }
@@ -87,6 +98,7 @@ private:
     void Notify_ConnectivityStateChange(bool);
     void Notify_TelephonyStateChange(bool);
     void Notify_WifiInternetStateChange(bool);
+    void Notify_SuspendedStateChange(bool);
     std::set<IConnectivityListener *> m_listeners;
     void *m_telephony_cookie;
     void *m_wifi_cookie;

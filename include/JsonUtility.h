@@ -33,6 +33,7 @@
 #include <pbnjson.h>
 
 #define SCHEMA_ANY                          "{}"
+#define SCHEMA_NONE                         "{\"additionalProperties\":false}"
 
 #define PROPS_1(p1)                         ",\"properties\":{" p1 "}"
 #define PROPS_2(p1, p2)                     ",\"properties\":{" p1 "," p2 "}"

@@ -125,6 +125,7 @@ LocationService::LocationService() :
                  htPseudoGeofence(0),
                  nwGeolocationKey(0),
                  lbsGeocodeKey(0),
+                 suspended_state(false),
                  location_request_logger(0)
 {
     LS_LOG_DEBUG("LocationService object created");
@@ -372,7 +373,11 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data)
     LS_LOG_DEBUG("Call getNmeaData handler");
 
     LOCATION_ASSERT(pthread_mutex_lock(&nmea_lock) == 0);
-    ret = handler_get_nmea_data((Handler *) handler_array[HANDLER_GPS], START, wrapper_getNmeaData_cb, NULL);
+
+    ret = ERROR_NONE;
+    if (suspended_state == false)
+        ret = handler_get_nmea_data((Handler *) handler_array[HANDLER_GPS], START, wrapper_getNmeaData_cb, NULL);
+
     LOCATION_ASSERT(pthread_mutex_unlock(&nmea_lock) == 0);
 
     if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
@@ -1351,8 +1356,10 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
                 LSErrorPrintAndFree(&mLSError);
 
 
-            if (state == false)
+            if (state == false) {
                 handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, true);
+                replyErrorToGpsNwReq(HANDLER_GPS);
+            }
         } else if ((strcmp(handler, NETWORK) == 0) && mNwStatus != state) {
             mNwStatus = state;
             jobject_put(serviceObject, J_CSTR_TO_JVAL("state"), jnumber_create_i32(mNwStatus));
@@ -1396,6 +1403,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
             if (state == false) {
                 handler_stop(handler_array[HANDLER_NW], HANDLER_CELLID, true);
                 handler_stop(handler_array[HANDLER_NW], HANDLER_WIFI, true);
+                replyErrorToGpsNwReq(HANDLER_NW);
             }
         } else { //memleak
             j_release(&handlersArrayItem1);
@@ -1403,6 +1411,9 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
             j_release(&handlersArray);
         }
 
+        if (mNwStatus == false && mGpsStatus == false) {
+            replyErrorToGpsNwReq(HANDLER_HYBRID);
+        }
     } else {
         LS_LOG_DEBUG("LPAppGetHandle is not created");
         j_release(&handlersArrayItem1);
@@ -1745,7 +1756,11 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
     }
 
     LOCATION_ASSERT(pthread_mutex_lock(&sat_lock) == 0);
-    ret = handler_get_gps_satellite_data(handler_array[HANDLER_GPS], START, wrapper_getGpsSatelliteData_cb);
+
+    ret = ERROR_NONE;
+    if(suspended_state == false)
+        ret = handler_get_gps_satellite_data(handler_array[HANDLER_GPS], START, wrapper_getGpsSatelliteData_cb);
+
     LOCATION_ASSERT(pthread_mutex_unlock(&sat_lock) == 0);
 
     if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
@@ -2197,12 +2212,13 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
 
         /********Request gps Handler*****************************/
         if (startedHandlers & HANDLER_GPS_BIT) {
-            handler_get_location_updates((Handler *) handler_array[HANDLER_GPS],
-                                          START,
-                                          wrapper_getLocationUpdate_cb,
-                                          NULL,
-                                          HANDLER_GPS,
-                                          LSPalmServiceGetPrivateConnection(mServiceHandle));
+            if(suspended_state == false)
+                handler_get_location_updates((Handler *) handler_array[HANDLER_GPS],
+                                             START,
+                                             wrapper_getLocationUpdate_cb,
+                                             NULL,
+                                             HANDLER_GPS,
+                                             LSPalmServiceGetPrivateConnection(mServiceHandle));
         }
 
         /********Request wifi Handler*****************************/
@@ -2217,7 +2233,6 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
 
         /********Request cellid Handler*****************************/
         if (startedHandlers & HANDLER_CELLID_BIT) {
-
             handler_get_location_updates((Handler *) handler_array[HANDLER_NW],
                                           START,
                                           wrapper_getLocationUpdate_cb,
@@ -4283,3 +4298,94 @@ void LocationService::printMessageDetails(const char *usage, LSMessage *msg, LSH
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
     LS_LOG_INFO(log);
 }
+
+void LocationService::replyErrorToGpsNwReq(HandlerTypes handler)
+{
+    char *payload = NULL;
+
+    payload = LSMessageGetErrorReply(LOCATION_LOCATION_OFF);
+
+    if (handler == HANDLER_GPS) {
+        if (isSubscListFilled(NULL, NULL, SUBSC_GPS_GET_NMEA_KEY, false) == true)
+            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GPS_GET_NMEA_KEY, payload);
+
+        if (isSubscListFilled(NULL, NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) == true)
+            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_GPS_SATELLITE_DATA, payload);
+
+        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == true)
+            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_LOC_UPDATES_GPS_KEY, payload);
+    } else if (handler == HANDLER_NW) {
+        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == true)
+            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_LOC_UPDATES_NW_KEY, payload);
+    } else if (handler == HANDLER_HYBRID) {
+        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == true)
+            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_LOC_UPDATES_HYBRID_KEY, payload);
+    }
+}
+
+void LocationService::LSSubscriptionNonSubscriptionRespondPubPri(const char *key, const char *payload)
+{
+    LSError mLSError;
+    LSErrorInit(&mLSError);
+
+    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                              key,
+                                              payload,
+                                              &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+
+    if (LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                             key,
+                                             payload,
+                                             &mLSError)) {
+        LSErrorPrintAndFree(&mLSError);
+    }
+}
+
+void LocationService::resumeGpsEngine(void)
+{
+    if (mGpsStatus == false) {
+        LS_LOG_INFO("GPS state off\n");
+        return;
+    }
+
+    if (!isSubscListFilled(NULL, NULL, SUBSC_GPS_GET_NMEA_KEY, false) &&
+        !isSubscListFilled(NULL, NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) &&
+        !isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) &&
+        !isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false)) {
+
+        LS_LOG_INFO("Request List Empty! Fall back to resume GPS engine ...\n");
+    } else {
+        LS_LOG_INFO("Request List in Queue! Resuming GPS engine ...\n");
+
+        if (handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_TYPE_GPS, NULL) != ERROR_NONE) {
+            LS_LOG_INFO("Failed to start GPS engine\n");
+            return;
+        }
+
+        if (isSubscListFilled(NULL, NULL, SUBSC_GPS_GET_NMEA_KEY, false))
+            handler_get_nmea_data((Handler *) handler_array[HANDLER_GPS], START, wrapper_getNmeaData_cb, NULL);
+
+        if (isSubscListFilled(NULL, NULL, SUBSC_GET_GPS_SATELLITE_DATA, false))
+            handler_get_gps_satellite_data(handler_array[HANDLER_GPS], START, wrapper_getGpsSatelliteData_cb);
+
+        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) ||
+            isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false))
+            handler_get_location_updates((Handler *) handler_array[HANDLER_GPS],
+                                          START,
+                                          wrapper_getLocationUpdate_cb,
+                                          NULL,
+                                          HANDLER_GPS,
+                                          LSPalmServiceGetPrivateConnection(mServiceHandle));
+    }
+}
+
+void LocationService::stopGpsEngine(void)
+{
+    if (mGpsStatus) {
+        LS_LOG_INFO("Stopping GPS engine ...\n");
+        handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, true);
+    }
+}
+

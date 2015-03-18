@@ -383,6 +383,24 @@ public:
         isTelephonyAvailable = state; //state; for TESTING
     }
 
+    void updateSuspendedState(bool state) {
+        LS_LOG_INFO("updateSuspendedState: suspended_state=%d, state=%d\n", suspended_state, state);
+
+        if (state == true) {
+            LS_LOG_INFO("sleepd suspended\n");
+
+            if (suspended_state != state)
+                stopGpsEngine();
+        } else {
+            LS_LOG_INFO("sleepd resume\n");
+
+            if (suspended_state != state)
+                resumeGpsEngine();
+        }
+
+        suspended_state = state;
+    }
+
     bool getTelephonyState() {
         return isTelephonyAvailable;
     }
@@ -412,6 +430,9 @@ public:
 
     void Handle_TelephonyNotification(bool Tele_state) {
         updateTelephonyState(Tele_state);
+    }
+    void Handle_SuspendedNotification(bool Suspended_state){
+        updateSuspendedState(Suspended_state);
     }
 
     void Handle_WifiInternetNotification(bool Internet_state) {
@@ -477,6 +498,7 @@ private:
     bool wifistate;
     bool isInternetConnectionAvailable;
     bool isTelephonyAvailable;
+    bool suspended_state;
     bool isWifiInternetAvailable;
     int m_service_state;
     static bool instanceFlag;
@@ -573,6 +595,10 @@ private:
     bool getNominatiumGeocode(LSHandle *sh, LSMessage *message, void *data);
     void printMessageDetails(const char *usage, LSMessage *msg, LSHandle *sh);
     bool isListFilled(LSHandle *sh, LSMessage *message, const char *key, bool cancelCase);
+    void replyErrorToGpsNwReq(HandlerTypes handler);
+    void LSSubscriptionNonSubscriptionRespondPubPri(const char *key, const char *payload);
+    void stopGpsEngine(void);
+    void resumeGpsEngine(void);
 
 };
 

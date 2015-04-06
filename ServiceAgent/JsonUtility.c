@@ -159,3 +159,24 @@ bool location_util_parsejsonAddress(jvalue_ref serviceObject, Address *addr)
     return true;
 }
 
+bool location_util_req_has_wakeup(LSMessage *msg) {
+    bool bWakeLock = false;
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonSubObject = NULL;
+    JSchemaInfo schemaInfo;
+
+    jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(msg)),
+                                         DOMOPT_NOOPT, &schemaInfo);
+
+    if (!jis_null(parsedObj)) {
+
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("wakelock"), &jsonSubObject))
+            jboolean_get(jsonSubObject, &bWakeLock);
+
+        j_release(&parsedObj);
+    }
+
+    return bWakeLock;
+}
+

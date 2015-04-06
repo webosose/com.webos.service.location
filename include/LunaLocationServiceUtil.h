@@ -235,7 +235,8 @@
         REQUIRED_1(geofenceid))
 
 /*
- * JSON SCHEMA: getLocationUpdates ([bool subscribe],
+ * JSON SCHEMA: getLocationUpdates ([bool wakelock],
+ *                                  [bool subscribe],
  *                                  [integer minimumInterval],
  *                                  [integer minimumDistance],
  *                                  [integer responseTimeout],
@@ -243,7 +244,8 @@
  */
 
 #define JSCEHMA_GET_LOCATION_UPDATES                        STRICT_SCHEMA(\
-        PROPS_5(\
+        PROPS_6(\
+            PROP(wakelock, boolean), \
             PROP(subscribe, boolean), \
             PROP_WITH_OPT(minimumInterval, integer, "minimum":0, "maximum":3600000), \
             PROP_WITH_OPT(minimumDistance, integer, "minimum":0, "maximum":60000), \

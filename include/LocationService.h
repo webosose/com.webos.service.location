@@ -337,10 +337,6 @@ public:
     bool getHandlerStatus(const char *);
     bool loadHandlerStatus(const char *handler);
 
-    void setServiceState(int state) {
-        m_service_state = state;
-    }
-
     LSHandle *getPrivatehandle() {
         return LSPalmServiceGetPrivateConnection(mServiceHandle);
     }
@@ -463,22 +459,21 @@ public:
         lbsGeocodeKey = g_strdup(lbsKey);
     }
 
-    bool LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
-    bool LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload, LSError *lserror);
+    void LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload);
+    void LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload);
     bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
     void stopNonSubcription(const char *key);
-    bool isSubscListFilled(LSHandle *sh, LSMessage *message, const char *key,bool cancelCase);
+    bool isSubscListFilled(LSMessage *message, const char *key,bool cancelCase);
     bool enableGpsHandler(unsigned char *startedHandlers);
     bool enableNwHandler(unsigned char *startedHandlers);
     int enableHandlers(int sel_handler, char *key, unsigned char *startedHandlers);
-    bool LSSubNonSubRespondGetLocUpdateCase(Position *pos, Accuracy *acc, LSPalmService *psh, const char *key, const char *payload, LSError *lserror);
-    bool LSSubNonSubReplyLocUpdateCase(Position *pos, Accuracy *acc, LSHandle *sh, const char *key, const char *payload, LSError *lserror);
+    void LSSubNonSubRespondGetLocUpdateCase(Position *pos, Accuracy *acc, LSPalmService *psh, const char *key, const char *payload);
+    void LSSubNonSubReplyLocUpdateCase(Position *pos, Accuracy *acc, LSHandle *sh, const char *key, const char *payload);
     bool LSMessageReplyLocUpdateCase(LSMessage *msg,
                                      LSHandle *sh,
                                      const char *key,
                                      const char *payload,
-                                     LSSubscriptionIter *iter,
-                                     LSError *lserror);
+                                     LSSubscriptionIter *iter);
     bool meetsCriteria(LSMessage *msg, Position *pos, Accuracy *acc, int minInterval,int minDist);
     void getLocRequestStopSubscription(LSHandle *sh, LSMessage *message);
     bool LSMessageRemoveReqList(LSMessage *message);
@@ -488,11 +483,6 @@ private:
     bool mGpsStatus;
     bool mNwStatus;
     bool mCachedGpsEngineStatus;
-    bool mIsGetNmeaSubProgress;
-    bool mIsGetSatSubProgress;
-    bool mIsStartTrackProgress;
-    bool mIsStartFirstReply;
-    long long mlastTrackingReplyTime;
     typedef boost::shared_ptr<LocationUpdateRequest> LocationUpdateRequestPtr;
     std::vector<LocationUpdateRequestPtr> m_locUpdate_req_list;
     bool wifistate;
@@ -500,25 +490,19 @@ private:
     bool isTelephonyAvailable;
     bool suspended_state;
     bool isWifiInternetAvailable;
-    int m_service_state;
-    static bool instanceFlag;
     static LocationService *locService;
     static LSMethod rootMethod[];
     static LSMethod prvMethod[];
     static LSMethod geofenceMethod[];
     bool is_geofenceId_used[MAX_GEOFENCE_ID];
-    unsigned char trackhandlerstate;
     GHashTable *htPseudoGeofence;
 
     LSPalmService *mServiceHandle;
     LSPalmService *mlgeServiceHandle;
 
-    // for calculating time to first fix
-    static long mFixRequestTime;
     // time to first fix for most recent session
     static long mTTFF;
-    // time we received our last fix
-    static long mLastFixTime;
+
     GMainLoop *mMainLoop;
     pthread_mutex_t lbs_geocode_lock;
     pthread_mutex_t lbs_reverse_lock;
@@ -597,9 +581,9 @@ private:
     bool isListFilled(LSHandle *sh, LSMessage *message, const char *key, bool cancelCase);
     void replyErrorToGpsNwReq(HandlerTypes handler);
     void LSSubscriptionNonSubscriptionRespondPubPri(const char *key, const char *payload);
+    void LSSubNonSubRespondGetLocUpdateCasePubPri(Position *pos, Accuracy *acc, const char *key, const char *payload);
     void stopGpsEngine(void);
     void resumeGpsEngine(void);
-
 };
 
 #endif  //  H_LocationService

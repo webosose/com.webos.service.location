@@ -71,6 +71,7 @@ void location_util_add_acc_json(jvalue_ref serviceObject, Accuracy *acc);
 void location_util_add_errorText_json(jvalue_ref serviceObject, char *errorText);
 bool location_util_parsejsonAddress(jvalue_ref serviceObject, Address *addr);
 void location_util_form_json_reply(jvalue_ref serviceObject, bool returnValue, int errorCode);
+bool location_util_req_has_wakeup(LSMessage *msg);
 
 #ifdef __cplusplus
 }

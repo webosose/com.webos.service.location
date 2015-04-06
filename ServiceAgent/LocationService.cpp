@@ -116,10 +116,6 @@ LocationService::LocationService() :
                  mlgeServiceHandle(0),
                  mGpsStatus(false),
                  mNwStatus(false),
-                 mIsStartFirstReply(true),
-                 mIsGetNmeaSubProgress(false),
-                 mIsGetSatSubProgress(false),
-                 mIsStartTrackProgress(false),
                  m_lifeCycleMonitor(0),
                  m_enableSuspendBlocker(true),
                  htPseudoGeofence(0),
@@ -199,14 +195,16 @@ bool LocationService::init(GMainLoop *mainLoop)
                                            LOC_REQ_LOG_MAX_ROTATION,
                                            LOC_REQ_LOG_MAX_SIZE);
 
-    /* SUSPEND BLOCKER
+    // SUSPEND BLOCKER
     if (!m_lifeCycleMonitor) {
         m_lifeCycleMonitor = new LifeCycleMonitor();
     }
 
-    m_lifeCycleMonitor->registerSuspendMonitor(LSPalmServiceGetPrivateConnection(mServiceHandle));
-    */
+    if (m_lifeCycleMonitor)
+        m_lifeCycleMonitor->registerSuspendMonitor(LSPalmServiceGetPrivateConnection(mServiceHandle));
+
     LS_LOG_INFO("Successfully LocationService object initialized");
+
     return true;
 }
 
@@ -307,12 +305,11 @@ LocationService::~LocationService()
 
     loc_logger_destroy(&location_request_logger);
 
-    /* SUSPEND BLOCKER
+    // SUSPEND BLOCKER
     if (m_lifeCycleMonitor) {
         delete m_lifeCycleMonitor;
         m_lifeCycleMonitor = NULL;
     }
-    */
 }
 
 /*****API's exposed to applications****/
@@ -359,7 +356,7 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data)
     }
 
     // Add to subsciption list with method name as key
-    LS_LOG_DEBUG("isSubcriptionListEmpty = %d", isSubscListFilled(sh, message, SUBSC_GPS_GET_NMEA_KEY, false));
+    LS_LOG_DEBUG("isSubcriptionListEmpty = %d", isSubscListFilled(message, SUBSC_GPS_GET_NMEA_KEY, false));
     bool mRetVal;
     mRetVal = LSSubscriptionAdd(sh, SUBSC_GPS_GET_NMEA_KEY, message, &mLSError);
 
@@ -1412,6 +1409,11 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data)
         }
 
         if (mNwStatus == false && mGpsStatus == false) {
+            //Force wakelock release
+            if (m_lifeCycleMonitor) {
+                m_lifeCycleMonitor->setWakeLock(false, true);
+            }
+
             replyErrorToGpsNwReq(HANDLER_HYBRID);
         }
     } else {
@@ -1576,6 +1578,9 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
         m_enableSuspendBlocker = true;
     } else if (strcmp(command, "disable_suspend_blocker") == 0) {
         m_enableSuspendBlocker = false;
+        if (m_lifeCycleMonitor) {
+            m_lifeCycleMonitor->setWakeLock(false, true);
+        }
     } else {
         ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_GPS]), HANDLER_GPS, NULL);
 
@@ -1943,7 +1948,7 @@ bool LocationService::removeGeofenceArea(LSHandle *sh, LSMessage *message, void 
 
     sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
 
-    if (isSubscListFilled(sh, message, str_geofenceid, false) == false) {
+    if (isSubscListFilled(message, str_geofenceid, false) == false) {
         errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
         goto EXIT;
     }
@@ -1993,7 +1998,7 @@ bool LocationService::pauseGeofence(LSHandle *sh, LSMessage *message, void *data
     jnumber_get_i32(jsonObject, &geofence_id);
 
     sprintf(str_geofence_id, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
-    if (isSubscListFilled(sh, message, str_geofence_id, false) == false) {
+    if (isSubscListFilled(message, str_geofence_id, false) == false) {
         errorReply = LOCATION_GEOFENCE_ID_UNKNOWN;
         goto EXIT;
     }
@@ -2045,7 +2050,7 @@ bool LocationService::resumeGeofence(LSHandle *sh, LSMessage *message, void *dat
     jnumber_get_i32(jsonSubObject, &geofenceid);
 
     sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
-    if (isSubscListFilled(sh, message, str_geofenceid, false) == false) {
+    if (isSubscListFilled(message, str_geofenceid, false) == false) {
         errorCode = LOCATION_GEOFENCE_ID_UNKNOWN;
         goto EXIT;
     }
@@ -2090,8 +2095,8 @@ int LocationService::getConnectionErrorCode() {
     return errorCode;
 }
 
-bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void *data) {
-
+bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void *data)
+{
     printMessageDetails("LUNA-API", message, sh);
     int errorCode = LOCATION_SUCCESS;
     LSError mLSError;
@@ -2106,6 +2111,7 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
     int minInterval = 0;
     int minDistance = 0;
     int handlertype = -1;
+    bool bWakeLock = false;
 
     LSErrorInit(&mLSError);
 
@@ -2158,10 +2164,15 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         goto EXIT;
     }
 
-    /*Parse responseTime in seconds*/
+    /* Parse responseTime in seconds */
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("responseTimeout"), &serviceObj)) {
         jnumber_get_i32(serviceObj,&responseTime);
         LS_LOG_DEBUG("responseTime in seconds %d", responseTime);
+    }
+
+    /* Paser wakelock */
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("wakelock"), &serviceObj)) {
+        jboolean_get(serviceObj, &bWakeLock);
     }
 
     if (enableHandlers(sel_handler, key, &startedHandlers) || (sel_handler == LocationService::GETLOC_UPDATE_PASSIVE)) {
@@ -2210,6 +2221,17 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
             goto EXIT;
         }
 
+        // SUSPEND BLOCKER
+        if (m_enableSuspendBlocker && bWakeLock) {
+            if ((startedHandlers & HANDLER_GPS_BIT) ||
+                (startedHandlers & HANDLER_WIFI_BIT) ||
+                (startedHandlers & HANDLER_CELLID_BIT)){
+
+            if (m_lifeCycleMonitor)
+                m_lifeCycleMonitor->setWakeLock(true);
+            }
+        }
+
         /********Request gps Handler*****************************/
         if (startedHandlers & HANDLER_GPS_BIT) {
             if(suspended_state == false)
@@ -2247,14 +2269,6 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         goto EXIT;
     }
 
-    /* SUSPEND BLOCKER
-    if (m_enableSuspendBlocker) {
-        if ((startedHandlers & HANDLER_GPS_BIT) ||
-            (startedHandlers & HANDLER_WIFI_BIT) ||
-            (startedHandlers & HANDLER_CELLID_BIT))
-            m_lifeCycleMonitor->setWakeLock(true);
-    }
-    */
 
 EXIT:
     if (!jis_null(parsedObj))
@@ -2705,13 +2719,10 @@ void LocationService::wrapper_getLocationUpdate_cb(gboolean enable_cb, Position 
 
 void LocationService::get_nmea_reply(long long timestamp, char *data, int length)
 {
-    LSError mLSError;
     const char *retString = NULL;
     jvalue_ref serviceObject = NULL;
 
     LS_LOG_DEBUG("[DEBUG] get_nmea_reply called\n");
-
-    LSErrorInit(&mLSError);
 
     serviceObject = jobject_create();
     if (jis_null(serviceObject)) {
@@ -2732,19 +2743,13 @@ void LocationService::get_nmea_reply(long long timestamp, char *data, int length
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              SUBSC_GPS_GET_NMEA_KEY,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         SUBSC_GPS_GET_NMEA_KEY,
+                                         retString);
 
-    if (LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                             SUBSC_GPS_GET_NMEA_KEY,
-                                             retString,
-                                             &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         SUBSC_GPS_GET_NMEA_KEY,
+                                         retString);
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
@@ -2754,9 +2759,6 @@ void LocationService::getGpsSatelliteData_reply(Satellite *sat)
 {
     int num_satellite_used_count = 0;
     const char *retString = NULL;
-    LSError mLSError;
-    LSErrorInit(&mLSError);
-    /*Creating a json object*/
     jvalue_ref serviceObject = NULL;
     jvalue_ref serviceArray = NULL;
     jvalue_ref visibleSatelliteItem = NULL;
@@ -2808,19 +2810,13 @@ void LocationService::getGpsSatelliteData_reply(Satellite *sat)
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              SUBSC_GET_GPS_SATELLITE_DATA,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         SUBSC_GET_GPS_SATELLITE_DATA,
+                                         retString);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                              SUBSC_GET_GPS_SATELLITE_DATA,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         SUBSC_GET_GPS_SATELLITE_DATA,
+                                         retString);
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
@@ -3018,7 +3014,6 @@ void LocationService::geofence_add_reply(int32_t geofence_id, int32_t status)
 
 void LocationService::geofence_remove_reply(int32_t geofence_id, int32_t status)
 {
-    LSError mLSError;
     char str_geofenceid[32];
     int errorCode = LOCATION_UNKNOWN_ERROR;
     jvalue_ref serviceObject = NULL;
@@ -3058,40 +3053,27 @@ void LocationService::geofence_remove_reply(int32_t geofence_id, int32_t status)
         }
     }
 
-    LSErrorInit(&mLSError);
     sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_REMOVE_AREA_KEY);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              str_geofenceid,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         str_geofenceid,
+                                         retString);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                              str_geofenceid,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         str_geofenceid,
+                                         retString);
 
     if (status == GEOFENCE_OPERATION_SUCCESS) {
         sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
 
         /*Reply add luna api and remove from list*/
-        if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                                  str_geofenceid,
-                                                  retString,
-                                                  &mLSError)) {
-            LSErrorPrintAndFree(&mLSError);
-        }
+        LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                             str_geofenceid,
+                                             retString);
 
-        if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                                  str_geofenceid,
-                                                  retString,
-                                                  &mLSError)) {
-            LSErrorPrintAndFree(&mLSError);
-        }
+        LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                             str_geofenceid,
+                                             retString);
 
         handler_remove_geofence((Handler *) handler_array[HANDLER_GPS], FALSE, 0, wrapper_geofence_remove_cb);
         is_geofenceId_used[geofence_id - MIN_GEOFENCE_RANGE] = false;
@@ -3124,6 +3106,8 @@ void LocationService::geofence_pause_reply(int32_t geofence_id, int32_t status)
     const char *retString = NULL;
 
     LS_LOG_INFO("geofence_pause_reply: id=%d, status=%d\n", geofence_id, status);
+
+    LSErrorInit(&mLSError);
 
     switch (status) {
         case GEOFENCE_OPERATION_SUCCESS:
@@ -3161,22 +3145,15 @@ void LocationService::geofence_pause_reply(int32_t geofence_id, int32_t status)
         }
     }
 
-    LSErrorInit(&mLSError);
     sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_PAUSE_AREA_KEY);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              str_geofenceid,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         str_geofenceid,
+                                         retString);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                              str_geofenceid,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         str_geofenceid,
+                                         retString);
 
     if (status == GEOFENCE_OPERATION_SUCCESS) {
         sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
@@ -3210,6 +3187,8 @@ void LocationService::geofence_resume_reply(int32_t geofence_id, int32_t status)
 
     LS_LOG_INFO("geofence_resume_reply: id=%d, status=%d\n", geofence_id, status);
 
+    LSErrorInit(&mLSError);
+
     switch(status) {
         case GEOFENCE_OPERATION_SUCCESS:
             errorCode = LOCATION_SUCCESS;
@@ -3242,22 +3221,15 @@ void LocationService::geofence_resume_reply(int32_t geofence_id, int32_t status)
         }
     }
 
-    LSErrorInit(&mLSError);
     sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_RESUME_AREA_KEY);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              str_geofenceid,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         str_geofenceid,
+                                         retString);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                              str_geofenceid,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         str_geofenceid,
+                                         retString);
 
     if (status == GEOFENCE_OPERATION_SUCCESS) {
         sprintf(str_geofenceid, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
@@ -3286,19 +3258,18 @@ void LocationService::getLocationUpdate_reply(Position *pos, Accuracy *accuracy,
 {
     LS_LOG_INFO("getLocationUpdate_reply");
     const char *retString = NULL;
-    LSError mLSError;
-    LSErrorInit(&mLSError);
     bool bRetVal;
     jvalue_ref serviceObject = NULL;
     const char *key1 = NULL;
     const char *key2 = NULL;
 
-    if(pos)
+    if (pos)
         LS_LOG_INFO("latitude %f longitude %f altitude %f timestamp %lld", pos->latitude,
                                                                            pos->longitude,
                                                                            pos->altitude,
                                                                            pos->timestamp);
-    if(accuracy)
+
+    if (accuracy)
         LS_LOG_INFO("horizAccuracy %f vertAccuracy %f", accuracy->horizAccuracy, accuracy->vertAccuracy);
 
     if (type == HANDLER_GPS) {
@@ -3330,66 +3301,24 @@ void LocationService::getLocationUpdate_reply(Position *pos, Accuracy *accuracy,
 
 EXIT:
     LS_LOG_DEBUG("key1 %s key2 %s", key1,key2);
-    bRetVal = LSSubNonSubRespondGetLocUpdateCase(pos,
-                                                 accuracy,
-                                                 mServiceHandle,
-                                                 key1,
-                                                 retString,
-                                                 &mLSError);
+    LSSubNonSubRespondGetLocUpdateCasePubPri(pos,
+                                             accuracy,
+                                             key1,
+                                             retString);
 
-    if (bRetVal == false)
-        LSErrorPrintAndFree(&mLSError);
 
-    bRetVal = LSSubNonSubRespondGetLocUpdateCase(pos,
-                                                 accuracy,
-                                                 mlgeServiceHandle,
-                                                 key1,
-                                                 retString,
-                                                 &mLSError);
+    LSSubNonSubRespondGetLocUpdateCasePubPri(pos,
+                                             accuracy,
+                                             key2,
+                                             retString);
 
-    if (bRetVal == false)
-        LSErrorPrintAndFree(&mLSError);
-
-    bRetVal = LSSubNonSubRespondGetLocUpdateCase(pos,
-                                                 accuracy,
-                                                 mServiceHandle,
-                                                 key2,
-                                                 retString,
-                                                 &mLSError);
-
-    if (bRetVal == false)
-        LSErrorPrintAndFree(&mLSError);
-
-    bRetVal = LSSubNonSubRespondGetLocUpdateCase(pos,
-                                                 accuracy,
-                                                 mlgeServiceHandle,
-                                                 key2,
-                                                 retString,
-                                                 &mLSError);
-
-    if (bRetVal == false)
-        LSErrorPrintAndFree(&mLSError);
 
     /*reply to passive provider*/
+    LSSubNonSubRespondGetLocUpdateCasePubPri(pos,
+                                             accuracy,
+                                             SUBSC_GET_LOC_UPDATES_PASSIVE_KEY,
+                                             jvalue_tostring_simple(serviceObject));
 
-    bRetVal = LSSubNonSubRespondGetLocUpdateCase(pos,
-                                                 accuracy,
-                                                 mServiceHandle,
-                                                 SUBSC_GET_LOC_UPDATES_PASSIVE_KEY,
-                                                 jvalue_tostring_simple(serviceObject),
-                                                 &mLSError);
-    if (bRetVal == false)
-        LSErrorPrintAndFree(&mLSError);
-
-    bRetVal = LSSubNonSubRespondGetLocUpdateCase(pos,
-                                                 accuracy,
-                                                 mlgeServiceHandle,
-                                                 SUBSC_GET_LOC_UPDATES_PASSIVE_KEY,
-                                                 jvalue_tostring_simple(serviceObject),
-                                                 &mLSError);
-
-    if (bRetVal == false)
-        LSErrorPrintAndFree(&mLSError);
 
     if (!jis_null(serviceObject)) {
         LS_LOG_INFO("reply payload %s", jvalue_tostring_simple(serviceObject));
@@ -3399,7 +3328,6 @@ EXIT:
 
 void LocationService::geocoding_reply(char *response, int error, int type)
 {
-    LSError mLSError;
     const char *retString = NULL;
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
@@ -3443,19 +3371,13 @@ void LocationService::geocoding_reply(char *response, int error, int type)
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              SUBSC_GET_GEOCODE_KEY,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         SUBSC_GET_GEOCODE_KEY,
+                                         retString);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                             SUBSC_GET_GEOCODE_KEY,
-                                             retString,
-                                             &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         SUBSC_GET_GEOCODE_KEY,
+                                         retString);
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
@@ -3466,7 +3388,6 @@ EXIT:
 
 void LocationService::rev_geocoding_reply(char *response, int error, int type)
 {
-    LSError mLSError;
     const char *retString = NULL;
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
@@ -3513,19 +3434,13 @@ void LocationService::rev_geocoding_reply(char *response, int error, int type)
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              SUBSC_GET_REVGEOCODE_KEY,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         SUBSC_GET_REVGEOCODE_KEY,
+                                         retString);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                              SUBSC_GET_REVGEOCODE_KEY,
-                                              retString,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         SUBSC_GET_REVGEOCODE_KEY,
+                                         retString);
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
@@ -3598,29 +3513,19 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
                                   wrapper_geofence_add_cb,
                                   wrapper_geofence_breach_cb,
                                   wrapper_geofence_status_cb);
-    }else if (key != NULL && (strcmp(key, GET_LOC_UPDATE_KEY) == 0)) {
+    } else if (key != NULL && (strcmp(key, GET_LOC_UPDATE_KEY) == 0)) {
+
+        if (location_util_req_has_wakeup(message) && m_lifeCycleMonitor) {
+            m_lifeCycleMonitor->setWakeLock(false);
+        }
+
         getLocRequestStopSubscription(sh, message);
-    } else  {
-        LS_LOG_DEBUG("NOT CRITERIA_KEY");
-        bRetVal = LSSubscriptionAcquire(sh, key, &iter, &mLSError);
+        LSMessageRemoveReqList(message);
 
-        if (bRetVal == false) {
-            LSErrorPrintAndFree(&mLSError);
-            return true;
-        }
-
-        if (LSSubscriptionHasNext(iter)) {
-            LSMessage *msg = LSSubscriptionNext(iter);
-
-        LS_LOG_INFO("LSSubscriptionHasNext = %d %p", LSSubscriptionHasNext(iter), msg);
-
-        if (LSSubscriptionHasNext(iter) == false)
+    } else if(!isSubscListFilled(message, key, true)) {
             stopSubcription(sh, key);
-        }
-        LSSubscriptionRelease(iter);
-
-
     }
+
     return true;
 }
 
@@ -3639,19 +3544,18 @@ void LocationService::getLocRequestStopSubscription(LSHandle *sh, LSMessage *mes
 
     LS_LOG_DEBUG("getLocRequestStopSubscription");
 
-    if (!isSubscListFilled(sh, message, SUBSC_GET_LOC_UPDATES_NW_KEY, true) &&
-        !isSubscListFilled(sh, message, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, true)) {
+    if (!isSubscListFilled(message, SUBSC_GET_LOC_UPDATES_NW_KEY, true) &&
+        !isSubscListFilled(message, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, true)) {
         LS_LOG_INFO("getLocRequestStopSubscription Stopping NW handler");
         stopSubcription(sh, SUBSC_GET_LOC_UPDATES_NW_KEY);
     }
 
-    if (!isSubscListFilled(sh, message, SUBSC_GET_LOC_UPDATES_GPS_KEY, true) &&
-        !isSubscListFilled(sh, message, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, true)) {
+    if (!isSubscListFilled(message, SUBSC_GET_LOC_UPDATES_GPS_KEY, true) &&
+        !isSubscListFilled(message, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, true)) {
         LS_LOG_INFO("getLocRequestStopSubscription Stopping GPS Engine");
         stopSubcription(sh, SUBSC_GET_LOC_UPDATES_GPS_KEY);
     }
 
-    LSMessageRemoveReqList(message);
 }
 
 
@@ -3697,14 +3601,12 @@ void LocationService::stopSubcription(LSHandle *sh,const char *key)
         handler_get_nmea_data((Handler *) handler_array[HANDLER_GPS], STOP,
                                wrapper_getNmeaData_cb, NULL);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-        mIsGetNmeaSubProgress = false;
 
     } else if (strcmp(key, SUBSC_GET_GPS_SATELLITE_DATA) == 0) {
 
         handler_get_gps_satellite_data(handler_array[HANDLER_GPS], STOP,
                                        wrapper_getGpsSatelliteData_cb);
         handler_stop(handler_array[HANDLER_GPS], HANDLER_GPS, false);
-        mIsGetSatSubProgress = false;
 
     } else if (strcmp(key,SUBSC_GET_LOC_UPDATES_GPS_KEY) == 0) {
 
@@ -3793,28 +3695,32 @@ gboolean LocationService::_TimerCallbackLocationUpdate(void *data)
     if (message == NULL || sh == NULL || key == NULL) {
         LS_LOG_ERROR("Timerdata member is NULL");
         return false;
+    }
+
+    if (!LSMessageReply(sh, message, retString, &lserror)) {
+        LSErrorPrintAndFree(&lserror);
+    }
+
+    if (!LSSubscriptionAcquire(sh, key, &iter, &lserror)) {
+        LSErrorPrintAndFree(&lserror);
     } else {
-        /*reply timeout and remove from list */
-        bool bRetVal = LSMessageReply(sh, message, retString, &lserror);
-        if (bRetVal == false) {
-            LSErrorPrintAndFree(&lserror);
+        while (LSSubscriptionHasNext(iter)) {
+            LSMessage *msg = LSSubscriptionNext(iter);
+            if (msg == message) {
+                LSSubscriptionRemove(iter);
+
+                if (location_util_req_has_wakeup(message) && m_lifeCycleMonitor)
+                    m_lifeCycleMonitor->setWakeLock(false);
+
+                if (!LSMessageRemoveReqList(msg))
+                    LS_LOG_ERROR("Message is not found in the LocationUpdateRequestPtr in timeout");
+            }
         }
 
-        bRetVal = LSSubscriptionAcquire(sh, key, &iter, &lserror);
-        if (bRetVal == true && LSSubscriptionHasNext(iter)) {
-            do {
-                LSMessage *msg = LSSubscriptionNext(iter);
-                if (msg == message)
-                {
-                    LSSubscriptionRemove(iter);
-                    if(!LSMessageRemoveReqList(msg))
-                        LS_LOG_ERROR("Message is not found in the LocationUpdateRequestPtr in timeout");
-                 }
-             } while (LSSubscriptionHasNext(iter));
-        }
         LSSubscriptionRelease(iter);
-        getLocRequestStopSubscription(sh,message);
     }
+
+    getLocRequestStopSubscription(sh, message);
 
     return false;
 }
@@ -3822,21 +3728,21 @@ gboolean LocationService::_TimerCallbackLocationUpdate(void *data)
 /*Timer Implementation END */
 /*Returns true if the list is filled
  *false if it empty*/
-bool LocationService::isSubscListFilled(LSHandle *sh,
-                                        LSMessage *message,
-                                        const char *key,
-                                        bool cancelCase)
+bool LocationService::isSubscListFilled(LSMessage *message, const char *key, bool cancelCase)
 {
-    bool ret;
+    bool ret = false;
     bool palmPublicRet = isListFilled(LSPalmServiceGetPrivateConnection(mServiceHandle), message, key, cancelCase);
     bool palmPrivateRet = isListFilled(LSPalmServiceGetPublicConnection(mServiceHandle), message, key, cancelCase);
     bool lgePublicRet = isListFilled(LSPalmServiceGetPrivateConnection(mlgeServiceHandle), message, key, cancelCase);
     bool lgePrivateRet = isListFilled(LSPalmServiceGetPublicConnection(mlgeServiceHandle), message, key, cancelCase);
+
     ret = palmPublicRet || palmPrivateRet || lgePublicRet || lgePrivateRet;
 
-    LS_LOG_INFO("palmPublicRet %d palmPrivateRet %d lgePublicRet %d lgePrivateRet %d", palmPublicRet, palmPrivateRet, lgePublicRet, lgePrivateRet);
+    LS_LOG_INFO("key %s palmPublicRet %d palmPrivateRet %d lgePublicRet %d lgePrivateRet %d", key, palmPublicRet, palmPrivateRet, lgePublicRet, lgePrivateRet);
+
     return ret;
 }
+
 bool LocationService::isListFilled(LSHandle *sh,
                                    LSMessage *message,
                                    const char *key,
@@ -3878,106 +3784,87 @@ bool LocationService::isListFilled(LSHandle *sh,
     return bRetVal;
 }
 
-bool LocationService::LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload, LSError *lserror)
+void LocationService::LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload)
 {
     LSHandle *public_bus = LSPalmServiceGetPublicConnection(psh);
     LSHandle *private_bus = LSPalmServiceGetPrivateConnection(psh);
-    bool retVal = LSSubscriptionNonSubscriptionReply(public_bus, key, payload, lserror);
 
-    if (retVal == false)
-        return retVal;
-
-    retVal = LSSubscriptionNonSubscriptionReply(private_bus, key, payload, lserror);
-
-    if (retVal == false)
-        return retVal;
+    LSSubscriptionNonSubscriptionReply(public_bus, key, payload);
+    LSSubscriptionNonSubscriptionReply(private_bus, key, payload);
 }
 
-bool LocationService::LSSubNonSubRespondGetLocUpdateCase(Position *pos,
+void LocationService::LSSubNonSubRespondGetLocUpdateCase(Position *pos,
                                                          Accuracy *acc,
                                                          LSPalmService *psh,
                                                          const char *key,
-                                                         const char *payload,
-                                                         LSError *lserror)
+                                                         const char *payload)
 {
     LSHandle *public_bus = LSPalmServiceGetPublicConnection(psh);
     LSHandle *private_bus = LSPalmServiceGetPrivateConnection(psh);
 
-    bool retVal = LSSubNonSubReplyLocUpdateCase(pos, acc, public_bus, key, payload, lserror);
-    if (retVal == false)
-        return retVal;
-
-    retVal = LSSubNonSubReplyLocUpdateCase(pos, acc, private_bus, key, payload, lserror);
-    if (retVal == false)
-        return retVal;
+    LSSubNonSubReplyLocUpdateCase(pos, acc, public_bus, key, payload);
+    LSSubNonSubReplyLocUpdateCase(pos, acc, private_bus, key, payload);
 }
 
-bool LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh,
+void LocationService::LSSubscriptionNonSubscriptionReply(LSHandle *sh,
                                                          const char *key,
-                                                         const char *payload,
-                                                         LSError *lserror)
+                                                         const char *payload)
 {
     LSSubscriptionIter *iter = NULL;
     bool retVal;
     bool isNonSubscibePresent = false;
+    LSError error;
 
-    retVal = LSSubscriptionAcquire(sh, key, &iter, lserror);
+    LSErrorInit(&error);
+    if (!LSSubscriptionAcquire(sh, key, &iter, &error)) {
+        LSErrorPrintAndFree(&error);
+        return;
+    }
 
-    if (retVal == true && LSSubscriptionHasNext(iter)) {
-        do {
-            LSMessage *msg = LSSubscriptionNext(iter);
+    while (LSSubscriptionHasNext(iter)) {
+        LSMessage *msg = LSSubscriptionNext(iter);
 
-            if (LSMessageIsSubscription(msg)) {
-                retVal = LSMessageReply(sh, msg, payload, lserror);
-                if (retVal == false) {
-                    return retVal;
-                }
-            } else {
-                retVal = LSMessageReply(sh, msg, payload, lserror);
-                if (retVal == false) {
-                    return retVal;
-                }
-                LSSubscriptionRemove(iter);
-                LS_LOG_DEBUG("Removed Non Subscription message from list");
-                isNonSubscibePresent = true;
-            }
+        if (!LSMessageReply(sh, msg, payload, &error)) {
+            LSErrorPrintAndFree(&error);
+        }
 
-        } while (LSSubscriptionHasNext(iter));
-
+        if (!LSMessageIsSubscription(msg)) {
+            LSSubscriptionRemove(iter);
+            LS_LOG_DEBUG("Removed Non Subscription message from list");
+            isNonSubscibePresent = true;
+        }
     }
 
     LSSubscriptionRelease(iter);
 
-    if (isNonSubscibePresent && (isSubscListFilled(sh, NULL,key,false) == false))
+    if (isNonSubscibePresent && (isSubscListFilled(NULL, key, false) == false))
         stopNonSubcription(key);
-
-    return retVal;
 }
 
-bool LocationService::LSSubNonSubReplyLocUpdateCase(Position *pos,
+void LocationService::LSSubNonSubReplyLocUpdateCase(Position *pos,
                                                     Accuracy *acc,
                                                     LSHandle *sh,
                                                     const char *key,
-                                                    const char *payload,
-                                                    LSError *lserror)
+                                                    const char *payload)
 {
     LSSubscriptionIter *iter = NULL;
     LSMessage *msg = NULL;
     jvalue_ref parsedObj = NULL;
     jvalue_ref jsonSubObject = NULL;
-    jschema_ref input_schema = NULL ;
     JSchemaInfo schemaInfo;
     int minDist, minInterval;
     bool isNonSubscibePresent = false;
+    LSError error;
 
     LS_LOG_DEBUG("key = %s\n", key);
 
-    if (!LSSubscriptionAcquire(sh, key, &iter, lserror))
-        return false;
+    LSErrorInit(&error);
+    if (!LSSubscriptionAcquire(sh, key, &iter, &error)) {
+        LSErrorPrintAndFree(&error);
+        return;
+    }
 
-    input_schema = jschema_parse (j_cstr_to_buffer(SCHEMA_ANY),
-                                  DOMOPT_NOOPT, NULL);
-    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+    jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
 
     while (LSSubscriptionHasNext(iter)) {
         msg = LSSubscriptionNext(iter);
@@ -3988,7 +3875,7 @@ bool LocationService::LSSubNonSubReplyLocUpdateCase(Position *pos,
 
         if (pos == NULL || acc == NULL) {
             // means error string will be returned
-            LSMessageReplyLocUpdateCase(msg, sh, key, payload, iter, lserror);
+            LSMessageReplyLocUpdateCase(msg, sh, key, payload, iter);
         } else {
             minInterval = minDist = 0;
 
@@ -4006,40 +3893,37 @@ bool LocationService::LSSubNonSubReplyLocUpdateCase(Position *pos,
             }
 
             if (meetsCriteria(msg, pos, acc, minInterval, minDist))
-                LSMessageReplyLocUpdateCase(msg, sh, key, payload, iter, lserror);
-        }
-
-        // check for key sub list and gps_nw sub list*/
-        if (isNonSubscibePresent) {
-            if (strcmp(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY) == 0) {
-
-                LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
-
-                //check gps list empty
-                if ((isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) ==  false) &&
-                    (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == false)) {
-                    LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
-                    stopNonSubcription(SUBSC_GET_LOC_UPDATES_GPS_KEY);
-                }
-
-                //check nw list empty and stop nw handler
-                if ((isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false) &&
-                    (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == false)) {
-                    LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and NW_CRITERIA_KEY empty");
-                    stopNonSubcription(SUBSC_GET_LOC_UPDATES_NW_KEY);
-                }
-            } else if ((isSubscListFilled(sh, msg, key, false) == false) &&
-                       (isSubscListFilled(sh, msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false)) {
-                LS_LOG_DEBUG("key %s empty",key);
-                stopNonSubcription(key);
-            }
+                LSMessageReplyLocUpdateCase(msg, sh, key, payload, iter);
         }
     }
 
     LSSubscriptionRelease(iter);
-    jschema_release(&input_schema);
 
-    return true;
+    // check for key sub list and gps_nw sub list*/
+    if (isNonSubscibePresent) {
+        if (strcmp(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY) == 0) {
+
+            LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
+
+            //check gps list empty
+            if ((isSubscListFilled(msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) ==  false) &&
+                (isSubscListFilled(msg, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == false)) {
+                LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and GPS_CRITERIA_KEY empty");
+                stopNonSubcription(SUBSC_GET_LOC_UPDATES_GPS_KEY);
+            }
+
+            //check nw list empty and stop nw handler
+            if ((isSubscListFilled(msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false) &&
+                (isSubscListFilled(msg, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == false)) {
+                LS_LOG_DEBUG("GPS_NW_CRITERIA_KEY and NW_CRITERIA_KEY empty");
+                stopNonSubcription(SUBSC_GET_LOC_UPDATES_NW_KEY);
+            }
+        } else if ((isSubscListFilled(msg, key, false) == false) &&
+                   (isSubscListFilled(msg, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == false)) {
+            LS_LOG_DEBUG("key %s empty",key);
+            stopNonSubcription(key);
+        }
+    }
 }
 
 
@@ -4048,16 +3932,23 @@ bool LocationService::LSMessageReplyLocUpdateCase(LSMessage *msg,
                                                   LSHandle *sh,
                                                   const char *key,
                                                   const char *payload,
-                                                  LSSubscriptionIter *iter,
-                                                  LSError *lserror)
+                                                  LSSubscriptionIter *iter)
 {
+    LSError error;
     bool retVal = false;
 
-    retVal = LSMessageReply(sh, msg, payload, lserror);
+    LSErrorInit(&error);
+
+    if ((retVal = LSMessageReply(sh, msg, payload, &error)) == false) {
+        LSErrorPrintAndFree(&error);
+    }
 
     if (!LSMessageIsSubscription(msg)) {
         /*remove from subscription list*/
         LSSubscriptionRemove(iter);
+
+        if (location_util_req_has_wakeup(msg) && m_lifeCycleMonitor)
+            m_lifeCycleMonitor->setWakeLock(false);
 
         /*remove from request list*/
         if(!LSMessageRemoveReqList(msg))
@@ -4131,6 +4022,7 @@ bool LocationService::LSMessageRemoveReqList(LSMessage *message)
             timerID = it->get()->getTimerID();
             if(timerID != 0)
                 timerRemoved = g_source_remove (timerID);
+
             timerdata = it->get()->getTimerData();
             LS_LOG_INFO("timerRemoved %d timerID %d", timerRemoved, timerID);
             if (timerdata != NULL) {
@@ -4142,8 +4034,8 @@ bool LocationService::LSMessageRemoveReqList(LSMessage *message)
             found = true;
             break;
         }
-
     }
+
     return found;
 }
 
@@ -4306,41 +4198,47 @@ void LocationService::replyErrorToGpsNwReq(HandlerTypes handler)
     payload = LSMessageGetErrorReply(LOCATION_LOCATION_OFF);
 
     if (handler == HANDLER_GPS) {
-        if (isSubscListFilled(NULL, NULL, SUBSC_GPS_GET_NMEA_KEY, false) == true)
+        if (isSubscListFilled(NULL, SUBSC_GPS_GET_NMEA_KEY, false) == true)
             LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GPS_GET_NMEA_KEY, payload);
 
-        if (isSubscListFilled(NULL, NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) == true)
+        if (isSubscListFilled(NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) == true)
             LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_GPS_SATELLITE_DATA, payload);
 
-        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == true)
-            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_LOC_UPDATES_GPS_KEY, payload);
+        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == true)
+            LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, payload);
     } else if (handler == HANDLER_NW) {
-        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == true)
-            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_LOC_UPDATES_NW_KEY, payload);
+        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == true)
+            LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, payload);
     } else if (handler == HANDLER_HYBRID) {
-        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == true)
-            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_LOC_UPDATES_HYBRID_KEY, payload);
+        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == true)
+            LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, payload);
     }
 }
 
 void LocationService::LSSubscriptionNonSubscriptionRespondPubPri(const char *key, const char *payload)
 {
-    LSError mLSError;
-    LSErrorInit(&mLSError);
+    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
+                                         key,
+                                         payload);
 
-    if (!LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                              key,
-                                              payload,
-                                              &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
+                                         key,
+                                         payload);
+}
 
-    if (LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                             key,
-                                             payload,
-                                             &mLSError)) {
-        LSErrorPrintAndFree(&mLSError);
-    }
+void LocationService::LSSubNonSubRespondGetLocUpdateCasePubPri(Position *pos, Accuracy *acc, const char *key, const char *payload)
+{
+    LSSubNonSubRespondGetLocUpdateCase(pos,
+                                       acc,
+                                       mServiceHandle,
+                                       key,
+                                       payload);
+
+    LSSubNonSubRespondGetLocUpdateCase(pos,
+                                       acc,
+                                       mlgeServiceHandle,
+                                       key,
+                                       payload);
 }
 
 void LocationService::resumeGpsEngine(void)
@@ -4350,10 +4248,10 @@ void LocationService::resumeGpsEngine(void)
         return;
     }
 
-    if (!isSubscListFilled(NULL, NULL, SUBSC_GPS_GET_NMEA_KEY, false) &&
-        !isSubscListFilled(NULL, NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) &&
-        !isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) &&
-        !isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false)) {
+    if (!isSubscListFilled(NULL, SUBSC_GPS_GET_NMEA_KEY, false) &&
+        !isSubscListFilled(NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) &&
+        !isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) &&
+        !isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false)) {
 
         LS_LOG_INFO("Request List Empty! Fall back to resume GPS engine ...\n");
     } else {
@@ -4364,14 +4262,14 @@ void LocationService::resumeGpsEngine(void)
             return;
         }
 
-        if (isSubscListFilled(NULL, NULL, SUBSC_GPS_GET_NMEA_KEY, false))
+        if (isSubscListFilled(NULL, SUBSC_GPS_GET_NMEA_KEY, false))
             handler_get_nmea_data((Handler *) handler_array[HANDLER_GPS], START, wrapper_getNmeaData_cb, NULL);
 
-        if (isSubscListFilled(NULL, NULL, SUBSC_GET_GPS_SATELLITE_DATA, false))
+        if (isSubscListFilled(NULL, SUBSC_GET_GPS_SATELLITE_DATA, false))
             handler_get_gps_satellite_data(handler_array[HANDLER_GPS], START, wrapper_getGpsSatelliteData_cb);
 
-        if (isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) ||
-            isSubscListFilled(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false))
+        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) ||
+            isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false))
             handler_get_location_updates((Handler *) handler_array[HANDLER_GPS],
                                           START,
                                           wrapper_getLocationUpdate_cb,

@@ -22,6 +22,7 @@
  ********************************************************************/
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Address.h>
@@ -31,6 +32,13 @@
 #include <geoclue/geoclue-provider.h>
 #include <geoclue/geoclue-types.h>
 #include <loc_log.h>
+
+/*All g-signals indexes*/
+enum {
+    SIGNAL_GEO_RESPONSE,
+    SIGNAL_REVGEO_RESPONSE,
+    SIGNAL_END
+};
 
 /**
  * Local GPS plugin structure
@@ -44,10 +52,73 @@ typedef struct {
     GeoCodeCallback rev_geocode_cb;
     char *license_key;
     gpointer userdata;
+    gulong signal_handler_ids[SIGNAL_END];
 } GeoclueLbs;
 
 #define LGE_GOOGLE_LBS_SERVICE_NAME "org.freedesktop.Geoclue.Providers.LgeLbsService"
 #define LGE_GOOGLE_LBS_SERVICE_PATH "/org/freedesktop/Geoclue/Providers/LgeLbsService"
+
+static void geocoder_cb(GeoclueGoogleGeocoder *geocoder, int error, char *response, gpointer userdata);
+static void rev_geocoder_cb(GeoclueGoogleGeocoder *geocoder, int error, char *response, gpointer userdata);
+
+static void signal_connection(GeoclueLbs *geoclueLbs, int signal_type, gboolean connect)
+{
+    gpointer signal_instance = NULL;
+    gchar *signal_name = NULL;
+    GCallback signal_cb = NULL;
+
+    if (geoclueLbs == NULL)
+        return;
+
+    if (signal_type < 0 || signal_type >= SIGNAL_END)
+        return;
+
+    switch (signal_type) {
+        case SIGNAL_GEO_RESPONSE:
+            signal_instance = G_OBJECT(geoclueLbs->google_geocoder);
+            signal_name = "response-changed";
+            signal_cb = G_CALLBACK(geocoder_cb);
+            break;
+        case SIGNAL_REVGEO_RESPONSE:
+            signal_instance = G_OBJECT(geoclueLbs->google_geocoder);
+            signal_name = "response-changed";
+            signal_cb = G_CALLBACK(rev_geocoder_cb);
+            break;
+        default:
+            break;
+    }
+
+    if (signal_instance == NULL)
+        return;
+
+    if (connect) {
+        if (!g_signal_handler_is_connected(signal_instance,
+                                           geoclueLbs->signal_handler_ids[signal_type])) {
+            geoclueLbs->signal_handler_ids[signal_type] = g_signal_connect(signal_instance,
+                                                                           signal_name,
+                                                                           signal_cb,
+                                                                           geoclueLbs);
+            LS_LOG_INFO("Connecting singal [%d:%s] %d\n",
+                        signal_type,
+                        signal_name,
+                        geoclueLbs->signal_handler_ids[signal_type]);
+        } else {
+            LS_LOG_INFO("Already connected signal [%d:%s] %d\n",
+                        signal_type,
+                        signal_name,
+                        geoclueLbs->signal_handler_ids[signal_type]);
+        }
+    } else {
+        g_signal_handler_disconnect(signal_instance,
+                                    geoclueLbs->signal_handler_ids[signal_type]);
+        LS_LOG_INFO("Disconnecting singal [%d:%s] %d\n",
+                    signal_type,
+                    signal_name,
+                    geoclueLbs->signal_handler_ids[signal_type]);
+
+        geoclueLbs->signal_handler_ids[signal_type] = 0;
+    }
+}
 
 /**
  * <Funciton >   unreference_geoclue
@@ -58,12 +129,22 @@ typedef struct {
 static void unreference_geoclue(GeoclueLbs *geoclueLbs)
 {
     if (geoclueLbs->google_geocoder != NULL) {
+        g_signal_handlers_disconnect_by_func(G_OBJECT(geoclueLbs->google_geocoder),
+                                             G_CALLBACK(rev_geocoder_cb),
+                                             geoclueLbs);
+
+        g_signal_handlers_disconnect_by_func(G_OBJECT(geoclueLbs->google_geocoder),
+                                             G_CALLBACK(geocoder_cb),
+                                             geoclueLbs);
+
         g_object_unref(geoclueLbs->google_geocoder);
         geoclueLbs->google_geocoder = NULL;
     }
+
+    memset(geoclueLbs->signal_handler_ids, 0, sizeof(gulong)*SIGNAL_END);
 }
 
-void geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, gpointer userdata)
+static void geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, gpointer userdata)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) userdata;
     g_return_if_fail(geoclueLbs);
@@ -77,8 +158,7 @@ void geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, g
     }
 }
 
-
-void rev_geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, gpointer userdata)
+static void rev_geocoder_cb (GeoclueGoogleGeocoder *geocoder, int error , char *response, gpointer userdata)
 {
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) userdata;
     g_return_if_fail(geoclueLbs);
@@ -100,9 +180,7 @@ void geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GError 
 
     if (error) {
         if (error->code == 4) { //dbus timeout
-            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueLbs->google_geocoder)),
-                             "response-changed",
-                             G_CALLBACK(geocoder_cb), geoclueLbs);
+            signal_connection(geoclueLbs, SIGNAL_GEO_RESPONSE, TRUE);
         } else {
             (*geoclueLbs->geocode_cb)(TRUE, NULL, ERROR_NOT_AVAILABLE, geoclueLbs->userdata, HANDLER_LBS);
         }
@@ -126,9 +204,7 @@ void rev_geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GEr
 
     if (error) {
         if (error->code == 4) {
-            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueLbs->google_geocoder)),
-                             "response-changed",
-                             G_CALLBACK(rev_geocoder_cb), geoclueLbs);
+            signal_connection(geoclueLbs, SIGNAL_REVGEO_RESPONSE, TRUE);
         } else {
             (*geoclueLbs->rev_geocode_cb)(TRUE, NULL, ERROR_NOT_AVAILABLE, geoclueLbs->userdata, HANDLER_LBS);
         }
@@ -192,9 +268,9 @@ int get_google_geocode(gpointer handle, const char *data, GeoCodeCallback geocod
 
     geoclueLbs->geocode_cb = geocode_cb;
     geoclue_google_geocoder_process_geocoder_request_async (geoclueLbs->google_geocoder,
-                                                            data,
-                                                            (GeoclueGoogleGeocoderCallback)geocoder_cb_async,
-                                                            geoclueLbs);
+            data,
+            (GeoclueGoogleGeocoderCallback)geocoder_cb_async,
+            geoclueLbs);
 
     return ERROR_NONE;
 }
@@ -211,9 +287,9 @@ int get_reverse_google_geocode(gpointer handle, const char *data, GeoCodeCallbac
 
     geoclueLbs->rev_geocode_cb = rev_geocode_cb;
     geoclue_google_geocoder_process_geocoder_request_async (geoclueLbs->google_geocoder,
-                                                            data,
-                                                            (GeoclueGoogleGeocoderCallback)rev_geocoder_cb_async,
-                                                            geoclueLbs);
+            data,
+            (GeoclueGoogleGeocoderCallback)rev_geocoder_cb_async,
+            geoclueLbs);
 
     return ERROR_NONE;
 }
@@ -290,13 +366,6 @@ static int stop(gpointer handle)
 
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
 
-    g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueLbs->google_geocoder)),
-                                         G_CALLBACK(rev_geocoder_cb),
-                                         geoclueLbs);
-
-    g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueLbs->google_geocoder)),
-                                         G_CALLBACK(geocoder_cb),
-                                         geoclueLbs);
     unreference_geoclue(geoclueLbs);
 
     if (geoclueLbs->license_key != NULL)

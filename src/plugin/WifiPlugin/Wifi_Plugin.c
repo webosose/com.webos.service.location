@@ -22,6 +22,7 @@
  ********************************************************************/
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Position.h>
@@ -31,6 +32,12 @@
 #include <geoclue/geoclue-types.h>
 #include <loc_log.h>
 
+/*All g-signals indexes*/
+enum {
+    SIGNAL_WIFI_STATUS,
+    SIGNAL_TRACKING,
+    SIGNAL_END
+};
 
 /**
  * Local Wifi plugin structure
@@ -48,10 +55,80 @@ typedef struct {
     StartTrackingCallBack tracking_cb;
     gpointer userdata;
     char *license_key;
+    gulong signal_handler_ids[SIGNAL_END];
 } GeoclueWifi;
 
 #define LGE_WIFI_SERVICE_NAME       "org.freedesktop.Geoclue.Providers.LgeWifiService"
 #define LGE_WIFI_SERVICE_PATH       "/org/freedesktop/Geoclue/Providers/LgeWifiService"
+
+static void status_cb(GeoclueProvider *provider, GeoclueStatus status, gpointer userdata);
+static void tracking_cb(GeocluePosition *position,
+                        GeocluePositionFields fields,
+                        int64_t timestamp,
+                        double latitude,
+                        double longitude,
+                        double altitude,
+                        GeoclueAccuracy *accuracy,
+                        gpointer userdata);
+
+static void signal_connection(GeoclueWifi *geoclueWifi, int signal_type, gboolean connect)
+{
+    gpointer signal_instance = NULL;
+    gchar *signal_name = NULL;
+    GCallback signal_cb = NULL;
+
+    if (geoclueWifi == NULL)
+        return;
+
+    if (signal_type < 0 || signal_type >= SIGNAL_END)
+        return;
+
+    switch (signal_type) {
+        case SIGNAL_WIFI_STATUS:
+            signal_instance = G_OBJECT(geoclueWifi->geoclue_pos);
+            signal_name = "status-changed";
+            signal_cb = G_CALLBACK(status_cb);
+            break;
+        case SIGNAL_TRACKING:
+            signal_instance = G_OBJECT(geoclueWifi->geoclue_pos);
+            signal_name = "position-changed";
+            signal_cb = G_CALLBACK(tracking_cb);
+            break;
+        default:
+            break;
+    }
+
+    if (signal_instance == NULL)
+        return;
+
+    if (connect) {
+        if (!g_signal_handler_is_connected(signal_instance,
+                                           geoclueWifi->signal_handler_ids[signal_type])) {
+            geoclueWifi->signal_handler_ids[signal_type] = g_signal_connect(signal_instance,
+                                                                            signal_name,
+                                                                            signal_cb,
+                                                                            geoclueWifi);
+            LS_LOG_INFO("Connecting singal [%d:%s] %d\n",
+                        signal_type,
+                        signal_name,
+                        geoclueWifi->signal_handler_ids[signal_type]);
+        } else {
+            LS_LOG_INFO("Already connected signal [%d:%s] %d\n",
+                        signal_type,
+                        signal_name,
+                        geoclueWifi->signal_handler_ids[signal_type]);
+        }
+    } else {
+        g_signal_handler_disconnect(signal_instance,
+                                    geoclueWifi->signal_handler_ids[signal_type]);
+        LS_LOG_INFO("Disconnecting singal [%d:%s] %d\n",
+                    signal_type,
+                    signal_name,
+                    geoclueWifi->signal_handler_ids[signal_type]);
+
+        geoclueWifi->signal_handler_ids[signal_type] = 0;
+    }
+}
 
 /**
  **
@@ -106,7 +183,7 @@ static void status_cb(GeoclueProvider *provider, GeoclueStatus status, gpointer 
                 (*(geoclueWifi->tracking_cb))(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, geoclueWifi->userdata, HANDLER_WIFI);
             }
         }
-        break;
+            break;
 
         default:
             break;
@@ -250,11 +327,17 @@ static void tracking_cb(GeocluePosition *position,
 static void unreference_geoclue(GeoclueWifi *geoclueWifi)
 {
     if (geoclueWifi->geoclue_pos) {
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueWifi->geoclue_pos)), G_CALLBACK(tracking_cb), geoclueWifi);
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueWifi->geoclue_pos)), G_CALLBACK(status_cb), geoclueWifi);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(geoclueWifi->geoclue_pos),
+                                             G_CALLBACK(tracking_cb),
+                                             geoclueWifi);
+        g_signal_handlers_disconnect_by_func(G_OBJECT(geoclueWifi->geoclue_pos),
+                                             G_CALLBACK(status_cb),
+                                             geoclueWifi);
         g_object_unref(geoclueWifi->geoclue_pos);
         geoclueWifi->geoclue_pos = NULL;
     }
+
+    memset(geoclueWifi->signal_handler_ids, 0, sizeof(gulong)*SIGNAL_END);
 }
 
 /**
@@ -282,8 +365,10 @@ static gboolean intialize_wifi_geoclue_service(GeoclueWifi *geoclueWifi)
         return FALSE;
     }
 
-    g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueWifi->geoclue_pos)), "status-changed", G_CALLBACK(status_cb), geoclueWifi);
+    signal_connection(geoclueWifi, SIGNAL_WIFI_STATUS, TRUE);
+
     LS_LOG_INFO("[DEBUG] intialize_wifi_geoclue_service done\n");
+
     return TRUE;
 }
 
@@ -354,6 +439,7 @@ static int get_position(gpointer handle, PositionCallback pos_cb)
         LS_LOG_WARNING("License key Sent Success\n");
     } else
         return ERROR_NOT_AVAILABLE;
+
     geoclueWifi->position_cb = pos_cb;
     geoclue_position_get_position_async(geoclueWifi->geoclue_pos, (GeocluePositionCallback) position_cb_async, geoclueWifi);
 
@@ -388,7 +474,8 @@ static int start_tracking(gpointer handle, gboolean enable, StartTrackingCallBac
         }
 
         geoclueWifi->tracking_cb = track_cb;
-        g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueWifi->geoclue_pos)), "position-changed", G_CALLBACK(tracking_cb), geoclueWifi);
+        signal_connection(geoclueWifi, SIGNAL_TRACKING, TRUE);
+
         LS_LOG_DEBUG("[DEBUG] WIFI start_tracking: tracking on succeeded\n");
     } else {
         if (send_geoclue_command(geoclueWifi->geoclue_pos, "REQUESTED_STATE", "PERIODICUPDATESOFF") == FALSE) {
@@ -396,7 +483,7 @@ static int start_tracking(gpointer handle, gboolean enable, StartTrackingCallBac
             return ERROR_NOT_AVAILABLE;
         }
 
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueWifi->geoclue_pos)), G_CALLBACK(tracking_cb), geoclueWifi);
+        signal_connection(geoclueWifi, SIGNAL_TRACKING, FALSE);
     }
 
     return ERROR_NONE;

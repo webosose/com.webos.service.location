@@ -362,8 +362,13 @@ static int gps_handler_stop(Handler *self,  int handler_type, gboolean forcestop
     if (priv->is_started == FALSE)
         return ERROR_NOT_STARTED;
 
-    if (forcestop == TRUE)
+    if (forcestop == TRUE) {
         priv->api_progress_flag = 0;
+        //disconnect from signals
+        priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, FALSE, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
+        priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, FALSE, gps_handler_satellite_cb, HANDLER_DATA_SATELLITE);
+        priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, FALSE, gps_handler_nmea_cb, HANDLER_DATA_NMEA);
+    }
 
     if (priv->api_progress_flag != 0)
         return ERROR_REQUEST_INPROGRESS;

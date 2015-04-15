@@ -171,8 +171,33 @@ static int cell_handler_stop(Handler *self, int handler_type, gboolean forcestop
     if (priv->is_started == FALSE)
         return ERROR_NOT_STARTED;
 
-    if (forcestop == TRUE)
+    if (forcestop == TRUE) {
         priv->api_progress_flag = 0;
+        int result = priv->cell_plugin->ops.start_tracking(priv->cell_plugin->plugin_handler,
+                                              FALSE,
+                                              NULL,
+                                              NULL);
+        if (result == ERROR_NONE) {
+            if (priv->tracking_pos) {
+                free(priv->tracking_pos);
+                priv->tracking_pos = NULL;
+            }
+
+            if (priv->tracking_acc) {
+                free(priv->tracking_acc);
+                priv->tracking_acc = NULL;
+            }
+        }
+
+        if (priv->m_cellInfoReq != DEFAULT_VALUE) {
+            if (!LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror)) {
+                LS_LOG_ERROR("Failed to cancel getCellInfo subscription\n");
+                LSErrorPrint(&lserror, stderr);
+                LSErrorFree(&lserror);
+            }
+            priv->m_cellInfoReq = DEFAULT_VALUE;
+        }
+    }
 
     if (priv->api_progress_flag != DEFAULT_VALUE)
         return ERROR_REQUEST_INPROGRESS;
@@ -376,7 +401,6 @@ static void cell_handler_start_tracking(Handler *self,
                                         LSMessage *msg)
 {
     LS_LOG_INFO("[DEBUG]Cell handler start Tracking called ");
-    gboolean mRet = false;
     LSError lserror;
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
 
@@ -414,10 +438,14 @@ static void cell_handler_start_tracking(Handler *self,
             priv->api_progress_flag &= ~CELL_START_TRACKING_ON;
             LS_LOG_DEBUG("LSCancel");
 
-            if (priv->m_cellInfoReq != DEFAULT_VALUE)
-                mRet = LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror);
-
-            priv->m_cellInfoReq = DEFAULT_VALUE;
+            if (priv->m_cellInfoReq != DEFAULT_VALUE) {
+                if (!LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror)) {
+                    LS_LOG_ERROR("Failed to cancel getCellInfo subscription\n");
+                    LSErrorPrint(&lserror, stderr);
+                    LSErrorFree(&lserror);
+                }
+                priv->m_cellInfoReq = DEFAULT_VALUE;
+            }
 
             if (result == ERROR_NONE) {
                 if (priv->tracking_pos) {
@@ -434,8 +462,6 @@ static void cell_handler_start_tracking(Handler *self,
 
         priv->track_cb = NULL;
         priv->api_progress_flag &= ~CELL_START_TRACKING_ON;
-
-        LS_LOG_DEBUG("[DEBUG] LSCallCancel return from cell_handler_start_tracking   %d \n", mRet);
     }
 }
 
@@ -447,8 +473,6 @@ static gboolean cell_handler_get_handler_status(Handler *self, int handler_type)
     return priv->is_started;
 }
 
-/**
- * <Funciton >   handler_stop
 /**
  * <Funciton >   handler_stop
  * <Description>  get the position from GPS receiver
@@ -470,7 +494,6 @@ static void cell_handler_get_location_updates(Handler *self,
         LS_LOG_INFO("cell_handler_get_location_updates disable");
     CellHandlerPrivate *priv = CELL_HANDLER_GET_PRIVATE(self);
     LSError lserror;
-    gboolean mRet = FALSE;
 
     if (priv == NULL || priv->cell_plugin->ops.start_tracking == NULL) {
         if (loc_update_cb)
@@ -523,14 +546,18 @@ static void cell_handler_get_location_updates(Handler *self,
                     priv->tracking_acc = NULL;
                 }
             }
-            if (priv->m_cellInfoReq != DEFAULT_VALUE)
-                mRet = LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror);
 
-            priv->m_cellInfoReq = DEFAULT_VALUE;
+            if (priv->m_cellInfoReq != DEFAULT_VALUE) {
+                if (!LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror)) {
+                    LS_LOG_ERROR("Failed to cancel getCellInfo subscription\n");
+                    LSErrorPrint(&lserror, stderr);
+                    LSErrorFree(&lserror);
+                }
+                priv->m_cellInfoReq = DEFAULT_VALUE;
+            }
         }
         priv->loc_update_cb = NULL;
         priv->api_progress_flag &= ~CELL_LOCATION_UPDATES_ON;
-        LS_LOG_DEBUG("[DEBUG] LSCallCancel return from cell_handler_start_tracking   %d \n", mRet);
     }
 }
 

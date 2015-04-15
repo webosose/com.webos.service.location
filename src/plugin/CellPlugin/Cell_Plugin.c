@@ -33,6 +33,11 @@
 #include <geoclue/geoclue-types.h>
 #include <loc_log.h>
 
+/*All g-signals indexes*/
+enum {
+    SIGNAL_TRACKING,
+    SIGNAL_END
+};
 
 /**
  * Local GPS plugin structure
@@ -51,6 +56,7 @@ typedef struct {
     gboolean track_started;
     gpointer userdata;
     char *license_key;
+    gulong signal_handler_ids[SIGNAL_END];
 } GeoclueCell;
 
 #define LGE_CELL_SERVICE_NAME "org.freedesktop.Geoclue.Providers.LgeCellService"
@@ -64,7 +70,68 @@ static void cell_position_cb(GeocluePosition *position,
                         double altitude,
                         GeoclueAccuracy *accuracy,
                         gpointer userdata);
+static void tracking_cb(GeocluePosition *position,
+                        GeocluePositionFields fields,
+                        int64_t timestamp,
+                        double latitude,
+                        double longitude,
+                        double altitude,
+                        GeoclueAccuracy *accuracy,
+                        gpointer plugin_data);
 
+static void signal_connection(GeoclueCell *geoclueCell, int signal_type, gboolean connect)
+{
+    gpointer signal_instance = NULL;
+    gchar *signal_name = NULL;
+    GCallback signal_cb = NULL;
+
+    if (geoclueCell == NULL)
+        return;
+
+    if (signal_type < 0 || signal_type >= SIGNAL_END)
+        return;
+
+    switch (signal_type) {
+        case SIGNAL_TRACKING:
+            signal_instance = G_OBJECT(geoclueCell->geoclue_pos);
+            signal_name = "position-changed";
+            signal_cb = G_CALLBACK(tracking_cb);
+            break;
+        default:
+            break;
+    }
+
+    if (signal_instance == NULL)
+        return;
+
+    if (connect) {
+        if (!g_signal_handler_is_connected(signal_instance,
+                                           geoclueCell->signal_handler_ids[signal_type])) {
+            geoclueCell->signal_handler_ids[signal_type] = g_signal_connect(signal_instance,
+                                                                            signal_name,
+                                                                            signal_cb,
+                                                                            geoclueCell);
+            LS_LOG_INFO("Connecting singal [%d:%s] %d\n",
+                        signal_type,
+                        signal_name,
+                        geoclueCell->signal_handler_ids[signal_type]);
+        } else {
+            LS_LOG_INFO("Already connected signal [%d:%s] %d\n",
+                        signal_type,
+                        signal_name,
+                        geoclueCell->signal_handler_ids[signal_type]);
+        }
+    } else {
+        g_signal_handler_disconnect(signal_instance,
+                                    geoclueCell->signal_handler_ids[signal_type]);
+        LS_LOG_INFO("Disconnecting singal [%d:%s] %d\n",
+                    signal_type,
+                    signal_name,
+                    geoclueCell->signal_handler_ids[signal_type]);
+
+        geoclueCell->signal_handler_ids[signal_type] = 0;
+    }
+}
 
 void set_options_cb(GeoclueProvider *provider, GError *error, gpointer userdata) {
     if (error != NULL) {
@@ -303,12 +370,14 @@ static int get_position(gpointer handle, PositionCallback positionCB, gpointer a
 static void unreference_geoclue(GeoclueCell *geoclueCell)
 {
     if (geoclueCell->geoclue_pos) {
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)),
-                                             G_CALLBACK(cell_position_cb),
+        g_signal_handlers_disconnect_by_func(G_OBJECT(geoclueCell->geoclue_pos),
+                                             G_CALLBACK(tracking_cb),
                                              geoclueCell);
         g_object_unref(geoclueCell->geoclue_pos);
         geoclueCell->geoclue_pos = NULL;
     }
+
+    memset(geoclueCell->signal_handler_ids, 0, sizeof(gulong)*SIGNAL_END);
 }
 
 /**
@@ -359,7 +428,8 @@ static int start(gpointer plugin_data, gpointer handler_data, const char *licens
 
     geoclueCell->userdata = handler_data;
 
-    if (intialize_cell_geoclue_service(geoclueCell) == FALSE) return ERROR_NOT_AVAILABLE;
+    if (intialize_cell_geoclue_service(geoclueCell) == FALSE)
+        return ERROR_NOT_AVAILABLE;
 
     geoclueCell->license_key = g_strdup(license_key);
 
@@ -387,8 +457,7 @@ static int start_tracking(gpointer plugin_data, gboolean enableTracking, StartTr
         geoclueCell->track_cb = handler_tracking_cb;
 
         if (geoclueCell->track_started == FALSE) {
-            g_signal_connect(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)), "position-changed", G_CALLBACK(tracking_cb),
-                             plugin_data);
+            signal_connection(geoclueCell, SIGNAL_TRACKING, TRUE);
             geoclueCell->track_started = TRUE;
             LS_LOG_DEBUG("[DEBUG] registered position-changed signal \n");
         }
@@ -406,16 +475,14 @@ static int start_tracking(gpointer plugin_data, gboolean enableTracking, StartTr
                 return ERROR_NOT_AVAILABLE;
             }
         } else {
-            g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)), G_CALLBACK(tracking_cb),
-                                             plugin_data);
+            signal_connection(geoclueCell, SIGNAL_TRACKING, FALSE);
             geoclueCell->track_started = FALSE;
             return ERROR_NOT_AVAILABLE;
         }
 
         return ERROR_NONE;
     } else {
-        g_signal_handlers_disconnect_by_func(G_OBJECT(GEOCLUE_PROVIDER(geoclueCell->geoclue_pos)), G_CALLBACK(tracking_cb),
-                                             plugin_data);
+        signal_connection(geoclueCell, SIGNAL_TRACKING, FALSE);
         geoclueCell->track_started = FALSE;
         return ERROR_NONE;
     }

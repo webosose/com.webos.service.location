@@ -150,8 +150,24 @@ static int wifi_handler_stop(Handler *self, int handler_type, gboolean forcestop
     if (priv->is_started == FALSE)
         return ERROR_NOT_STARTED;
 
-    if (forcestop == TRUE)
+    if (forcestop == TRUE) {
         priv->api_progress_flag = 0;
+        int result = priv->wifi_plugin->ops.start_tracking(priv->wifi_plugin->plugin_handler,
+                                                       FALSE,
+                                                       NULL);
+
+        if (result == ERROR_NONE) {
+            if (priv->tracking_pos) {
+                free(priv->tracking_pos);
+                priv->tracking_pos = NULL;
+            }
+
+            if (priv->tracking_acc) {
+                free(priv->tracking_acc);
+                priv->tracking_acc = NULL;
+            }
+        }
+    }
 
     if (priv->api_progress_flag != 0)
         return ERROR_REQUEST_INPROGRESS;

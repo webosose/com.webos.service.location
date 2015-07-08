@@ -98,12 +98,12 @@ static void signal_connection(GeoclueLbs *geoclueLbs, int signal_type, gboolean 
                                                                            signal_name,
                                                                            signal_cb,
                                                                            geoclueLbs);
-            LS_LOG_INFO("Connecting singal [%d:%s] %d\n",
+            LS_LOG_INFO("Connecting singal [%d:%s] %lu\n",
                         signal_type,
                         signal_name,
                         geoclueLbs->signal_handler_ids[signal_type]);
         } else {
-            LS_LOG_INFO("Already connected signal [%d:%s] %d\n",
+            LS_LOG_INFO("Already connected signal [%d:%s] %lu\n",
                         signal_type,
                         signal_name,
                         geoclueLbs->signal_handler_ids[signal_type]);
@@ -111,7 +111,7 @@ static void signal_connection(GeoclueLbs *geoclueLbs, int signal_type, gboolean 
     } else {
         g_signal_handler_disconnect(signal_instance,
                                     geoclueLbs->signal_handler_ids[signal_type]);
-        LS_LOG_INFO("Disconnecting singal [%d:%s] %d\n",
+        LS_LOG_INFO("Disconnecting singal [%d:%s] %lu\n",
                     signal_type,
                     signal_name,
                     geoclueLbs->signal_handler_ids[signal_type]);
@@ -338,7 +338,7 @@ static gboolean intialize_lbs_geoclue_service(GeoclueLbs *geoclueLbs)
  */
 static int start(gpointer plugin_data, gpointer handler_data, const char *license_key)
 {
-    LS_LOG_INFO("[DEBUG] LBS plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
+    LS_LOG_INFO("[DEBUG] LBS plugin start  plugin_data : %p  ,handler_data :%p \n", plugin_data, handler_data);
     GeoclueLbs *geoclueLbs = (GeoclueLbs *) plugin_data;
     g_return_val_if_fail(geoclueLbs, ERROR_NOT_AVAILABLE);
 

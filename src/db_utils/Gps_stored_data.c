@@ -22,11 +22,11 @@
  ********************************************************************/
 
 #include <stdio.h>
-#include <glib.h>
+#include <sys/time.h>
 #include "db_util.h"
-#include <Position.h>
-#include <time.h>
-#include <Location.h>
+
+#include "Gps_stored_data.h"
+
 #define MAX_LEN 50
 /**
  * <Funciton >   gps_service_get_stored_position
@@ -102,7 +102,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            position->timestamp = atoll(result);
+            position->timestamp = atoll((char *)result);
         }
 
         xmlFree(result);
@@ -112,7 +112,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            position->latitude = atof(result);
+            position->latitude = atof((char *)result);
         }
 
         xmlFree(result);
@@ -122,7 +122,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            position->longitude = atof(result);
+            position->longitude = atof((char *)result);
         }
 
         xmlFree(result);
@@ -132,7 +132,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            position->altitude = atof(result);
+            position->altitude = atof((char *)result);
         }
 
         xmlFree(result);
@@ -142,7 +142,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            accuracy->horizAccuracy = atof(result);
+            accuracy->horizAccuracy = atof((char *)result);
         }
 
         xmlFree(result);
@@ -152,7 +152,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            accuracy->vertAccuracy = atof(result);
+            accuracy->vertAccuracy = atof((char *)result);
         }
 
         xmlFree(result);
@@ -162,7 +162,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            position->speed = atof(result);
+            position->speed = atof((char *)result);
         }
 
         xmlFree(result);
@@ -172,7 +172,7 @@ int get_stored_position(Position *position, Accuracy *accuracy, char *path)
             error = ERROR_NOT_AVAILABLE;
             goto EXIT;
         } else {
-            position->direction = atof(result);
+            position->direction = atof((char *)result);
         }
 
         xmlFree(result);

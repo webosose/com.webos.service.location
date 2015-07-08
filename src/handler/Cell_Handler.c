@@ -27,6 +27,7 @@
 #include <Handler_Interface.h>
 #include <Cell_Handler.h>
 #include <Plugin_Loader.h>
+#include <Gps_stored_data.h>
 #include <loc_log.h>
 #include <pbnjson.h>
 
@@ -371,7 +372,7 @@ static int cell_handler_get_position(Handler *self, gboolean enable, PositionCal
         priv->sh = sh;
         priv->pos_cb = pos_cb;
         priv->nwhandler = handler;
-        LS_LOG_DEBUG("[DEBUG]cell_handler_get_position value of newof hanlder %u\n", priv->nwhandler);
+        LS_LOG_DEBUG("[DEBUG]cell_handler_get_position value of newof hanlder %p\n", priv->nwhandler);
 
         if (request_cell_data(sh, self, FALSE) == TRUE) {
             priv->api_progress_flag |= CELL_GET_POSITION_ON;
@@ -624,11 +625,6 @@ static void cell_handler_finalize(GObject *gobject)
     memset(priv, 0x00, sizeof(CellHandlerPrivate));
 
     G_OBJECT_CLASS(cell_handler_parent_class)->finalize(gobject);
-}
-
-static int cell_handler_function_not_implemented(Handler *self, Position *pos, Address *address)
-{
-    return ERROR_NOT_APPLICABLE_TO_THIS_HANDLER;
 }
 
 /**

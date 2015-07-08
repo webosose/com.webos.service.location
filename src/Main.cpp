@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 
     if (connectionStateObserverObj == NULL) {
         delete locService;
-        locService == NULL;
+        locService = NULL;
         g_main_loop_unref(mainLoop);
         return EXIT_FAILURE;
     }

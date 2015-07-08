@@ -26,6 +26,7 @@
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Position.h>
+#include <Gps_stored_data.h>
 #include <geoclue/geoclue-positiongps.h>
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-nmea.h>
@@ -245,12 +246,12 @@ static void signal_connection(GeoclueGps *geoclueGps, int signal_type, gboolean 
                                                                            signal_name,
                                                                            signal_cb,
                                                                            geoclueGps);
-            LS_LOG_INFO("Connecting singal [%d:%s] %d\n",
+            LS_LOG_INFO("Connecting singal [%d:%s] %lu\n",
                         signal_type,
                         signal_name,
                         geoclueGps->signal_handler_ids[signal_type]);
         } else {
-            LS_LOG_INFO("Already connected signal [%d:%s] %d\n",
+            LS_LOG_INFO("Already connected signal [%d:%s] %lu\n",
                         signal_type,
                         signal_name,
                         geoclueGps->signal_handler_ids[signal_type]);
@@ -258,7 +259,7 @@ static void signal_connection(GeoclueGps *geoclueGps, int signal_type, gboolean 
     } else {
         g_signal_handler_disconnect(signal_instance,
                                     geoclueGps->signal_handler_ids[signal_type]);
-        LS_LOG_INFO("Disconnecting singal [%d:%s] %d\n",
+        LS_LOG_INFO("Disconnecting singal [%d:%s] %lu\n",
                     signal_type,
                     signal_name,
                     geoclueGps->signal_handler_ids[signal_type]);
@@ -284,7 +285,7 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
     g_hash_table_insert(options, key, gvalue);
 
     if (!geoclue_provider_set_options(GEOCLUE_PROVIDER(instance), options, &error)) {
-        LS_LOG_ERROR("[DEBUG] GPS plugin Error geoclue_provider_set_options(%s) : %s", gvalue, error->message);
+        LS_LOG_ERROR("[DEBUG] GPS plugin Error geoclue_provider_set_options(%s) : %s", g_value_get_string(gvalue), error->message);
         g_error_free(error);
         error = NULL;
         g_hash_table_destroy(options);
@@ -293,7 +294,7 @@ static gboolean send_geoclue_command(GeocluePositionGps *instance, gchar *key, g
         return FALSE;
     }
 
-    LS_LOG_INFO("[DEBUG] Success to geoclue_provider_set_options(%s)", gvalue);
+    LS_LOG_INFO("[DEBUG] Success to geoclue_provider_set_options(%s)", g_value_get_string(gvalue));
 
     g_value_unset(gvalue);
     g_free(gvalue);
@@ -443,9 +444,9 @@ static void satellite_cb(GeoclueSatellite *satellite, uint32_t used_in_fix, int 
         gdouble elev = g_value_get_double(g_value_array_get_nth(vals, 2));
         gdouble azim = g_value_get_double(g_value_array_get_nth(vals, 3));
 
-        ((used_in_fix & (1 << prn - 1))) == DEFAULT_VALUE ? (used = FALSE) : (used = TRUE);
-        ((ephemeris_info & (1 << prn - 1))) == DEFAULT_VALUE ? (hasephemeris = FALSE) : (hasephemeris = TRUE);
-        ((almanac_info & (1 << prn - 1))) == DEFAULT_VALUE ? (hasalmanac = FALSE) : (hasalmanac = TRUE);
+        ((used_in_fix & (1 << (prn - 1)))) == DEFAULT_VALUE ? (used = FALSE) : (used = TRUE);
+        ((ephemeris_info & (1 << (prn - 1)))) == DEFAULT_VALUE ? (hasephemeris = FALSE) : (hasephemeris = TRUE);
+        ((almanac_info & (1 << (prn - 1)))) == DEFAULT_VALUE ? (hasalmanac = FALSE) : (hasalmanac = TRUE);
 
         set_satellite_details(sat, index, snr, prn, elev, azim, used, hasalmanac, hasephemeris);
     }
@@ -630,7 +631,7 @@ static int send_extra_command(gpointer handle , char *command)
 
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
 
-    LS_LOG_INFO("send_extra_command command= %d", command);
+    LS_LOG_INFO("send_extra_command command= %s", command);
 
     if (send_geoclue_command(geoclueGps->geoclue_pos , "REQUESTED_STATE", command) == FALSE)
         return ERROR_NOT_AVAILABLE;
@@ -644,7 +645,7 @@ static int set_gps_parameters(gpointer handle , char *command)
 
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);
 
-    LS_LOG_INFO("set_gps_parameters command= %d", command);
+    LS_LOG_INFO("set_gps_parameters command= %s", command);
     if (send_geoclue_command(geoclueGps->geoclue_pos , "SET_GPS_OPTIONS", command) == FALSE)
         return ERROR_NOT_AVAILABLE;
 
@@ -1055,7 +1056,7 @@ static gboolean intialize_gps_geoclue_service(GeoclueGps *geoclueGps)
  */
 static int start(gpointer plugin_data, StatusCallback status_cb, gpointer handler_data)
 {
-    LS_LOG_INFO("[DEBUG] gps plugin start  plugin_data : %d  ,handler_data :%d \n", plugin_data, handler_data);
+    LS_LOG_INFO("[DEBUG] gps plugin start  plugin_data : %p  ,handler_data :%p \n", plugin_data, handler_data);
     GeoclueGps *geoclueGps = (GeoclueGps *) plugin_data;
 
     g_return_val_if_fail(geoclueGps, ERROR_NOT_AVAILABLE);

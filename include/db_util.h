@@ -106,6 +106,14 @@ int deleteKey(DBHandle *handle, char *key);
 int commit(DBHandle *handle);
 
 /**
+ * <Funciton>       isFileExists
+ * <Description>    Check if the file exists
+ * @param           <fname> <In> <Name of the file to check>
+ * @return          int
+ */
+int isFileExists(const char *fname);
+
+/**
  * <Funciton>       deletePreference
  * <Description>    Delete the gicen preference xml file
  * @param           <filename> <In> <file name to delete>

@@ -27,8 +27,9 @@
 #include <Handler_Interface.h>
 #include <Gps_Handler.h>
 #include <Plugin_Loader.h>
+#include <Gps_stored_data.h>
 #include <loc_log.h>
-#include <time.h>
+#include <sys/time.h>
 #include <Location.h>
 
 #define GPS_UPDATE_INTERVAL_MAX     12*60
@@ -223,7 +224,7 @@ void gps_handler_position_cb(gboolean enable_cb,
         struct timeval tv;
         gettimeofday(&tv, (struct timezone *) NULL);
         priv->lastfixtime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-        priv->ttffstate == TRUE;
+        priv->ttffstate = TRUE;
     }
 
     g_return_if_fail(priv->pos_cb);
@@ -553,7 +554,7 @@ static void gps_handler_start_tracking(Handler *self,
     if (enable) {
 
         priv->track_cb = track_cb;
-        LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_cb %d\n", priv->track_cb);
+        LS_LOG_DEBUG("gps_handler_start_tracking: priv->track_cb %p\n", priv->track_cb);
         if ((!(priv->api_progress_flag & LOCATION_UPDATES_ON))) {
 
             result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler,
@@ -625,7 +626,7 @@ static void gps_handler_get_location_updates(Handler *self,
     if (enable) {
 
         priv->loc_update_cb = loc_update_cb;
-        LS_LOG_DEBUG("gps_handler_get_location_updates: priv->loc_update_cb %d\n", priv->loc_update_cb);
+        LS_LOG_DEBUG("gps_handler_get_location_updates: priv->loc_update_cb %p\n", priv->loc_update_cb);
 
         if ((!(priv->api_progress_flag & START_TRACKING_ON) )){
             result = priv->gps_plugin->ops.get_gps_data(priv->gps_plugin->plugin_handler, enable, gps_handler_tracking_cb, HANDLER_DATA_POSITION);
@@ -675,7 +676,6 @@ static int gps_handler_get_last_position(Handler *self, Position *position, Accu
 }
 
 /**
- /**
  * <Funciton >   gps_handler_get_time_to_first_fix
  * <Description>  get the gps TTFF value of GPS
  * @param     <self> <In> <Handler Gobject>

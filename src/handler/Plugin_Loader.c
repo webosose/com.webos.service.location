@@ -64,7 +64,7 @@ fill_plugin_property(const char *plugin_name, gboolean is_resident)
     }
 
     properties->gmodule = g_module_open(properties->plugin_path, G_MODULE_BIND_LAZY);
-    LS_LOG_DEBUG("plugin->gmodule %d \n", (properties->gmodule));
+    LS_LOG_DEBUG("plugin->gmodule %p \n", (properties->gmodule));
 
     if (!properties->gmodule) {
         g_free(properties->plugin_name);

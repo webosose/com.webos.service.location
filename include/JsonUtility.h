@@ -31,6 +31,7 @@
 #include <glib-object.h>
 #include <geoclue/geoclue-position.h>
 #include <pbnjson.h>
+#include <sys/time.h>
 
 #define SCHEMA_ANY                          "{}"
 #define SCHEMA_NONE                         "{\"additionalProperties\":false}"

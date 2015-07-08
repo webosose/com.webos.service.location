@@ -98,6 +98,7 @@ typedef struct {
 gboolean plugin_init(void);
 gpointer plugin_new(const char *plugin_name);
 void plugin_free(gpointer mod, const char *plugin_name);
+gboolean plugin_is_supported(const char *plugin_name);
 gboolean is_supported_plugin(const char *plugin_name);
 
 #endif /* PLUGIN_LOADER_H_ */

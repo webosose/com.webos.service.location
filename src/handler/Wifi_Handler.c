@@ -28,6 +28,7 @@
 #include <Handler_Interface.h>
 #include <Wifi_Handler.h>
 #include <Plugin_Loader.h>
+#include <Gps_stored_data.h>
 #include <loc_log.h>
 #include <stdlib.h>
 

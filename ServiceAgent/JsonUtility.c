@@ -25,7 +25,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <geoclue/geoclue-position.h>
-#include <time.h>
+#include <sys/time.h>
 #include "LunaLocationServiceUtil.h"
 #include "ServiceAgent.h"
 #include <loc_log.h>

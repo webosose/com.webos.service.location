@@ -105,7 +105,7 @@ int isFileExists(const char *fname)
 {
     FILE *file;
 
-    if (file = fopen(fname, "r")) {
+    if ((file = fopen(fname, "r"))) {
         fclose(file);
         return 1;
     }

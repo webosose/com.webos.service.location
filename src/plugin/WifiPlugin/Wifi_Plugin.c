@@ -26,6 +26,7 @@
 #include <Location_Plugin.h>
 #include <Location.h>
 #include <Position.h>
+#include <Gps_stored_data.h>
 #include <geoclue/geoclue-position.h>
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-provider.h>
@@ -108,12 +109,12 @@ static void signal_connection(GeoclueWifi *geoclueWifi, int signal_type, gboolea
                                                                             signal_name,
                                                                             signal_cb,
                                                                             geoclueWifi);
-            LS_LOG_INFO("Connecting singal [%d:%s] %d\n",
+            LS_LOG_INFO("Connecting singal [%d:%s] %lu\n",
                         signal_type,
                         signal_name,
                         geoclueWifi->signal_handler_ids[signal_type]);
         } else {
-            LS_LOG_INFO("Already connected signal [%d:%s] %d\n",
+            LS_LOG_INFO("Already connected signal [%d:%s] %lu\n",
                         signal_type,
                         signal_name,
                         geoclueWifi->signal_handler_ids[signal_type]);
@@ -121,7 +122,7 @@ static void signal_connection(GeoclueWifi *geoclueWifi, int signal_type, gboolea
     } else {
         g_signal_handler_disconnect(signal_instance,
                                     geoclueWifi->signal_handler_ids[signal_type]);
-        LS_LOG_INFO("Disconnecting singal [%d:%s] %d\n",
+        LS_LOG_INFO("Disconnecting singal [%d:%s] %lu\n",
                     signal_type,
                     signal_name,
                     geoclueWifi->signal_handler_ids[signal_type]);

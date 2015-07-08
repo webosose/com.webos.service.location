@@ -101,8 +101,8 @@ public:
     static const int GETLOC_UPDATE_PASSIVE = 3;
     static const int GETLOC_UPDATE_INVALID =4;
 
-    static const double INVALID_LAT = 0;
-    static const double INVALID_LONG = 0;
+    static const double INVALID_LAT;
+    static const double INVALID_LONG;
     class TimerData
     {
     public:
@@ -184,7 +184,7 @@ public:
         bool getFirstReply() {
             return m_isFirstReply;
         }
-        bool updateFirstReply(bool firstreply) {
+        void updateFirstReply(bool firstreply) {
             m_isFirstReply = firstreply;
         }
 
@@ -210,7 +210,7 @@ public:
     };
     virtual ~LocationService();
     bool init(GMainLoop *);
-    bool locationServiceRegister(const char *srvcname, GMainLoop *mainLoop, LSPalmService **mServiceHandle);
+    bool locationServiceRegister(const char *srvcname, GMainLoop *mainLoop, LSHandle **mServiceHandle);
     static LocationService *getInstance();
 
     bool isLocationRequestEmpty() {
@@ -242,91 +242,91 @@ public:
     static void wrapper_getLocationUpdate_cb(gboolean enable_cb, Position *pos, Accuracy *accuracy, int error,gpointer privateIns, int type);
 
     static bool _getNmeaData(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getNmeaData(sh, message, NULL);
+        return getInstance()->getNmeaData(sh, message, NULL);
     }
 
     static bool _getReverseLocation(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getReverseLocation(sh, message, NULL);
+        return getInstance()->getReverseLocation(sh, message, NULL);
     }
 
     static bool _getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getGeoCodeLocation(sh, message, NULL);
+        return getInstance()->getGeoCodeLocation(sh, message, NULL);
     }
 
     static bool _getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getAllLocationHandlers(sh, message, NULL);
+        return getInstance()->getAllLocationHandlers(sh, message, NULL);
     }
 
     static bool _getGpsStatus(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getGpsStatus(sh, message, NULL);
+        return getInstance()->getGpsStatus(sh, message, NULL);
     }
 
     static bool _setState(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->setState(sh, message, NULL);
+        return getInstance()->setState(sh, message, NULL);
     }
 
     static bool _getState(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getState(sh, message, NULL);
+        return getInstance()->getState(sh, message, NULL);
     }
 
     static bool _sendExtraCommand(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->sendExtraCommand(sh, message, NULL);
+        return getInstance()->sendExtraCommand(sh, message, NULL);
     }
 
     static bool _setGPSParameters(LSHandle *sh, LSMessage *message, void *data){
-        return ((LocationService *) data)->setGPSParameters(sh, message, NULL);
+        return getInstance()->setGPSParameters(sh, message, NULL);
     }
 
     static bool _stopGPS(LSHandle *sh, LSMessage *message, void *data){
-        return ((LocationService *) data)->stopGPS(sh, message, NULL);
+        return getInstance()->stopGPS(sh, message, NULL);
     }
 
     static bool _exitLocation(LSHandle *sh, LSMessage *message, void *data){
-        return ((LocationService *) data)->exitLocation(sh, message, NULL);
+        return getInstance()->exitLocation(sh, message, NULL);
     }
 
     static bool _getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getLocationHandlerDetails(sh, message, NULL);
+        return getInstance()->getLocationHandlerDetails(sh, message, NULL);
     }
 
     static bool _getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getGpsSatelliteData(sh, message, NULL);
+        return getInstance()->getGpsSatelliteData(sh, message, NULL);
     }
 
     static bool _getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getTimeToFirstFix(sh, message, NULL);
+        return getInstance()->getTimeToFirstFix(sh, message, NULL);
     }
 
     static bool _getLocationUpdates(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getLocationUpdates(sh, message, NULL);
+        return getInstance()->getLocationUpdates(sh, message, NULL);
     }
 
     static bool _getCachedPosition(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getCachedPosition(sh, message, NULL);
+        return getInstance()->getCachedPosition(sh, message, NULL);
     }
 
     static bool _cancelSubscription(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->cancelSubscription(sh, message, NULL);
+        return getInstance()->cancelSubscription(sh, message, NULL);
     }
 
     static bool _addGeofenceArea(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->addGeofenceArea(sh, message, NULL);
+        return getInstance()->addGeofenceArea(sh, message, NULL);
     }
 
     static bool _getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->getGeofenceStatus(sh, message, NULL);
+        return getInstance()->getGeofenceStatus(sh, message, NULL);
     }
 
     static bool _pauseGeofence(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->pauseGeofence(sh, message, NULL);
+        return getInstance()->pauseGeofence(sh, message, NULL);
     }
 
     static bool _resumeGeofence(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->resumeGeofence(sh, message, NULL);
+        return getInstance()->resumeGeofence(sh, message, NULL);
     }
 
     static bool _removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService *) data)->removeGeofenceArea(sh, message, NULL);
+        return getInstance()->removeGeofenceArea(sh, message, NULL);
     }
 
     static gboolean TimerCallbackLocationUpdate(void *data) {
@@ -338,7 +338,7 @@ public:
     bool loadHandlerStatus(const char *handler);
 
     LSHandle *getPrivatehandle() {
-        return LSPalmServiceGetPrivateConnection(mServiceHandle);
+        return mServiceHandle;
     }
 
     void setWifiState(bool state) {
@@ -459,7 +459,7 @@ public:
         lbsGeocodeKey = g_strdup(lbsKey);
     }
 
-    void LSSubscriptionNonSubscriptionRespond(LSPalmService *psh, const char *key, const char *payload);
+    void LSSubscriptionNonSubscriptionRespond(LSHandle *psh, const char *key, const char *payload);
     void LSSubscriptionNonSubscriptionReply(LSHandle *sh, const char *key, const char *payload);
     bool isSubscribeTypeValid(LSHandle *sh, LSMessage *message, bool isMandatory, bool *isSubscription);
     void stopNonSubcription(const char *key);
@@ -467,7 +467,7 @@ public:
     bool enableGpsHandler(unsigned char *startedHandlers);
     bool enableNwHandler(unsigned char *startedHandlers);
     int enableHandlers(int sel_handler, char *key, unsigned char *startedHandlers);
-    void LSSubNonSubRespondGetLocUpdateCase(Position *pos, Accuracy *acc, LSPalmService *psh, const char *key, const char *payload);
+    void LSSubNonSubRespondGetLocUpdateCase(Position *pos, Accuracy *acc, LSHandle *psh, const char *key, const char *payload);
     void LSSubNonSubReplyLocUpdateCase(Position *pos, Accuracy *acc, LSHandle *sh, const char *key, const char *payload);
     bool LSMessageReplyLocUpdateCase(LSMessage *msg,
                                      LSHandle *sh,
@@ -497,8 +497,8 @@ private:
     bool is_geofenceId_used[MAX_GEOFENCE_ID];
     GHashTable *htPseudoGeofence;
 
-    LSPalmService *mServiceHandle;
-    LSPalmService *mlgeServiceHandle;
+    LSHandle *mServiceHandle;
+    LSHandle *mlgeServiceHandle;
 
     // time to first fix for most recent session
     static long mTTFF;

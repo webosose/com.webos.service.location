@@ -789,38 +789,12 @@ void getAddressData(jvalue_ref *parsedObj, GString *address_data) {
     jvalue_ref jsonComponetObject = NULL;
     raw_buffer nameBuf;
 
-    if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("bounds"), &jsonBoundSubObject)) {
-        double southwestLat;
-        double southwestLon;
-        double northeastLat;
-        double northeastLon;
+    if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("components"), &jsonComponetObject)){
 
-        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("southwestLat"));
-        jnumber_get_f64(jsonSubObject, &southwestLat);
-        std::string strsouthwestLat = boost::lexical_cast<string>(southwestLat);
-        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("southwestLon"));
-        jnumber_get_f64(jsonSubObject, &southwestLon);
-        std::string strsouthwestLon = boost::lexical_cast<string>(southwestLon);
-        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("northeastLat"));
-        jnumber_get_f64(jsonSubObject, &northeastLat);
-        std::string strnortheastLat = boost::lexical_cast<string>(northeastLat);
-        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("northeastLon"));
-        jnumber_get_f64(jsonSubObject, &northeastLon);
-        std::string strnortheastLon = boost::lexical_cast<string>(northeastLon);
-
-        LS_LOG_DEBUG("value of bounds %f,%f,%f",southwestLat, southwestLon, northeastLat);
-        g_string_append(address_data, "&bounds=");
-        g_string_append(address_data, strsouthwestLat.c_str());
-        g_string_append(address_data, ",");
-        g_string_append(address_data, strsouthwestLon.c_str());
-        g_string_append(address_data, "|");
-        g_string_append(address_data, strnortheastLat.c_str());
-        g_string_append(address_data, ",");
-        g_string_append(address_data, strnortheastLon.c_str());
-    }
-
-    if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("components"), &jsonComponetObject)) {
-        g_string_append(address_data, "components=");
+        if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject))
+            g_string_append(address_data, "&components=");
+        else
+            g_string_append(address_data, "components=");
 
         if (jobject_get_exists(jsonComponetObject, J_CSTR_TO_BUF("route"), &jsonSubObject)) {
             nameBuf = jstring_get(jsonSubObject);
@@ -857,6 +831,51 @@ void getAddressData(jvalue_ref *parsedObj, GString *address_data) {
             jstring_free_buffer(nameBuf);
         }
     }
+
+    if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("bounds"), &jsonBoundSubObject)) {
+        double southwestLat;
+        double southwestLon;
+        double northeastLat;
+        double northeastLon;
+
+        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("southwestLat"));
+        jnumber_get_f64(jsonSubObject, &southwestLat);
+        std::string strsouthwestLat = boost::lexical_cast<string>(southwestLat);
+        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("southwestLon"));
+        jnumber_get_f64(jsonSubObject, &southwestLon);
+        std::string strsouthwestLon = boost::lexical_cast<string>(southwestLon);
+        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("northeastLat"));
+        jnumber_get_f64(jsonSubObject, &northeastLat);
+        std::string strnortheastLat = boost::lexical_cast<string>(northeastLat);
+        jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("northeastLon"));
+        jnumber_get_f64(jsonSubObject, &northeastLon);
+        std::string strnortheastLon = boost::lexical_cast<string>(northeastLon);
+
+        LS_LOG_DEBUG("value of bounds %f,%f,%f",southwestLat, southwestLon, northeastLat);
+        g_string_append(address_data, "&bounds=");
+        g_string_append(address_data, strsouthwestLat.c_str());
+        g_string_append(address_data, ",");
+        g_string_append(address_data, strsouthwestLon.c_str());
+        g_string_append(address_data, "|");
+        g_string_append(address_data, strnortheastLat.c_str());
+        g_string_append(address_data, ",");
+        g_string_append(address_data, strnortheastLon.c_str());
+    }
+
+    if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("language"), &jsonSubObject)) {
+        nameBuf = jstring_get(jsonSubObject);
+        g_string_append(address_data, "&language=");
+        g_string_append(address_data, nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
+    }
+
+    if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("region"), &jsonSubObject)) {
+        nameBuf = jstring_get(jsonSubObject);
+        g_string_append(address_data, "&region=");
+        g_string_append(address_data, nameBuf.m_str);
+        jstring_free_buffer(nameBuf);
+    }
+
 }
 
 bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data)
@@ -911,7 +930,6 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     if (bRetVal == true) {
         LS_LOG_DEBUG("value of address %s",jsonSubObject);
         raw_buffer nameBuf = jstring_get(jsonSubObject);
-
         std::string str(nameBuf.m_str);
         boost::replace_all(str, " ","+");
         g_string_append(address_data,"address=");
@@ -919,13 +937,6 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
         LS_LOG_DEBUG("value of address %s", address_data->str);
         jstring_free_buffer(nameBuf);
         addr.freeform = true;
-    }
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("language"), &jsonSubObject)) {
-        nameBuf = jstring_get(jsonSubObject);
-        g_string_append(address_data, "&language=");
-        g_string_append(address_data, nameBuf.m_str);
-        jstring_free_buffer(nameBuf);
     }
 
     getAddressData(&parsedObj, address_data);

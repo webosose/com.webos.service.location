@@ -189,12 +189,12 @@ void geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GError 
         g_error_free(error);
     } else {
         (*geoclueLbs->geocode_cb)(TRUE, response, ERROR_NONE, geoclueLbs->userdata, HANDLER_LBS);
+        if (response) {
+            g_free(response);
+            response = NULL;
+        }
     }
 
-    if (response) {
-        g_free(response);
-        response = NULL;
-    }
 }
 
 void rev_geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GError *error, gpointer userdata)
@@ -213,12 +213,12 @@ void rev_geocoder_cb_async (GeoclueGoogleGeocoder *geocoder, char *response, GEr
         g_error_free(error);
     } else {
         (*geoclueLbs->rev_geocode_cb)(TRUE, response, ERROR_NONE, geoclueLbs->userdata, HANDLER_LBS);
+        if (response) {
+            g_free(response);
+            response = NULL;
+        }
     }
 
-    if (response) {
-        g_free(response);
-        response = NULL;
-    }
 }
 
 /**

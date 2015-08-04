@@ -309,6 +309,13 @@ LocationService::~LocationService()
         delete m_lifeCycleMonitor;
         m_lifeCycleMonitor = NULL;
     }
+
+    //clear Queues
+    queue<LunaLbsRequest> emptyGeocodeQueue;
+    queue<LunaLbsRequest> emptyRevGeocodeQueue;
+
+    swap(geoCodeReqQueue, emptyGeocodeQueue);
+    swap(revGeoCodeReqQueue, emptyRevGeocodeQueue);
 }
 
 /*****API's exposed to applications****/
@@ -584,9 +591,7 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
 #ifndef NOMINATIUM_LBS
     int ret;
     jvalue_ref parsedObj = NULL;
-    char *response = NULL;
     GString *pos_data = NULL;
-    LSError mLSError;
     Position pos;
     LocationErrorCode errorCode = LOCATION_SUCCESS;
 
@@ -619,8 +624,9 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
     ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), HANDLER_LBS, lbsGeocodeKey);
 
     if (ret == ERROR_NONE) {
-        ret = handler_get_reverse_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), (char *)pos_data->str, wrapper_rev_geocoding_cb);
-        LS_LOG_DEBUG("handler_get_reverse_google_geo_code %s", response);
+        if (revGeoCodeReqQueue.empty())
+            ret = handler_get_reverse_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), (char *)pos_data->str, wrapper_rev_geocoding_cb);
+        LS_LOG_DEBUG("handler_get_reverse_google_geo_code %s", (char *)pos_data->str);
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
 
         if (ret != ERROR_NONE) {
@@ -628,12 +634,9 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
             goto EXIT;
         }
 
-        if (LSSubscriptionAdd(sh, SUBSC_GET_REVGEOCODE_KEY, message, &mLSError) == FALSE) {
-            LS_LOG_ERROR("Failed to add to subscription list");
-            LSErrorPrintAndFree(&mLSError);
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
+
+        LSMessageRef(message);
+        revGeoCodeReqQueue.push(LunaLbsRequest(message, sh, (char *)pos_data->str));
     } else {
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
         errorCode = LOCATION_START_FAILURE;
@@ -649,8 +652,11 @@ EXIT:
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
-    if (errorCode != LOCATION_SUCCESS)
+    if (errorCode != LOCATION_SUCCESS) {
         LSMessageReplyError(sh, message, errorCode);
+        if (revGeoCodeReqQueue.empty())
+            handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
+    }
 
     if (pos_data != NULL)
         g_string_free(pos_data, TRUE);
@@ -884,7 +890,6 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
 #ifndef NOMINATIUM_LBS
     int ret;
     Address addr = {0};
-    LSError mLSError;
     bool bRetVal;
     jvalue_ref parsedObj = NULL;
     jvalue_ref jsonSubObject = NULL;
@@ -945,21 +950,16 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
 
     if (ret == ERROR_NONE) {
         LS_LOG_INFO("value of addr.freeformaddr %s", addr.freeformaddr);
-        ret = handler_get_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), address_data->str, wrapper_geocoding_cb);
+        if (geoCodeReqQueue.empty())
+            ret = handler_get_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), address_data->str, wrapper_geocoding_cb);
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
 
         if (ret != ERROR_NONE) {
             errorCode = LOCATION_UNKNOWN_ERROR;
             goto EXIT;
         }
-        bRetVal = LSSubscriptionAdd(sh, SUBSC_GET_GEOCODE_KEY, message, &mLSError);
-
-        if (bRetVal == false) {
-            LS_LOG_ERROR("Failed to add to subscription list");
-            LSErrorPrintAndFree(&mLSError);
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
+        LSMessageRef(message);
+        geoCodeReqQueue.push(LunaLbsRequest(message, sh, address_data->str));
     } else {
         LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
         errorCode = LOCATION_START_FAILURE;
@@ -972,8 +972,11 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
     */
 
 EXIT:
-    if (errorCode != LOCATION_SUCCESS)
+    if (errorCode != LOCATION_SUCCESS) {
         LSMessageReplyError(sh, message, errorCode);
+        if (geoCodeReqQueue.empty())
+            handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
+    }
 
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
@@ -3341,8 +3344,10 @@ void LocationService::geocoding_reply(char *response, int error, int type)
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
     jvalue_ref serviceObject = NULL;
+    LSError lsError;
+    LunaLbsRequest request;
+    bool bRetVal;
 
-    handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
 
     if (error == ERROR_NOT_AVAILABLE || response == NULL) {
         retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
@@ -3380,14 +3385,35 @@ void LocationService::geocoding_reply(char *response, int error, int type)
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                         SUBSC_GET_GEOCODE_KEY,
-                                         retString);
+    if (!geoCodeReqQueue.empty()) {
+        request = geoCodeReqQueue.front();
+        geoCodeReqQueue.pop();
 
-    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                         SUBSC_GET_GEOCODE_KEY,
-                                         retString);
+        bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
+        if (bRetVal == false)
+            LSErrorPrintAndFree(&lsError);
 
+       LSMessageUnref(request.getMessage());
+    }
+
+    if (!geoCodeReqQueue.empty()) {
+        request = geoCodeReqQueue.front();
+        bRetVal = handler_get_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), request.getRequestString().c_str(), wrapper_geocoding_cb);
+        if (bRetVal != ERROR_NONE) {
+            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+            do {
+                request = geoCodeReqQueue.front();
+                geoCodeReqQueue.pop();
+                LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
+                if (bRetVal == false)
+                    LSErrorPrintAndFree(&lsError);
+                LSMessageUnref(request.getMessage());
+            } while(!geoCodeReqQueue.empty());
+        }
+    }
+    if (geoCodeReqQueue.empty()) {
+        handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
+    }
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
 
@@ -3401,8 +3427,10 @@ void LocationService::rev_geocoding_reply(char *response, int error, int type)
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
     jvalue_ref serviceObject = NULL;
+    LSError lsError;
+    LunaLbsRequest request;
+    bool bRetVal;
 
-    handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
 
     LS_LOG_INFO("value of rev_geocoding_reply..%d", error);
 
@@ -3443,13 +3471,35 @@ void LocationService::rev_geocoding_reply(char *response, int error, int type)
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    LSSubscriptionNonSubscriptionRespond(mServiceHandle,
-                                         SUBSC_GET_REVGEOCODE_KEY,
-                                         retString);
+    if (!revGeoCodeReqQueue.empty()) {
+        request = revGeoCodeReqQueue.front();
+        revGeoCodeReqQueue.pop();
 
-    LSSubscriptionNonSubscriptionRespond(mlgeServiceHandle,
-                                         SUBSC_GET_REVGEOCODE_KEY,
-                                         retString);
+        bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
+        if (bRetVal == false)
+            LSErrorPrintAndFree(&lsError);
+
+       LSMessageUnref(request.getMessage());
+    }
+
+    if (!revGeoCodeReqQueue.empty()) {
+        request = revGeoCodeReqQueue.front();
+        bRetVal = handler_get_reverse_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), request.getRequestString().c_str(), wrapper_rev_geocoding_cb);
+        if (bRetVal != ERROR_NONE) {
+            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+            do {
+                request = revGeoCodeReqQueue.front();
+                revGeoCodeReqQueue.pop();
+                LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
+                if (bRetVal == false)
+                    LSErrorPrintAndFree(&lsError);
+                LSMessageUnref(request.getMessage());
+            } while (!revGeoCodeReqQueue.empty());
+        }
+    }
+    if (revGeoCodeReqQueue.empty()) {
+        handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
+    }
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);

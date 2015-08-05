@@ -38,6 +38,8 @@
 #include <sys/time.h>
 #include <LifeCycleMonitor.h>
 #include <loc_logger.h>
+#include <LunaLbsRequest.h>
+#include <queue>
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -524,6 +526,8 @@ private:
     char *lbsGeocodeKey;
 
     data_logger_t *location_request_logger;
+    std::queue<LunaLbsRequest> geoCodeReqQueue;
+    std::queue<LunaLbsRequest> revGeoCodeReqQueue;
 
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);

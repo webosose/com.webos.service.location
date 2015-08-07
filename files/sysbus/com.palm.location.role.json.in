@@ -1,9 +1,7 @@
 {
-    "role": {
-        "exeName":"@WEBOS_INSTALL_BINDIR@/location",
-        "type": "regular",
-        "allowedNames": ["com.palm.location","com.lge.location"]
-    },
+    "exeName":"@WEBOS_INSTALL_BINDIR@/location",
+    "type": "regular",
+    "allowedNames": ["com.palm.location","com.lge.location"],
     "permissions": [
         {
             "service":"com.palm.location",

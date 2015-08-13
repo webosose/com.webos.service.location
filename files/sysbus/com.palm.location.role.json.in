@@ -6,12 +6,12 @@
         {
             "service":"com.palm.location",
             "inbound":["*"],
-            "outbound":["*"]
+            "outbound":["com.palm.telephony","com.palm.wifi","com.palm.wan"]
         },
         {
             "service":"com.lge.location",
             "inbound":["*"],
-            "outbound":["*"]
+            "outbound":["com.palm.telephony","com.palm.wifi","com.palm.wan"]
         }
     ]
 }

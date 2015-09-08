@@ -57,7 +57,7 @@ G_DEFINE_TYPE_WITH_CODE(LbsHandler, lbs_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTE
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int lbs_handler_start(Handler *handler_data, int handler_type, const char* license_key)
+static int lbs_handler_start(Handler *handler_data, const char* license_key)
 {
     int ret = ERROR_NONE;
     LS_LOG_INFO("[DEBUG] lbs_handler_start");
@@ -123,7 +123,7 @@ static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
     return ret;
 }
 
-gboolean lbs_handler_get_handler_status(Handler *self, int handler_type)
+gboolean lbs_handler_get_handler_status(Handler *self)
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     g_return_val_if_fail(priv, 0);

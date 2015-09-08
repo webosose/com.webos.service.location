@@ -29,9 +29,9 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
-#define WIFI_SERVICE "com.palm.wifi"
-#define WAN_SERVICE "com.palm.wan"
-#define TELEPHONY_SERVICE "com.palm.telephony"
+#define WIFI_SERVICE "com.webos.service.wifi"
+#define WAN_SERVICE "com.webos.service.wan"
+#define TELEPHONY_SERVICE "com.webos.service.telephony"
 class ConnectionStateObserver
 {
 public:

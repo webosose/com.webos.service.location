@@ -29,12 +29,11 @@
 
 #define DEFAULT_VALUE 0
 #define INVALID_PARAM -1.0
+#define LOCATION_DB_PREF_PATH_GPS      "/var/location/location_gps.xml"
+#define LOCATION_DB_PREF_PATH_NETWORK  "/var/location/location_network.xml"
 
 typedef enum {
-    HANDLER_WIFI = 0,
-    HANDLER_CELLID,
-    HANDLER_GOOGLE_WIFI_CELL,
-    HANDLER_NW,
+    HANDLER_NETWORK = 0,
     HANDLER_GPS,
     HANDLER_LBS,
     HANDLER_HYBRID,
@@ -91,9 +90,5 @@ typedef struct _Nmea Nmea;
 typedef struct _Satellite Satellite;
 typedef struct _Accuracy Accuracy;
 typedef struct _Address Address;
-
-#define LOCATION_DB_PREF_PATH   "/var/location/location_position.xml"
-#define LOCATION_DB_PREF_PATH_WIFI "/var/location/location_wifi.xml"
-#define LOCATION_DB_PREF_PATH_CELL "/var/location/location_cell.xml"
 
 #endif /* _LOCATION_H_ */

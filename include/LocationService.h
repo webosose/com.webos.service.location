@@ -215,10 +215,9 @@ public:
     static LocationService *getInstance();
 
     bool isLocationRequestEmpty() {
-        bool ret = !(handler_get_handler_status(handler_array[HANDLER_NW], HANDLER_WIFI) ||
-                     handler_get_handler_status(handler_array[HANDLER_GPS], HANDLER_GPS) ||
-                     handler_get_handler_status(handler_array[HANDLER_NW], HANDLER_CELLID) ||
-                     handler_get_handler_status(handler_array[HANDLER_NW], HANDLER_LBS));
+        bool ret = !(handler_get_handler_status(handler_array[HANDLER_NETWORK]) ||
+                     handler_get_handler_status(handler_array[HANDLER_GPS]) ||
+                     handler_get_handler_status(handler_array[HANDLER_LBS]));
 
         LS_LOG_INFO("isLocationRequestEmpty ret %d\n", ret);
 
@@ -555,9 +554,9 @@ private:
     bool getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data);
     gboolean _TimerCallbackLocationUpdate (void *data);
     bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh, const char *key);
-    bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc, int type);
-    void geocoding_reply(char *response, int error, int type);
-    void rev_geocoding_reply(char *response, int error, int type);
+    bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc);
+    void geocoding_reply(char *response, int error);
+    void rev_geocoding_reply(char *response, int error);
     void get_nmea_reply(long long timestamp, char *data, int length);
     void getGpsSatelliteData_reply(Satellite *);
     void getGpsStatus_reply(int);
@@ -571,7 +570,7 @@ private:
     void stopSubcription(LSHandle *sh, const char *key);
     void LSErrorPrintAndFree(LSError *ptrLSError);
     int getHandlerVal(char *handlerName);
-    Position comparePositionTimeStamps(Position pos1, Position pos2, Position pos3, Accuracy acc1, Accuracy acc2, Accuracy acc3, Accuracy *retAcc);
+    Position comparePositionTimeStamps(Position pos1, Position pos2, Accuracy acc1, Accuracy acc2, Accuracy *retAcc);
     int getConnectionErrorCode();
     void replyHandlerState(HandlerTypes handler, bool state, char *subscription_key, jvalue_ref *serviceObject, jvalue_ref *getAllLocationHandlersReplyObject);
     void getAddressNominatiumData(jvalue_ref *serviceObject, Address *address);

@@ -13,9 +13,7 @@ set(SRC
         ${PROJECT_SOURCE_DIR}/ServiceAgent/LunaLocationServiceUtil.cpp
         ${PROJECT_SOURCE_DIR}/ServiceAgent/LifeCycleMonitor.cpp
         Gps_Handler.c
-        Wifi_Handler.c
         Handler_Interface.c
-        Cell_Handler.c
         Plugin_Loader.c
         Position.c
         Accuracy.c

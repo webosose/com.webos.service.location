@@ -47,14 +47,14 @@ GType handler_interface_get_type(void)
  * @throws
  * @return          int
  */
-int handler_start(Handler *self, int handler_type, const char *license_key)
+int handler_start(Handler *self,  const char *license_key)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->start, ERROR_NOT_AVAILABLE);
 
     LS_LOG_DEBUG("handler_start\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->start(self, handler_type, license_key);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->start(self, license_key);
 }
 
 /**
@@ -63,14 +63,14 @@ int handler_start(Handler *self, int handler_type, const char *license_key)
  * @param           <self> <In> <Handler GObject>
  * @return          int
  */
-int handler_stop(Handler *self, int handlertype, gboolean forcestop)
+int handler_stop(Handler *self,  gboolean forcestop)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->stop, ERROR_NOT_AVAILABLE);
 
     LS_LOG_DEBUG("handler_stop\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->stop(self, handlertype, forcestop);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->stop(self,  forcestop);
 }
 
 /**
@@ -80,7 +80,7 @@ int handler_stop(Handler *self, int handlertype, gboolean forcestop)
  * @param           <pos_cb> <In> <callback function to get result>
  * @return          int
  */
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, LSHandle *sh)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(pos_cb, ERROR_WRONG_PARAMETER);
@@ -88,7 +88,7 @@ int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb
 
     LS_LOG_DEBUG("handler_get_position\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_position(self, enable, pos_cb, handlerobj, handlertype, sh);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_position(self, enable, pos_cb, handlerobj, sh);
 }
 
 /**
@@ -99,7 +99,7 @@ int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb
  * @param           <track_cb> <In> <callback function to get result>
  * @return          void
  */
-void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
+void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, LSHandle *sh)
 {
     g_return_if_fail(HANDLER_IS_INTERFACE(self));
     g_return_if_fail(track_cb);
@@ -107,14 +107,14 @@ void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBac
 
     LS_LOG_DEBUG("handler_start_tracking\n");
 
-    HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking(self, enable, track_cb, handlerobj, handlertype, sh);
+    HANDLER_INTERFACE_GET_INTERFACE(self)->start_tracking(self, enable, track_cb, handlerobj, sh);
 }
 
-gboolean handler_get_handler_status(Handler *self, int handlertype)
+gboolean handler_get_handler_status(Handler *self)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self),0);
     LS_LOG_DEBUG("handler_get_handler_status");
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_handler_status(self, handlertype);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_handler_status(self);
 }
 /**
  * <Funciton>       handler_start_tracking
@@ -124,13 +124,13 @@ gboolean handler_get_handler_status(Handler *self, int handlertype)
  * @param           <track_cb> <In> <callback function to get result>
  * @return          void
  */
-void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh)
+void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, LSHandle *sh)
 {
     g_return_if_fail(HANDLER_IS_INTERFACE(self));
     g_return_if_fail(track_cb);
     g_return_if_fail(HANDLER_INTERFACE_GET_INTERFACE(self)->get_location_updates);
     LS_LOG_DEBUG("handler_get_location_updates\n");
-    HANDLER_INTERFACE_GET_INTERFACE(self)->get_location_updates(self, enable, track_cb, handlerobj, handlertype, sh);
+    HANDLER_INTERFACE_GET_INTERFACE(self)->get_location_updates(self, enable, track_cb, handlerobj, sh);
 }
 
 /**
@@ -139,7 +139,7 @@ void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingC
  * @param           <self> <In> <Handler GObject>
  * @return          int
  */
-int handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy, int handlertype)
+int handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
 {
     g_return_val_if_fail(HANDLER_IS_INTERFACE(self), ERROR_WRONG_PARAMETER);
     g_return_val_if_fail(position, ERROR_WRONG_PARAMETER);
@@ -148,7 +148,7 @@ int handler_get_last_position(Handler *self, Position *position, Accuracy *accur
 
     LS_LOG_DEBUG("handler_get_last_position\n");
 
-    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_position(self, position, accuracy, handlertype);
+    return HANDLER_INTERFACE_GET_INTERFACE(self)->get_last_position(self, position, accuracy);
 }
 
 /**

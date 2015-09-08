@@ -21,34 +21,32 @@
  *
  ********************************************************************/
 
-#ifndef _NW_HANDLER_H_
-#define _NW_HANDLER_H_
+#ifndef _NETWORK_HANDLER_H_
+#define _NETWORK_HANDLER_H_
 
 #include <glib-object.h>
 
 G_BEGIN_DECLS
 
-#define HANDLER_TYPE_NW                  (nw_handler_get_type())
-#define NW_HANDLER(obj)                  (G_TYPE_CHECK_INSTANCE_CAST((obj), HANDLER_TYPE_NW, _NwHandler))
-#define NW_IS_HANDLER(obj)               (G_TYPE_CHECK_INSTANCE_TYPE((obj), HANDLER_TYPE_NW))
-#define NW_HANDLER_CLASS(klass)          (G_TYPE_CHECK_CLASS_CAST((klass), HANDLER_TYPE_NW, _NwHandlerClass))
-#define NW_IS_HANDLER_CLASS(klass)       (G_TYPE_CHECK_CLASS_TYPE((klass), HANDLER_TYPE_NW))
-#define NW_HANDLER_GET_CLASS(obj)        (G_TYPE_INSTANCE_GET_CLASS((obj), HANDLER_TYPE_NW, _NwHandlerClass))
+#define HANDLER_TYPE_NETWORK                  (network_handler_get_type())
+#define NETWORK_HANDLER(obj)                  (G_TYPE_CHECK_INSTANCE_CAST((obj), HANDLER_TYPE_NETWORK, NetworkHandler))
+#define NETWORK_IS_HANDLER(obj)               (G_TYPE_CHECK_INSTANCE_TYPE((obj), HANDLER_TYPE_NETWORK))
+#define NETWORK_HANDLER_CLASS(klass)          (G_TYPE_CHECK_CLASS_CAST((klass), HANDLER_TYPE_NETWORK, NetworkHandlerClass))
+#define NETWORK_IS_HANDLER_CLASS(klass)       (G_TYPE_CHECK_CLASS_TYPE((klass), HANDLER_TYPE_NETWORK))
+#define NETWORK_HANDLER_GET_CLASS(obj)        (G_TYPE_INSTANCE_GET_CLASS((obj), HANDLER_TYPE_NETWORK, NetworkHandlerClass))
 
-typedef struct _NwHandler NwHandler;
-typedef struct _NwHandlerClass NwHandlerClass;
+typedef struct _NetworkHandler NetworkHandler;
+typedef struct _NetworkHandlerClass NetworkHandlerClass;
 
-struct _NwHandler {
+struct _NetworkHandler {
     GObject parent_instance;
 };
 
-struct _NwHandlerClass {
+struct _NetworkHandlerClass {
     GObjectClass parent_class;
 };
 
-GType nw_handler_get_type(void);
-
-#define MAX_HANDLER_TYPE    3
+GType network_handler_get_type(void);
 
 G_END_DECLS
 

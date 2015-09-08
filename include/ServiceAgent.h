@@ -91,8 +91,7 @@ enum RequestState {
 enum HanlderRequestType {
     HANDLER_HYBRID_BIT = (1u << HANDLER_HYBRID),
     HANDLER_GPS_BIT = (1u << HANDLER_GPS),
-    HANDLER_WIFI_BIT = (1u << HANDLER_WIFI),
-    HANDLER_CELLID_BIT = (1u << HANDLER_CELLID)
+    HANDLER_NETWORK_BIT = (1u << HANDLER_NETWORK)
 };
 
 enum maxAge {

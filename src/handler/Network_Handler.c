@@ -1,400 +1,411 @@
 /********************************************************************
- * (c) Copyright 2012. All Rights Reserved
+ * (c) Copyright 2015. All Rights Reserved
  * LG Electronics.
  *
  * Project Name : Location framework
- * Group   : PD-4
+ * Group   : CSP-2
  * Security  : Confidential
  ********************************************************************/
 
 /********************************************************************
  * @File
  * Filename  : Network_Handler.c
- * Purpose  : Provides GPS related location services to Location Service Agent
- * Platform  : RedRose
- * Author(s)  : Abhishek Srivastava
- * Email ID.  :abhishek.srivastava@lge.com
- * Creation Date : 12-04-2013
+ * Purpose  : Provides Network related location services to Location Service Agent
+ * Platform  : w2
+ * Author(s)  : Deepa Sangolli
+ * Email ID.  :deepa.sangolli@lge.com
+ * Creation Date : 12-08-2015
  *
  * Modifications :
  * Sl No  Modified by  Date  Version Description
  *
  *
  ********************************************************************/
-#include <dbus/dbus-glib.h>
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <Handler_Interface.h>
 #include <Network_Handler.h>
-#include <Wifi_Handler.h>
-#include <Cell_Handler.h>
 #include <Plugin_Loader.h>
-#include <Gps_stored_data.h>
 #include <loc_log.h>
-#include <Location.h>
-typedef struct _NwHandlerPrivate NwHandlerPrivate;
-struct _NwHandlerPrivate {
-    HandlerObject *handler_obj[MAX_HANDLER_TYPE];
-    PositionCallback pos_cb_arr[MAX_HANDLER_TYPE];
-    PositionCallback nw_cb_arr[MAX_HANDLER_TYPE];
-    StartTrackingCallBack track_cb;
-    StartTrackingCallBack track_get_loc_update_cb;
-};
-static void nw_handler_interface_init(HandlerInterface *interface);
+#include <stdlib.h>
+#include <pbnjson.h>
 
-G_DEFINE_TYPE_WITH_CODE(NwHandler, nw_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, nw_handler_interface_init));
+typedef struct _NetworkHandlerPrivate {
+    NetworkPlugin *network_plugin;
+    gboolean is_started;
+    gboolean isNetworkLocationUpdateOn;
+    StartTrackingCallBack loc_update_cb;
+    gpointer nwhandler;
+    LSHandle *sh;
+    LSMessage *message;
+    LSMessageToken m_cellInfoReq;
+    int susbcribe;
+    GMutex mutex;
+    void *server_status_cookie;
+    Position *tracking_pos;
+    Accuracy *tracking_acc;
+} NetworkHandlerPrivate;
 
-#define NW_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_NW, NwHandlerPrivate))
-static void intialize_nw_handler(Handler *handler_data, int handler_type);
-/**
- * <Funciton >   position_cb
- * <Description>  Callback function for Position ,as per Location_Plugin.h
- * @param     <Position> <In> <Position data stricture>
- * @param     <Accuracy> <In> <Accuracy data structure>
- * @param     <privateIns> <In> <instance of handler>
- * @return    int
- */
-void nw_handler_position_wifi_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
+#define NETWORK_HANDLER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HANDLER_TYPE_NETWORK, NetworkHandlerPrivate))
+
+static void network_handler_interface_init(HandlerInterface *interface);
+
+G_DEFINE_TYPE_WITH_CODE(NetworkHandler, network_handler, G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE(HANDLER_TYPE_INTERFACE, network_handler_interface_init));
+
+static void network_handler_tracking_cb(gboolean enable_cb,
+                                        Position *position,
+                                        Accuracy *accuracy,
+                                        int error,
+                                        gpointer userdata,
+                                        int type)
 {
-    LS_LOG_INFO("[DEBUG]NW  nw_handler_position_wifi_cb callback called  %d , type %d\n", enable_cb, type);
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(privateIns);
-
-    g_return_if_fail(priv->pos_cb_arr[type]);
-
-    (priv->pos_cb_arr[type])(enable_cb, position, accuracy, error, priv, type); //call SA position callback
-}
-/**
- * <Funciton >   nw_handler_tracking_cb
- * <Description>  Callback function for Location tracking
- * @param     <Position> <In> <Position data stricture>
- * @param     <Accuracy> <In> <Accuracy data structure>
- * @param     <privateIns> <In> <instance of handler>
- * @return    int
- */
-void nw_handler_tracking_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
-{
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(privateIns);
-
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(userdata);
     g_return_if_fail(priv);
-    if (priv->track_cb)
-        (*(priv->track_cb))(enable_cb, position, accuracy, error, priv, type);
 
-    if (priv->track_get_loc_update_cb != NULL)
-        (*(priv->track_get_loc_update_cb))(enable_cb, position, accuracy, error, priv, type);
-}
-/**
- * <Funciton >   position_cb
- * <Description>  Callback function for Position ,as per Location_Plugin.h
- * @param     <Position> <In> <Position data stricture>
- * @param     <Accuracy> <In> <Accuracy data structure>
- * @param     <privateIns> <In> <instance of handler>
- * @return    int
- */
-void nw_handler_position_cell_cb(gboolean enable_cb, Position *position, Accuracy *accuracy, int error, gpointer privateIns, int type)
-{
-    LS_LOG_INFO("[DEBUG]NW  nw_handler_position_cellid_cb callback called  %d \n", enable_cb);
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(privateIns);
+    g_return_if_fail(position);
+    g_return_if_fail(accuracy);
 
-    g_return_if_fail(priv->pos_cb_arr[type]);
+    if (priv->tracking_pos == NULL)
+        priv->tracking_pos = (Position *)g_malloc0(sizeof(Position));
 
-    (*priv->pos_cb_arr[type])(enable_cb, position, accuracy, error, priv, type); //call SA position callback
-}
-/**
- * <Funciton >   wifi_handler_start
- * <Description>  start the GPS  handler
- * @param     <self> <In> <Handler Gobject>
- * @return    int
- */
-static int nw_handler_start(Handler *handler_data, int handler_type, const char* license_key)
-{
-    LS_LOG_INFO("[DEBUG]nw_handler_start Called handler type%d ", handler_type);
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(handler_data);
-    int ret = ERROR_NOT_AVAILABLE;
+    if (priv->tracking_acc == NULL)
+        priv->tracking_acc = (Accuracy *)g_malloc0(sizeof(Accuracy));
 
-    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
-
-    // This should call cell id start or Wifi start
-    switch (handler_type) {
-        case HANDLER_WIFI:
-            intialize_nw_handler(handler_data, handler_type);
-            g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
-            priv->nw_cb_arr[handler_type] = nw_handler_position_wifi_cb;
-            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj [handler_type]), handler_type, license_key);
-
-            if (ret == ERROR_NONE)
-                LS_LOG_INFO("wifi_handler_start started \n");
-
-            break;
-
-        case HANDLER_CELLID:
-            intialize_nw_handler(handler_data, handler_type);
-            g_return_val_if_fail(priv->handler_obj[handler_type], ERROR_NOT_AVAILABLE);
-            priv->nw_cb_arr[handler_type] = nw_handler_position_cell_cb;
-            ret = handler_start(HANDLER_INTERFACE(priv->handler_obj[handler_type]), handler_type, license_key);
-            break;
-
-        default:
-            break;
+    if (priv->tracking_pos) {
+        memcpy(priv->tracking_pos, position, sizeof(Position));
+        priv->tracking_pos->timestamp = 0;
     }
 
-    return ret;
-}
-
-static void intialize_nw_handler(Handler *handler_data, int handler_type)
-{
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(handler_data);
-
-    switch (handler_type) {
-        case HANDLER_WIFI:
-            if (plugin_is_supported("wifi")) {
-                if (!priv->handler_obj[handler_type])
-                    priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_WIFI, NULL);
-            }
-
-            break;
-
-        case HANDLER_CELLID:
-            if (plugin_is_supported("cell")) {
-                if (!priv->handler_obj[handler_type])
-                    priv->handler_obj[handler_type] = g_object_new(HANDLER_TYPE_CELL, NULL);
-            }
-
-            break;
+    if (priv->tracking_acc) {
+        memcpy(priv->tracking_acc, accuracy, sizeof(Accuracy));
     }
+
+    if (priv->loc_update_cb)
+        (*(priv->loc_update_cb))(enable_cb, position, accuracy, error, priv->nwhandler, type);
 }
-/**
- * <Funciton >   wifi_handler_get_last_position
- * <Description>  stop the GPS handler
- * @param     <self> <In> <Handler Gobject>
- * @return    int
- */
-static int nw_handler_stop(Handler *self, int handlertype, gboolean forcestop)
+
+
+static int network_handler_start(Handler *handler_data, const char* license_key)
 {
-    LS_LOG_INFO("[DEBUG]nw_handler_stop() \n");
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
+    LS_LOG_INFO("network_handler_start Called\n");
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(handler_data);
     int ret = ERROR_NONE;
 
-    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
+    if(!priv || !priv->network_plugin || !priv->network_plugin->ops.start || !priv->network_plugin->plugin_handler){
+        return ERROR_NOT_AVAILABLE;
+    }
 
-    // This should call cell id stop or Wifi stop
-    if (priv->handler_obj[handlertype] != NULL)
-        ret = handler_stop(HANDLER_INTERFACE(priv->handler_obj[handlertype]), handlertype, forcestop);
+    if (priv->is_started) {
+        return ERROR_NONE;
+    }
+
+    ret = priv->network_plugin->ops.start(priv->network_plugin->plugin_handler, handler_data, license_key);
+
+    if (!ret)
+        priv->is_started = TRUE;
 
     return ret;
 }
 
-/**
- * <Funciton >   handler_stop
- * <Description>  get the position from GPS receiver
- * @param     <self> <In> <Handler Gobject>
- * @param     <self> <In> <Position callback function to get result>
- * @return    int
- */
-static int nw_handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handle, int handlertype, LSHandle *sh)
+static int network_handler_stop(Handler *self, int handler_type, gboolean forcestop)
 {
-    int result = ERROR_NONE;
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
-
-    g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
-
-    LS_LOG_INFO("[DEBUG]nw_handler_get_position hanlder type [%d]\n", handlertype);
-    priv->pos_cb_arr[handlertype] = pos_cb;
-
-    g_return_val_if_fail(priv->handler_obj[handlertype], ERROR_NOT_AVAILABLE);
-
-    result = handler_get_position(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, priv->nw_cb_arr[handlertype], self, handlertype, sh);
-
-    return result;
-}
-/**
- * <Funciton >   handler_stop
- * <Description>  get the position from GPS receiver
- * @param     <self> <In> <Handler Gobject>
- * @param     <self> <In> <Position callback function to get result>
- * @return    int
- */
-static void nw_handler_start_tracking(Handler *self,
-                                      gboolean enable,
-                                      StartTrackingCallBack track_cb,
-                                      gpointer handleobj,
-                                      int handlertype,
-                                      LSHandle *sh)
-{
-    int result = ERROR_NONE;
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
-
-    if (priv == NULL) {
-        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
-        return;
-    }
-
-    priv->track_cb = NULL;
-
-    if (enable) {
-        priv->track_cb = track_cb;
-    }
-    handler_start_tracking(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
-    LS_LOG_INFO("[DEBUG] return from nw_handler_start_tracking , %d  \n", result);
-}
-
-static gboolean nw_handler_get_handler_status(Handler *self, int handlertype)
-{
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
-    int ret = 0;
-
-    g_return_val_if_fail(priv, 0);
-
-    // This should call cell id stop or Wifi stop
-    if (priv->handler_obj[handlertype] != NULL)
-        ret = handler_get_handler_status(HANDLER_INTERFACE(priv->handler_obj[handlertype]), handlertype);
-
-    return ret;
-}
-static void nw_handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handleobj, int handlertype,
-        LSHandle *sh)
-{
-    int result = ERROR_NONE;
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
-
-    if (priv == NULL) {
-        track_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, NULL, handlertype);
-        return;
-    }
-
-    priv->track_get_loc_update_cb = NULL;
-
-    if (enable) {
-        priv->track_get_loc_update_cb = track_cb;
-    }
-    handler_get_location_updates(HANDLER_INTERFACE(priv->handler_obj[handlertype]), enable, nw_handler_tracking_cb, self, handlertype, sh);
-    if(enable)
-        LS_LOG_INFO("nw_handler_get_location_updates enable, result %d", result);
-    else
-        LS_LOG_INFO("nw_handler_get_location_updates disable, result %d", result);
-}
-
-
-/**
- * <Funciton >   handler_stop
- * <Description>  get the last position from the GPS handler
- * @param     <self> <In> <Handler Gobject>
- * @param     <LastPositionCallback> <In> <Callabck to to get the result>
- * @return    int
- */
-static int nw_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy, int handlertype)
-{
+    LS_LOG_INFO("network_handler_stop() \n");
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(self);
     int ret = ERROR_NONE;
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
-
+    LSError lserror;
+    LSErrorInit(&lserror);
     g_return_val_if_fail(priv, ERROR_NOT_AVAILABLE);
 
-    intialize_nw_handler(self, handlertype);
-    ret = handler_get_last_position(HANDLER_INTERFACE(priv->handler_obj[handlertype]), position, accuracy, handlertype);
+    if (!priv->is_started)
+        return ERROR_NOT_STARTED;
 
-    return ret;
-}
+    if (priv->isNetworkLocationUpdateOn)
+        return ERROR_REQUEST_INPROGRESS;
 
-static int nw_handler_function_not_implemented(Handler *self, Position *pos, GeoCodeCallback geocode_cb)
-{
-    return ERROR_NOT_APPLICABLE_TO_THIS_HANDLER;
-}
+    if (priv->m_cellInfoReq) {
+        if (!LSCallCancel(priv->sh, priv->m_cellInfoReq, &lserror)) {
+            LS_LOG_ERROR("Failed to cancel getCellInfo subscription\n");
+            LSErrorPrint(&lserror, stderr);
+            LSErrorFree(&lserror);
+        }
+        priv->m_cellInfoReq = DEFAULT_VALUE;
+    }
 
-/**
- * <Funciton >   nw_handler_dispose
- * <Description>  dispose the gobject
- * @param     <gobject> <In> <Gobject>
- * @return    int
- */
-static void nw_handler_dispose(GObject *gobject)
-{
-    G_OBJECT_CLASS(nw_handler_parent_class)->dispose(gobject);
-}
-
-/**
- * <Funciton >   nw_handler_finalize
- * <Description>  finalize
- * @param     <gobject> <In> <Handler Gobject>
- * @return    int
- */
-static void nw_handler_finalize(GObject *gobject)
-{
-    LS_LOG_DEBUG(" [DEBUG]nw_handler_finalize");
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(gobject);
-    int handler;
-
-    for (handler = 0; handler < MAX_HANDLER_TYPE ; handler++) {
-        if (priv->handler_obj[handler]) {
-            g_object_unref(priv->handler_obj[handler]);
-            priv->handler_obj[handler] = NULL;
-            priv->nw_cb_arr[handler] = NULL;
-            priv->pos_cb_arr[handler] = NULL;
+    if (priv->is_started) {
+        g_return_val_if_fail(priv->network_plugin->ops.stop, ERROR_NOT_AVAILABLE);
+        ret = priv->network_plugin->ops.stop(priv->network_plugin->plugin_handler);
+        if (priv->server_status_cookie && !LSCancelServerStatus(priv->sh, priv->server_status_cookie, &lserror)) {
+            LSErrorPrint(&lserror, stderr);
+            LSErrorFree(&lserror);
+        }
+        if (!ret) {
+            priv->is_started = FALSE;
         }
     }
-
-    memset(priv, 0x00, sizeof(NwHandlerPrivate));
-    G_OBJECT_CLASS(nw_handler_parent_class)->finalize(gobject);
+    return ret;
 }
-
-/**
- * <Funciton >   nw_handler_interface_init
- * <Description>  nw interface init,map all th local function to GPS interface
- * @param     <HandlerInterface> <In> <HandlerInterface instance>
- * @return    int
- */
-static void nw_handler_interface_init(HandlerInterface *interface)
+static bool cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
 {
-    interface->start = (TYPE_START_FUNC) nw_handler_start;
-    interface->stop = (TYPE_STOP_FUNC) nw_handler_stop;
-    interface->get_position = (TYPE_GET_POSITION) nw_handler_get_position;
-    interface->start_tracking = (TYPE_START_TRACK) nw_handler_start_tracking;
-    interface->get_last_position = (TYPE_GET_LAST_POSITION) nw_handler_get_last_position;
-    interface->get_ttfx = (TYPE_GET_TTFF) nw_handler_function_not_implemented;
-    interface->get_sat_data = (TYPE_GET_SAT) nw_handler_function_not_implemented;
-    interface->get_nmea_data = (TYPE_GET_NMEA) nw_handler_function_not_implemented;
-    interface->send_extra_cmd = (TYPE_SEND_EXTRA) nw_handler_function_not_implemented;
-#ifdef NOMINATIUM_LBS
-    interface->get_geo_code = (TYPE_GEO_CODE) nw_handler_function_not_implemented;
-    interface->get_rev_geocode = (TYPE_REV_GEO_CODE) nw_handler_function_not_implemented;
-#else
-    interface->get_google_geo_code = (TYPE_GOOGLE_GEO_CODE) nw_handler_function_not_implemented;
-    interface->get_rev_google_geocode = (TYPE_REV_GOOGLE_GEO_CODE) nw_handler_function_not_implemented;
-#endif
-    interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) nw_handler_function_not_implemented;
-    interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) nw_handler_function_not_implemented;
-    interface->resume_geofence = (TYPE_RESUME_GEOFENCE) nw_handler_function_not_implemented;
-    interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) nw_handler_function_not_implemented;
-    interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) nw_handler_get_location_updates;
-    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) nw_handler_get_handler_status;
-}
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref error_obj = NULL;
+    int track_ret = ERROR_NONE;
+    int pos_ret = ERROR_NONE;
+    int error = ERROR_NONE;
+    jvalue_ref cell_data_obj = NULL ;
 
-/**
- * <Funciton >   nw_handler_init
- * <Description>  GPS handler init Gobject function
- * @param     <self> <In> <GPS Handler Gobject>
- * @return    int
- */
-static void nw_handler_init(NwHandler *self)
-{
-    NwHandlerPrivate *priv = NW_HANDLER_GET_PRIVATE(self);
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE((Handler *) ctx);
     g_return_if_fail(priv);
 
-    memset(priv, 0x00, sizeof(NwHandlerPrivate));
+    if (priv->is_started == FALSE)
+        return true;
+
+    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+    if (!input_schema)
+        return true;
+
+    JSchemaInfo schemaInfo;
+    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
+    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(reply)), DOMOPT_NOOPT, &schemaInfo);
+    LS_LOG_DEBUG("message=%s \n \n", LSMessageGetPayload(reply));
+
+    if (jis_null(parsedObj)) {
+        jschema_release(&input_schema);
+        return true;
+    }
+
+    if (!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &error_obj))
+        goto CLEANUP;
+
+    jnumber_get_i32(error_obj, &error);
+
+    if (error != ERROR_NONE) { // O i Sucess case
+        LS_LOG_ERROR("network handler:Telephony error Happened %d\n", error);
+        goto CLEANUP;
+    }
+
+    if (!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("data"), &cell_data_obj)) {
+        LS_LOG_ERROR("network handler:Telephony no data available\n");
+        goto CLEANUP;
+    }
+
+    if (priv->isNetworkLocationUpdateOn) {
+        LS_LOG_INFO("NW handler:send start tracking indication\n");
+        track_ret = priv->network_plugin->ops.start_tracking(priv->network_plugin->plugin_handler,
+                                                             TRUE,
+                                                             network_handler_tracking_cb,
+                                                             (gpointer) jvalue_tostring_simple(cell_data_obj));
+    }
+    if (track_ret != ERROR_NONE)
+        priv->isNetworkLocationUpdateOn = false;
+CLEANUP:
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
+
+    jschema_release(&input_schema);
+
+    return true;
 }
 
-/**
- * <Funciton >   nw_handler_class_init
- * <Description>  Gobject class init
- * @param     <NwHandlerClass> <In> <WifiClass instance>
- * @return    int
- */
-static void nw_handler_class_init(NwHandlerClass *klass)
+static bool telephony_service_status_cb(LSHandle *sh, const char *serviceName, bool connected, void *ctx)
 {
-    LS_LOG_INFO("nw_handler_class_init() - init object\n");
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(ctx);
+    LSError lserror;
+    LSErrorInit(&lserror);
+    gboolean result;
+
+    if (connected) {
+        result = LSCall(sh, "palm://com.webos.service.telephony/getCellInfo", "{\"subscribe\":true}", cell_data_cb, ctx, &priv->m_cellInfoReq, NULL);
+        LS_LOG_DEBUG("nw handler:Telephony  service Name = %s connected\n",serviceName);
+        if (!result) {
+            LSErrorPrint (&lserror, stderr);
+            LSErrorFree (&lserror);
+            return FALSE;
+        }
+    } else {
+        if (priv->isNetworkLocationUpdateOn) {
+            g_return_val_if_fail(priv->loc_update_cb, FALSE);
+
+            (*(priv->loc_update_cb))(TRUE , NULL, NULL, ERROR_NETWORK_ERROR, priv->nwhandler, HANDLER_NETWORK);//call SA position callback
+            priv->isNetworkLocationUpdateOn = false;
+        }
+        LS_LOG_DEBUG("nw handler:Telephony service Name = %s disconnected",serviceName);
+    }
+    return TRUE;
+}
+
+static gboolean register_telephony_service_status(LSHandle *sh, gpointer self, int subscribe)
+{
+    LSError lserror;
+    LSErrorInit(&lserror);
+    gboolean result;
+
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(self);
+
+    g_return_val_if_fail(priv, FALSE);
+
+
+    result = LSRegisterServerStatusEx(sh,
+                                      "com.webos.service.telephony",
+                                      telephony_service_status_cb,
+                                      self,
+                                      &(priv->server_status_cookie),
+                                      &lserror);
+    if (!result) {
+        LSErrorPrint (&lserror, stderr);
+        LSErrorFree (&lserror);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+gboolean network_handler_get_handler_status(Handler *self)
+{
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(self);
+    g_return_val_if_fail(priv, FALSE);
+    return priv->is_started;
+}
+
+static void network_handler_get_location_updates(Handler *self,
+                                                 gboolean enable,
+                                                 StartTrackingCallBack loc_update_cb,
+                                                 gpointer handlerobj,
+                                                 LSHandle *sh,
+                                                 LSMessage *msg)
+{
+    int result = ERROR_NONE;
+    gboolean cell_data_result = FALSE;
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(self);
+
+    if (enable && !loc_update_cb)
+        return;
+
+    LS_LOG_INFO("network_handler_get_location_updates status %d ",enable);
+
+    if (!priv  || !(priv->network_plugin->ops.start_tracking)) {
+        if (loc_update_cb)
+            (*loc_update_cb)(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_NETWORK);
+        return;
+    }
+
+    if (enable) {
+        if (priv->isNetworkLocationUpdateOn) {
+            if (priv->tracking_pos && priv->tracking_acc)
+                (*loc_update_cb)(TRUE, priv->tracking_pos, priv->tracking_acc, ERROR_NONE, handlerobj, HANDLER_NETWORK);
+            return;
+        }
+
+        priv->loc_update_cb = loc_update_cb;
+        priv->nwhandler = handlerobj;
+        priv->sh = sh;
+
+        if (!priv->isNetworkLocationUpdateOn) {
+            cell_data_result = register_telephony_service_status(sh, self, TRUE);
+            result = priv->network_plugin->ops.start_tracking(priv->network_plugin->plugin_handler,
+                                                              TRUE,
+                                                              network_handler_tracking_cb,NULL);
+
+            if ((cell_data_result)|| (!result))
+                priv->isNetworkLocationUpdateOn = true;
+            else
+                loc_update_cb(TRUE, NULL, NULL, ERROR_NOT_AVAILABLE, handlerobj, HANDLER_NETWORK);
+        }
+    } else {
+        LS_LOG_INFO("network_handler_get_location_updates stop tracking\n");
+        result = priv->network_plugin->ops.start_tracking(priv->network_plugin->plugin_handler,
+                                                          FALSE,
+                                                          NULL,NULL);
+
+        if (!result) {
+            if (priv->tracking_pos) {
+                free(priv->tracking_pos);
+                priv->tracking_pos = NULL;
+            }
+
+            if (priv->tracking_acc) {
+                free(priv->tracking_acc);
+                priv->tracking_acc = NULL;
+            }
+        }
+
+        priv->loc_update_cb = NULL;
+        priv->isNetworkLocationUpdateOn = false;
+    }
+}
+
+static int network_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
+{
+    if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH_NETWORK) == ERROR_NOT_AVAILABLE) {
+        LS_LOG_ERROR("get last network_handler_get_last_position Failed to read\n");
+        return ERROR_NOT_AVAILABLE;
+    }
+
+    return ERROR_NONE;
+}
+
+static void network_handler_dispose(GObject *gobject)
+{
+    G_OBJECT_CLASS(network_handler_parent_class)->dispose(gobject);
+}
+
+static void network_handler_finalize(GObject *gobject)
+{
+    LS_LOG_DEBUG("[DEBUG]network_handler_finalize\n");
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(gobject);
+
+    if (priv->network_plugin) {
+        plugin_free(priv->network_plugin, "network");
+        priv->network_plugin = NULL;
+    }
+
+    if (priv->tracking_pos) {
+        free(priv->tracking_pos);
+        priv->tracking_pos = NULL;
+    }
+
+    if (priv->tracking_acc) {
+        free(priv->tracking_acc);
+        priv->tracking_acc = NULL;
+    }
+
+    memset(priv, 0x00, sizeof(NetworkHandlerPrivate));
+
+    G_OBJECT_CLASS(network_handler_parent_class)->finalize(gobject);
+}
+
+static void network_handler_interface_init(HandlerInterface *interface)
+{
+    memset(interface, 0, sizeof(HandlerInterface));
+
+    interface->start = (TYPE_START_FUNC) network_handler_start;
+    interface->stop = (TYPE_STOP_FUNC) network_handler_stop;
+    interface->get_last_position = (TYPE_GET_LAST_POSITION) network_handler_get_last_position;
+    interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) network_handler_get_location_updates;
+    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) network_handler_get_handler_status;
+}
+
+static void network_handler_init(NetworkHandler *self)
+{
+    LS_LOG_INFO("nw_handler_init\n");
+    NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(self);
+
+    memset(priv, 0x00, sizeof(NetworkHandlerPrivate));
+    priv->network_plugin = (NetworkPlugin *) plugin_new("network");
+
+    if (!priv->network_plugin) {
+        LS_LOG_ERROR("[DEBUG]nw plugin loading failed\n");
+    }
+}
+
+static void network_handler_class_init(NetworkHandlerClass *klass)
+{
+    LS_LOG_INFO("network_handler_class_init() - init object\n");
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
-    gobject_class->dispose = nw_handler_dispose;
-    gobject_class->finalize = nw_handler_finalize;
+    gobject_class->dispose = network_handler_dispose;
+    gobject_class->finalize = network_handler_finalize;
 
-    g_type_class_add_private(klass, sizeof(NwHandlerPrivate));
+    g_type_class_add_private(klass, sizeof(NetworkHandlerPrivate));
 }

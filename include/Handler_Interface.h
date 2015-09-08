@@ -47,16 +47,16 @@ typedef struct _Handler Handler;
  */
 typedef struct _HandlerInterface HandlerInterface;
 
-typedef int (*TYPE_START_FUNC)(Handler *self, int handler_type, const char *license_key);
-typedef int (*TYPE_STOP_FUNC)(Handler *self, int handler_type, gboolean forcestop);
-typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
-typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
-typedef int (*TYPE_GET_LAST_POSITION)(Handler *self, Position *position, Accuracy *accuracy, int handlertype);
+typedef int (*TYPE_START_FUNC)(Handler *self,  const char *license_key);
+typedef int (*TYPE_STOP_FUNC)(Handler *self,  gboolean forcestop);
+typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, LSHandle *sh);
+typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj,  LSHandle *sh);
+typedef int (*TYPE_GET_LAST_POSITION)(Handler *self, Position *position, Accuracy *accuracy);
 typedef int (*TYPE_GET_TTFF)(Handler *self);
 typedef int (*TYPE_GET_SAT)(Handler *self, gboolean enable_satellite, SatelliteCallback sat_cb);
 typedef int (*TYPE_GET_NMEA)(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
 typedef int (*TYPE_SEND_EXTRA)(Handler *self , char *command);
-typedef gboolean (*TYPE_GET_HANDLER_STATUS)(Handler *self,int type);
+typedef gboolean (*TYPE_GET_HANDLER_STATUS)(Handler *self);
 #ifdef NOMINATIUM_LBS
 typedef int (*TYPE_GEO_CODE)(Handler *self, Address *address, Position *pos, Accuracy *ac);
 typedef int (*TYPE_REV_GEO_CODE)(Handler *self, Position *pos, Address *address);
@@ -78,7 +78,7 @@ typedef int (*TYPE_ADD_GEOFENCE_AREA) (Handler *self,
 typedef int (*TYPE_REMOVE_GEOFENCE)(Handler *self, gboolean enable, int32_t *geofence_id, GeofenceRemoveCallback remove_cb);
 typedef int (*TYPE_PAUSE_GEOFENCE)(Handler *self, gboolean enable, int32_t *geofence_id, GeofencePauseCallback pause_cb);
 typedef int (*TYPE_RESUME_GEOFENCE)(Handler *self, gboolean enable, int32_t *geofence_id, int *monitor_transitions, GeofenceResumeCallback resume_cb);
-typedef void (*TYPE_GET_LOCATION_UPDATES)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
+typedef void (*TYPE_GET_LOCATION_UPDATES)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj, LSHandle *sh);
 /**
  * Interface for all Location Handlers
  */
@@ -118,15 +118,15 @@ struct _HandlerInterface {
  */
 GType handler_interface_get_type(void);
 
-int handler_start(Handler *self, int handler_type, const char *license_key);
+int handler_start(Handler *self,  const char *license_key);
 
-int handler_stop(Handler *self, int handler_type, gboolean forcestop);
+int handler_stop(Handler *self, gboolean forcestop);
 
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, int handlertype, LSHandle *sh);
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler,LSHandle *sh);
 
-void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
+void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, LSHandle *sh);
 
-int handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy, int handlertype);
+int handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy);
 
 guint64 handler_get_time_to_first_fix(Handler *self);
 
@@ -146,7 +146,7 @@ int handler_get_reverse_google_geo_code(Handler *self, const char *data, GeoCode
 int handler_get_gps_status(Handler *self, StatusCallback gpsStatus_cb);
 
 int handler_set_gps_parameters(Handler *self, char *command);
-void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, int handlertype, LSHandle *sh);
+void handler_get_location_updates(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, LSHandle *sh);
 int handler_add_geofence_area(Handler *self,
                               gboolean enable,
                               int32_t *geofence_id,
@@ -162,7 +162,7 @@ int handler_remove_geofence(Handler *self, gboolean enable, int32_t *geofence_id
 int handler_pause_geofence(Handler *self, gboolean enable, int32_t *geofence_id, GeofencePauseCallback pause_cb);
 
 int handler_resume_geofence(Handler *self, gboolean enable, int32_t *geofence_id, int *monitor_transitions, GeofenceResumeCallback resume_cb);
-gboolean handler_get_handler_status(Handler *self, int type);
+gboolean handler_get_handler_status(Handler *self);
 G_END_DECLS
 
 #endif /* _HANDLER_INTERFACE_H_ */

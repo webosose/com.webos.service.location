@@ -164,15 +164,8 @@ typedef struct {
     int (*start)(gpointer handle, gpointer userdata, const char *license_key);
     int (*stop)(gpointer handle);
     int (*get_position)(gpointer handle, PositionCallback pos_cb);
-    int (*start_tracking)(gpointer handle, gboolean enable, StartTrackingCallBack track_cb);
-} WifiPluginOps;
-
-typedef struct {
-    int (*start)(gpointer handle, gpointer userdata, const char *license_key);
-    int (*stop)(gpointer handle);
-    int (*get_position)(gpointer handle, PositionCallback pos_cb, gpointer celldata);
     int (*start_tracking)(gpointer handle, gboolean enable, StartTrackingCallBack track_cb, gpointer celldata);
-} CellPluginOps;
+} NetworkPluginOps;
 
 typedef struct {
     int (*start)(gpointer handle, gpointer userdata, const char *license_key);

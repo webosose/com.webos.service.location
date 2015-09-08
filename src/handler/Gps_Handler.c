@@ -306,7 +306,7 @@ void gps_handler_geofence_pause_cb(int32_t geofence_id, int32_t status, gpointer
  * @param           <self> <In> <Handler GObject>
  * @return          int
  */
-static int gps_handler_start(Handler *self, int handler_type, const char* license_key)
+static int gps_handler_start(Handler *self, const char* license_key)
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
@@ -535,7 +535,6 @@ static void gps_handler_start_tracking(Handler *self,
                                        gboolean enable,
                                        StartTrackingCallBack track_cb,
                                        gpointer handlerobj,
-                                       int handlertype,
                                        LSHandle *sh)
 {
     LS_LOG_INFO("GPS handler start Tracking called\n");
@@ -594,7 +593,7 @@ static void gps_handler_start_tracking(Handler *self,
     }
 }
 
-static gboolean gps_handler_get_handler_status(Handler *self, int handler_type)
+static gboolean gps_handler_get_handler_status(Handler *self)
 {
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
     g_return_val_if_fail(priv, 0);
@@ -606,7 +605,6 @@ static void gps_handler_get_location_updates(Handler *self,
                                                 gboolean enable,
                                                 StartTrackingCallBack loc_update_cb,
                                                 gpointer handlerobj,
-                                                int handlertype,
                                                 LSHandle *sh)
 {
     LS_LOG_INFO("GPS handler get location updates called\n");
@@ -667,7 +665,7 @@ static void gps_handler_get_location_updates(Handler *self,
  */
 static int gps_handler_get_last_position(Handler *self, Position *position, Accuracy *accuracy)
 {
-    if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH) == ERROR_NOT_AVAILABLE) {
+    if (get_stored_position(position, accuracy, LOCATION_DB_PREF_PATH_GPS) == ERROR_NOT_AVAILABLE) {
         LS_LOG_INFO("get last poistion Failed to read\n");
         return ERROR_NOT_AVAILABLE;
     }

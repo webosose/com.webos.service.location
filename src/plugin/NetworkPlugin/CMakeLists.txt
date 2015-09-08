@@ -1,0 +1,16 @@
+# @@@LICENSE
+#
+#   Copyright (c) 2015 LG Electronics Inc. All Rights Reserved
+#
+# LICENSE@@@
+
+set(NETWORK_PLUGIN_NAME network)
+set(NETWORK_PLUGIN_PATH ${CMAKE_INSTALL_PREFIX}/lib/location/plugins)
+
+set(NETWORK_PLUGIN_SRC Network_Plugin.c)
+
+set(LIBRARIES ${GLIB2_LDFLAGS} ${GEOCLUE_LDFLAGS} ${PMLOGLIB_LDFLAGS})
+
+add_library(${NETWORK_PLUGIN_NAME} SHARED ${NETWORK_PLUGIN_SRC})
+target_link_libraries(${NETWORK_PLUGIN_NAME} ${LIBRARIES} dbutils)
+install(TARGETS ${NETWORK_PLUGIN_NAME} DESTINATION ${NETWORK_PLUGIN_PATH})

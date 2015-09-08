@@ -187,34 +187,20 @@ static gpointer load_plugin(const char *plugin_name)
             ret_plugin = NULL;
         } else
             ret_plugin = (gpointer) gps_plugin;
-    } else if (0 == g_strcmp0(plugin_name, WIFI_PLUGIN_NAME)) {
-        WifiPlugin *wifi_plugin = g_new0(WifiPlugin, 1); //Create Wifi plugin
-        g_return_val_if_fail(wifi_plugin, NULL);
-        wifi_plugin->plugin_prop = plugin_prop;
-        wifi_plugin->init = init_symb;
-        wifi_plugin->shutdown = shutdown_symb;
-        wifi_plugin->plugin_handler = wifi_plugin->init(&(wifi_plugin->ops));
+    } else if (0 == g_strcmp0(plugin_name, NETWORK_PLUGIN_NAME)) {
+        NetworkPlugin *network_plugin = g_new0(NetworkPlugin, 1); //Create NW plugin
+        g_return_val_if_fail(network_plugin, NULL);
+        network_plugin->plugin_prop = plugin_prop;
+        network_plugin->init = init_symb;
+        network_plugin->shutdown = shutdown_symb;
+        network_plugin->plugin_handler = network_plugin->init(&(network_plugin->ops));
 
-        if (!wifi_plugin->plugin_handler) {
-            LS_LOG_WARNING(" Wifi plugin init failed\n");
-            unref_plugin(wifi_plugin->plugin_prop);
+        if (!network_plugin->plugin_handler) {
+            LS_LOG_WARNING(" nw plugin init failed\n");
+            unref_plugin(network_plugin->plugin_prop);
             ret_plugin = NULL;
         } else
-            ret_plugin = (gpointer) wifi_plugin;
-    } else if (0 == g_strcmp0(plugin_name, CELL_PLUGIN_NAME)) {
-        CellPlugin *cell_plugin = g_new0(CellPlugin, 1); //Create Cell plugin
-        g_return_val_if_fail(cell_plugin, NULL);
-        cell_plugin->plugin_prop = plugin_prop;
-        cell_plugin->init = init_symb;
-        cell_plugin->shutdown = shutdown_symb;
-        cell_plugin->plugin_handler = cell_plugin->init(&(cell_plugin->ops));
-
-        if (!cell_plugin->plugin_handler) {
-            LS_LOG_WARNING(" Cell plugin init failed\n");
-            unref_plugin(cell_plugin->plugin_prop);
-            ret_plugin = NULL;
-        } else
-            ret_plugin = (gpointer) cell_plugin;
+            ret_plugin = (gpointer) network_plugin;
     } else if (0 == g_strcmp0(plugin_name, LBS_PLUGIN_NAME)) {
         LbsPlugin *lbs_plugin = g_new0(LbsPlugin, 1); //Create Cell plugin
         g_return_val_if_fail(lbs_plugin, NULL);
@@ -286,31 +272,7 @@ static void unload_plugin(gpointer plugin, const char *plugin_name)
         gps_plugin->shutdown = NULL;
         unref_plugin(gps_plugin->plugin_prop);
         gps_plugin->plugin_prop = NULL;
-    } else if (0 == g_strcmp0(plugin_name, WIFI_PLUGIN_NAME)) {
-        WifiPlugin *wifi_plugin = (WifiPlugin *) plugin;
-
-        if (wifi_plugin->shutdown && wifi_plugin->plugin_handler) {
-            wifi_plugin->shutdown(wifi_plugin->plugin_handler);
-        }
-
-        wifi_plugin->plugin_handler = NULL;
-        wifi_plugin->init = NULL;
-        wifi_plugin->shutdown = NULL;
-        unref_plugin(wifi_plugin->plugin_prop);
-        wifi_plugin->plugin_prop = NULL;
-    } else if (0 == g_strcmp0(plugin_name, CELL_PLUGIN_NAME)) {
-        CellPlugin *cell_plugin = (CellPlugin *) plugin;
-
-        if (cell_plugin->shutdown && cell_plugin->plugin_handler) {
-            cell_plugin->shutdown(cell_plugin->plugin_handler);
-        }
-
-        cell_plugin->plugin_handler = NULL;
-        cell_plugin->init = NULL;
-        cell_plugin->shutdown = NULL;
-        unref_plugin(cell_plugin->plugin_prop);
-        cell_plugin->plugin_prop = NULL;
-    } else if (0 == g_strcmp0(plugin_name, LBS_PLUGIN_NAME)) {
+    }  else if (0 == g_strcmp0(plugin_name, LBS_PLUGIN_NAME)) {
         LbsPlugin *lbs_plugin = (LbsPlugin *) plugin;
 
         if (lbs_plugin->shutdown && lbs_plugin->plugin_handler) {
@@ -322,6 +284,18 @@ static void unload_plugin(gpointer plugin, const char *plugin_name)
         lbs_plugin->shutdown = NULL;
         unref_plugin(lbs_plugin->plugin_prop);
         lbs_plugin->plugin_prop = NULL;
+    } else if (0 == g_strcmp0(plugin_name, NETWORK_PLUGIN_NAME)) {
+        NetworkPlugin *network_plugin = (NetworkPlugin *) plugin;
+
+        if (network_plugin->shutdown && network_plugin->plugin_handler) {
+            network_plugin->shutdown(network_plugin->plugin_handler);
+        }
+
+        network_plugin->plugin_handler = NULL;
+        network_plugin->init = NULL;
+        network_plugin->shutdown = NULL;
+        unref_plugin(network_plugin->plugin_prop);
+        network_plugin->plugin_prop = NULL;
     } else {
         LS_LOG_INFO("plugin  name (%s) not found or not configured in loader\n", plugin_name);
     }

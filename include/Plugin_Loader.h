@@ -30,8 +30,8 @@
 #include <Location_Plugin.h>
 
 static const gchar GPS_PLUGIN_NAME[] = "gps";   //without lib prefix
-static const gchar WIFI_PLUGIN_NAME[] = "wifi"; //without lib prefix
-static const gchar CELL_PLUGIN_NAME[] = "cell"; //without lib prefix
+static const gchar NETWORK_PLUGIN_NAME[] = "network"; //without lib prefix
+
 #ifdef NOMINATIUM_LBS
 static const gchar LBS_PLUGIN_NAME[] = "lbs";   //without lib prefix
 #else
@@ -57,26 +57,17 @@ typedef struct {
     GpsPluginOps ops;
 } GpsPlugin;
 
-/*
- * Wifi Plugin Structure
- */
-typedef struct {
-    Plugin_Prop *plugin_prop;
-    gpointer plugin_handler;
-    gpointer(*init)(WifiPluginOps *ops);
-    void (*shutdown)(gpointer handle);
-    WifiPluginOps ops;
-} WifiPlugin;
-/*
- * Cell Plugin Structure
- */
-typedef struct {
-    Plugin_Prop *plugin_prop;
-    gpointer plugin_handler;
-    gpointer(*init)(CellPluginOps *ops);
-    void (*shutdown)(gpointer handle);
-    CellPluginOps ops;
-} CellPlugin;
+
+ /*
+  * Nw Plugin Structure
+  */
+ typedef struct {
+     Plugin_Prop *plugin_prop;
+     gpointer plugin_handler;
+     gpointer(*init)(NetworkPluginOps *ops);
+     void (*shutdown)(gpointer handle);
+     NetworkPluginOps ops;
+ }NetworkPlugin;
 
 /*
  * LBS Plugin Structure
@@ -98,7 +89,6 @@ typedef struct {
 gboolean plugin_init(void);
 gpointer plugin_new(const char *plugin_name);
 void plugin_free(gpointer mod, const char *plugin_name);
-gboolean plugin_is_supported(const char *plugin_name);
 gboolean is_supported_plugin(const char *plugin_name);
 
 #endif /* PLUGIN_LOADER_H_ */

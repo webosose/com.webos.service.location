@@ -48,13 +48,13 @@ bool LifeCycleMonitor::registerSuspendMonitor(LSHandle* service)
     m_suspendService = service;
 
     result = LSRegisterServerStatusEx(m_suspendService,
-                                      "com.palm.sleep",
+                                      "com.webos.service.sleep",
                                       LifeCycleMonitor::cbPowerdUp,
                                       this,
                                       NULL,
                                       &lsErr);
     if (!result) {
-        LS_LOG_ERROR("Failed to register server status of com.palm.sleep: %s\n", lsErr.message);
+        LS_LOG_ERROR("Failed to register server status of com.webos.service.sleep: %s\n", lsErr.message);
         LSErrorFree(&lsErr);
         return false;
     }

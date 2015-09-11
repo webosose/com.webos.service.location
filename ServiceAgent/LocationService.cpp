@@ -1540,7 +1540,7 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
         return true;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("command"), &commandObj)){
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("command"), &commandObj)) {
         raw_buffer handler_buf = jstring_get(commandObj);
         command = g_strdup(handler_buf.m_str);
         jstring_free_buffer(handler_buf);
@@ -2182,7 +2182,7 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         }
 
         boost::shared_ptr<LocationUpdateRequest> req (locUpdateReq);
-        m_locUpdate_req_list.push_back(req);
+        m_locUpdate_req_table[message] = req;
 
         /*Add to subsctiption list*/
         bRetVal = LSSubscriptionAdd(sh, key, message, &mLSError);
@@ -2255,8 +2255,6 @@ EXIT:
 
     return true;
 }
-
-
 
 bool LocationService::getCachedPosition(LSHandle *sh, LSMessage *message, void *data) {
     printMessageDetails("LUNA-API", message, sh);
@@ -2402,8 +2400,6 @@ EXIT:
     return true;
 }
 
-
-
 Position LocationService::comparePositionTimeStamps(Position pos1,
                                                     Position pos2,
                                                     Position pos3,
@@ -2453,7 +2449,6 @@ Position LocationService::comparePositionTimeStamps(Position pos1,
 
     return pos;
 }
-
 
 int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *startedHandlers)
 {
@@ -2557,8 +2552,6 @@ bool LocationService::enableNwHandler(unsigned char *startedHandlers)
 
     return true;
 }
-
-
 
 bool LocationService::enableGpsHandler(unsigned char *startedHandlers)
 {
@@ -3112,7 +3105,7 @@ void LocationService::geofence_resume_reply(int32_t geofence_id, int32_t status)
 
     LSErrorInit(&mLSError);
 
-    switch(status) {
+    switch (status) {
         case GEOFENCE_OPERATION_SUCCESS:
             errorCode = LOCATION_SUCCESS;
             break;
@@ -3183,12 +3176,19 @@ void LocationService::getLocationUpdate_reply(Position *pos, Accuracy *accuracy,
     if (accuracy)
         LS_LOG_INFO("horizAccuracy %f vertAccuracy %f", accuracy->horizAccuracy, accuracy->vertAccuracy);
 
-    if (type == HANDLER_GPS) {
-        key1 = SUBSC_GET_LOC_UPDATES_GPS_KEY;
-        key2 = SUBSC_GET_LOC_UPDATES_HYBRID_KEY;
-    } else {
-        key1 = SUBSC_GET_LOC_UPDATES_NW_KEY;
-        key2 = SUBSC_GET_LOC_UPDATES_HYBRID_KEY;
+    switch (type) {
+        case HANDLER_GPS:
+        {
+            key1 = SUBSC_GET_LOC_UPDATES_GPS_KEY;
+            key2 = SUBSC_GET_LOC_UPDATES_HYBRID_KEY;
+            break;
+        }
+        default:
+        {
+            key1 = SUBSC_GET_LOC_UPDATES_NW_KEY;
+            key2 = SUBSC_GET_LOC_UPDATES_HYBRID_KEY;
+            break;
+        }
     }
 
     serviceObject = jobject_create();
@@ -3199,16 +3199,28 @@ void LocationService::getLocationUpdate_reply(Position *pos, Accuracy *accuracy,
         goto EXIT;
     }
 
-    if (error == ERROR_NONE) {
-        location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-        location_util_add_pos_json(serviceObject, pos);
-        location_util_add_acc_json(serviceObject,accuracy);
-        retString = jvalue_tostring_simple(serviceObject);
-    } else if (error == ERROR_TIMEOUT) {
-        retString = LSMessageGetErrorReply(LOCATION_TIME_OUT);
-    } else {
-        retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+    switch (error) {
+        case ERROR_NONE:
+        {
+            location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
+            location_util_add_pos_json(serviceObject, pos);
+            location_util_add_acc_json(serviceObject,accuracy);
+            retString = jvalue_tostring_simple(serviceObject);
+        }
+        break;
+        case ERROR_TIMEOUT:
+        {
+            retString = LSMessageGetErrorReply(LOCATION_TIME_OUT);
+        }
+        break;
+        default:
+        {
+            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+        }
+        break;
     }
+
+
 
 EXIT:
     LS_LOG_DEBUG("key1 %s key2 %s", key1,key2);
@@ -3248,12 +3260,29 @@ void LocationService::geocoding_reply(char *response, int error, int type)
     bool bRetVal;
 
 
-    if (error == ERROR_NOT_AVAILABLE || response == NULL) {
+    if (NULL == response) {
         retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
         goto EXIT;
-    } else if (error == ERROR_NETWORK_ERROR) {
-        retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
-        goto EXIT;
+    }
+
+    switch (error) {
+        case ERROR_NOT_AVAILABLE:
+        {
+            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+            goto EXIT;
+        }
+        break;
+        case ERROR_NETWORK_ERROR:
+        {
+            retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
+            goto EXIT;
+        }
+        break;
+        default:
+        {
+            LS_LOG_INFO("geocoding_reply: unknown error id received \n");
+        }
+        break;
     }
 
     serviceObject = jobject_create();
@@ -3303,7 +3332,7 @@ EXIT:
             do {
                 request = geoCodeReqQueue.front();
                 geoCodeReqQueue.pop();
-                LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
+                bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
                 if (bRetVal == false)
                     LSErrorPrintAndFree(&lsError);
                 LSMessageUnref(request.getMessage());
@@ -3330,15 +3359,29 @@ void LocationService::rev_geocoding_reply(char *response, int error, int type)
     LunaLbsRequest request;
     bool bRetVal;
 
-
-    LS_LOG_INFO("value of rev_geocoding_reply..%d", error);
-
-    if (error == ERROR_NOT_AVAILABLE || response == NULL) {
+    if (NULL==response) {
         retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
         goto EXIT;
-    } else if (error == ERROR_NETWORK_ERROR) {
-        retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
-        goto EXIT;
+    }
+
+    switch (error) {
+        case ERROR_NOT_AVAILABLE:
+        {
+            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
+            goto EXIT;
+        }
+        break;
+        case ERROR_NETWORK_ERROR:
+        {
+            retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
+            goto EXIT;
+        }
+        break;
+        default:
+        {
+            LS_LOG_INFO("rev_geocoding_reply: unknown error id received \n");
+        }
+        break;
     }
 
     serviceObject = jobject_create();
@@ -3389,7 +3432,7 @@ EXIT:
             do {
                 request = revGeoCodeReqQueue.front();
                 revGeoCodeReqQueue.pop();
-                LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
+                bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
                 if (bRetVal == false)
                     LSErrorPrintAndFree(&lsError);
                 LSMessageUnref(request.getMessage());
@@ -3406,8 +3449,6 @@ EXIT:
     if (parser != NULL)
         jdomparser_release(&parser);
 }
-
-
 
 /**
  * <Funciton >   cancelSubscription
@@ -3513,8 +3554,6 @@ void LocationService::getLocRequestStopSubscription(LSHandle *sh, LSMessage *mes
     }
 
 }
-
-
 
 bool LocationService::getHandlerStatus(const char *handler)
 {
@@ -3900,9 +3939,8 @@ bool LocationService::LSMessageReplyLocUpdateCase(LSMessage *msg,
 
 bool LocationService::removeTimer(LSMessage *message)
 {
-    std::vector<LocationUpdateRequestPtr>::iterator it;
-    int size = m_locUpdate_req_list.size();
-    int count = 0;
+    std::unordered_map <LSMessage *,LocationUpdateRequestPtr>::iterator it;
+    int size = m_locUpdate_req_table.size();
     bool found = false;
     TimerData *timerdata;
     guint timerID;
@@ -3910,28 +3948,26 @@ bool LocationService::removeTimer(LSMessage *message)
 
     LS_LOG_INFO("size = %d",size);
     if (size <= 0) {
-        LS_LOG_ERROR("m_locUpdate_req_list is empty");
+        LS_LOG_ERROR("m_locUpdate_req_table is empty");
         return false;
     }
 
-    for (it = m_locUpdate_req_list.begin(); count < size; ++it, count++) {
-        if (it->get()->getMessage() == message) {
-            timerID = it->get()->getTimerID();
+    it = m_locUpdate_req_table.find(message);
+    //check if predicate is true for atleast one element
+    if (it != m_locUpdate_req_table.end()) {
+        timerID = (it->second).get()->getTimerID();
 
-            if(timerID != 0)
-               timerRemoved = g_source_remove (timerID);
+        if (timerID != 0)
+        timerRemoved = g_source_remove (timerID);
 
-            timerdata = it->get()->getTimerData();
-            if (timerdata != NULL) {
-                delete timerdata;
-                timerdata = NULL;
-                it->get()->setTimerData(timerdata);
-            }
-            LS_LOG_INFO("timerRemoved %d timerID %d", timerRemoved, timerID);
-            found = true;
-            break;
+        timerdata = (it->second).get()->getTimerData();
+        if (timerdata != NULL) {
+            delete timerdata;
+            timerdata = NULL;
+            (it->second).get()->setTimerData(timerdata);
         }
-
+        LS_LOG_INFO("timerRemoved %d timerID %d", timerRemoved, timerID);
+        found = true;
     }
     return found;
 }
@@ -3939,8 +3975,8 @@ bool LocationService::removeTimer(LSMessage *message)
 
 bool LocationService::LSMessageRemoveReqList(LSMessage *message)
 {
-    std::vector<LocationUpdateRequestPtr>::iterator it;
-    int size = m_locUpdate_req_list.size();
+    std::unordered_map <LSMessage *,LocationUpdateRequestPtr>::iterator it;
+    int size = m_locUpdate_req_table.size();
     int count = 0;
     bool found = false;
     TimerData *timerdata;
@@ -3954,25 +3990,24 @@ bool LocationService::LSMessageRemoveReqList(LSMessage *message)
         return false;
     }
 
-    for (it = m_locUpdate_req_list.begin(); count < size; ++it, count++) {
-        if (it->get()->getMessage() == message) {
-            timerID = it->get()->getTimerID();
+    it = m_locUpdate_req_table.find(message);
+    if (it != m_locUpdate_req_table.end()) {
+        if ((it->second).get()->getMessage() == message) {
+            timerID = (it->second).get()->getTimerID();
             if(timerID != 0)
                 timerRemoved = g_source_remove (timerID);
 
-            timerdata = it->get()->getTimerData();
+            timerdata = (it->second).get()->getTimerData();
             LS_LOG_INFO("timerRemoved %d timerID %d", timerRemoved, timerID);
             if (timerdata != NULL) {
                 delete timerdata;
                 timerdata = NULL;
-                it->get()->setTimerData(timerdata);
+                (it->second).get()->setTimerData(timerdata);
             }
-            m_locUpdate_req_list.erase(it);
+            m_locUpdate_req_table.erase(it);
             found = true;
-            break;
         }
     }
-
     return found;
 }
 
@@ -3983,7 +4018,7 @@ bool LocationService::meetsCriteria(LSMessage *msg,
                                     int minDist)
 {
     LSMessage *listmsg = NULL;
-    std::vector<LocationUpdateRequestPtr>::iterator it;
+    std::unordered_map<LSMessage *,LocationUpdateRequestPtr>::iterator it;
     bool bMeetsInterval, bMeetsDistance, bMeetsCriteria;
     struct timeval tv;
     long long currentTime, elapsedTime;
@@ -3993,23 +4028,22 @@ bool LocationService::meetsCriteria(LSMessage *msg,
 
     bMeetsCriteria = false;
 
-    for (it = m_locUpdate_req_list.begin(); it != m_locUpdate_req_list.end(); ++it) {
-        if (*it == NULL)
-            continue;
-
-        listmsg = it->get()->getMessage();
-        if (msg == listmsg) {
-            if (it->get()->getFirstReply()) {
-                it->get()->updateRequestTime(currentTime);
-                it->get()->updateLatAndLong(pos->latitude, pos->longitude);
-                it->get()->updateFirstReply(false);
+    it = m_locUpdate_req_table.find(msg);
+    if (it != m_locUpdate_req_table.end()) {
+        if ((it->second).get()->getMessage() == msg) {
+            if ((it->second).get()->getFirstReply()) {
+                (it->second).get()->updateRequestTime(currentTime);
+                (it->second).get()->updateLatAndLong(pos->latitude, pos->longitude);
+                (it->second).get()->updateFirstReply(false);
                 bMeetsCriteria = true;
-            } else {
-                // check if it's cached one
+            }
+            else
+            {
+             // check if it's cached one
                 if (pos->timestamp != 0) {
                     bMeetsInterval = bMeetsDistance = true;
 
-                    elapsedTime = currentTime - it->get()->getRequestTime();
+                    elapsedTime = currentTime - (it->second).get()->getRequestTime();
 
                     if (minInterval > 0) {
                         if (elapsedTime <= minInterval)
@@ -4019,13 +4053,13 @@ bool LocationService::meetsCriteria(LSMessage *msg,
                     if (minDist > 0) {
                         if (!loc_geometry_calc_distance(pos->latitude,
                                                         pos->longitude,
-                                                        it->get()->getLatitude(),
-                                                        it->get()->getLongitude()) >= minDist)
+                                                        (it->second).get()->getLatitude(),
+                                                        (it->second).get()->getLongitude()) >= minDist)
                             bMeetsDistance = false;
                     }
 
                     if (bMeetsInterval && bMeetsDistance) {
-                        if (it->get()->getHandlerType() == HANDLER_HYBRID) {
+                        if ((it->second).get()->getHandlerType() == HANDLER_HYBRID) {
                             if (elapsedTime > 60000 || acc->horizAccuracy < MINIMAL_ACCURACY)
                                 bMeetsCriteria = true;
                         } else {
@@ -4034,16 +4068,13 @@ bool LocationService::meetsCriteria(LSMessage *msg,
                     }
 
                     if (bMeetsCriteria) {
-                        it->get()->updateRequestTime(currentTime);
-                        it->get()->updateLatAndLong(pos->latitude, pos->longitude);
+                        (it->second).get()->updateRequestTime(currentTime);
+                        (it->second).get()->updateLatAndLong(pos->latitude, pos->longitude);
                     }
                 }
             }
-
-            break;
         }
     }
-
     return bMeetsCriteria;
 }
 
@@ -4120,21 +4151,37 @@ void LocationService::replyErrorToGpsNwReq(HandlerTypes handler)
 
     payload = LSMessageGetErrorReply(LOCATION_LOCATION_OFF);
 
-    if (handler == HANDLER_GPS) {
-        if (isSubscListFilled(NULL, SUBSC_GPS_GET_NMEA_KEY, false) == true)
-            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GPS_GET_NMEA_KEY, payload);
+    switch (handler) {
+        case HANDLER_GPS:
+        {
+            if (isSubscListFilled(NULL, SUBSC_GPS_GET_NMEA_KEY, false) == true)
+                LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GPS_GET_NMEA_KEY, payload);
 
-        if (isSubscListFilled(NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) == true)
-            LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_GPS_SATELLITE_DATA, payload);
+            if (isSubscListFilled(NULL, SUBSC_GET_GPS_SATELLITE_DATA, false) == true)
+                LSSubscriptionNonSubscriptionRespondPubPri(SUBSC_GET_GPS_SATELLITE_DATA, payload);
 
-        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == true)
-            LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, payload);
-    } else if (handler == HANDLER_NW) {
-        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == true)
-            LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, payload);
-    } else if (handler == HANDLER_HYBRID) {
-        if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == true)
-            LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, payload);
+            if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false) == true)
+                LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, payload);
+        }
+        break;
+        case HANDLER_NW:
+        {
+            if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, false) == true)
+                LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_NW_KEY, payload);
+
+        }
+        break;
+        case HANDLER_HYBRID:
+        {
+            if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, false) == true)
+                LSSubNonSubRespondGetLocUpdateCasePubPri(NULL, NULL, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, payload);
+        }
+        break;
+        default:
+        {
+            LS_LOG_ERROR("replyErrorToGpsNwReq: unknown handler type received \n");
+        }
+        break;
     }
 }
 

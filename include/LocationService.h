@@ -40,6 +40,7 @@
 #include <loc_logger.h>
 #include <LunaLbsRequest.h>
 #include <queue>
+#include <unordered_map>
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -484,7 +485,7 @@ private:
     bool mNwStatus;
     bool mCachedGpsEngineStatus;
     typedef boost::shared_ptr<LocationUpdateRequest> LocationUpdateRequestPtr;
-    std::vector<LocationUpdateRequestPtr> m_locUpdate_req_list;
+    std::unordered_map<LSMessage *,LocationUpdateRequestPtr> m_locUpdate_req_table;
     bool wifistate;
     bool isInternetConnectionAvailable;
     bool isTelephonyAvailable;

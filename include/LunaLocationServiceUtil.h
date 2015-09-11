@@ -23,8 +23,9 @@
 #include "JsonUtility.h"
 // temproray so keeping hardcoded value
 
-#define SECURE_PAYLOAD_NW_GET      "{\"keyname\":\"com.palm.location.geolocation\"}"
-#define SECURE_PAYLOAD_LBS_GET     "{\"keyname\":\"com.palm.location.geocode\"}"
+#define SECURE_PAYLOAD_NW_GET      "{\"keyname\":\"com.webos.service.location.geolocation\"}"
+#define SECURE_PAYLOAD_LBS_GET     "{\"keyname\":\"com.webos.service.location.geocode\"}"
+#define SECURE_STORAGE_KEY_STORAGE_GET "luna://com.webos.service.securestorage/keystorageget"
 
 /*
  * JSON SCHEMA: getAllLocationHandlers ()

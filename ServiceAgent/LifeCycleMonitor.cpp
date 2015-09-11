@@ -93,7 +93,7 @@ void LifeCycleMonitor::setWakeLock(bool set, bool force)
 
     if (callService(m_suspendService,
                     NULL,
-                    "luna://com.palm.sleep/com/palm/power/setWakeLock",
+                    "luna://com.webos.service.sleep/com/webos/service/power/setWakeLock",
                     payload)) {
         m_setWakeLock = set;
 
@@ -131,17 +131,17 @@ bool LifeCycleMonitor::cbPowerdUp(LSHandle* sh, const char *serviceName, bool co
         return true;
 
     if (connected) {
-        LS_LOG_INFO("Connected to com.palm.sleep\n");
+        LS_LOG_INFO("Connected to com.webos.service.sleep\n");
 
         memset(payload, 0, 256);
         snprintf(payload, 256, "{\"subscribe\":true,\"clientName\":\"%s\"}", SUSPEND_MONITOR_CLIENT_NAME);
 
         monitor->callService(monitor->m_suspendService,
                              LifeCycleMonitor::cbIdentify,
-                             "palm://com.palm.power/com/palm/power/identify",
+                             "luna://com.webos.service.power/com/webos/service/power/identify",
                              payload);
     } else {
-        LS_LOG_INFO("Disconnected from com.palm.sleep\n");
+        LS_LOG_INFO("Disconnected from com.webos.service.sleep\n");
 
         monitor->m_registeredWakeLock = false;
         monitor->m_setWakeLock = false;
@@ -202,7 +202,7 @@ bool LifeCycleMonitor::cbIdentify(LSHandle* sh, LSMessage* message, void* ctx)
 
         monitor->callService(monitor->m_suspendService,
                              LifeCycleMonitor::cbRegisterWakeLock,
-                             "luna://com.palm.sleep/com/palm/power/wakeLockRegister",
+                             "luna://com.webos.service.sleep/com/webos/service/power/wakeLockRegister",
                              payload);
     }
 

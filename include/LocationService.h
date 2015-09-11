@@ -53,8 +53,7 @@
 #define MAX_RESULT_LENGTH 400
 #define MAX_GETSTATE_PARAM 32
 #define TIME_SCALE_SEC 1000
-#define LOCATION_SERVICE_NAME           "com.palm.location"
-#define LOCATION_SERVICE_ALIAS_LGE_NAME "com.lge.location"
+#define LOCATION_SERVICE_NAME           "com.webos.service.location"
 
 #define GEOFENCE_ENTERED                    0
 #define GEOFENCE_EXITED                     1
@@ -93,7 +92,6 @@
 /**
  * @brief CONSTANT DEFINITIONS
  */
-
 class LocationService: public IConnectivityListener
 {
 public:
@@ -498,9 +496,7 @@ private:
     static LSMethod geofenceMethod[];
     bool is_geofenceId_used[MAX_GEOFENCE_ID];
     GHashTable *htPseudoGeofence;
-
     LSHandle *mServiceHandle;
-    LSHandle *mlgeServiceHandle;
 
     // time to first fix for most recent session
     static long mTTFF;

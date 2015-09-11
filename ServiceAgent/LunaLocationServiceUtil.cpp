@@ -221,7 +221,7 @@ bool securestorage_get(LSHandle *sh, void *ptr)
     loc_svc_ptr = (LocationService *)ptr;
 
     if (!LSCall(sh,
-                "palm://com.palm.securestorage/keystorageget",
+                SECURE_STORAGE_KEY_STORAGE_GET,
                 SECURE_PAYLOAD_NW_GET,
                 secure_storage_get_cb,
                 (char *)"nwkey",
@@ -234,7 +234,7 @@ bool securestorage_get(LSHandle *sh, void *ptr)
     }
 
     if (!LSCall(sh,
-                "palm://com.palm.securestorage/keystorageget",
+                SECURE_STORAGE_KEY_STORAGE_GET,
                 SECURE_PAYLOAD_LBS_GET,
                 secure_storage_get_cb,
                 (char *)"lbskey",

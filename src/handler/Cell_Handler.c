@@ -307,10 +307,10 @@ static bool tel_service_status_cb(LSHandle *sh, const char *serviceName, bool co
         LS_LOG_DEBUG("Cell handler:Telephony  service Name = %s connected",serviceName);
         if (priv->susbcribe) {
             // cuurnetly only on method later of we can request other method for subscription
-            return LSCall(sh, "palm://com.palm.telephony/getCellInfo", "{\"subscribe\":true}", cell_data_cb, ctx, &priv->m_cellInfoReq, NULL);
+            return LSCall(sh, "luna://com.webos.service.telephony/getCellInfo", "{\"subscribe\":true}", cell_data_cb, ctx, &priv->m_cellInfoReq, NULL);
         }
 
-        return LSCall(sh, "palm://com.palm.telephony/getCellInfo", "{}", cell_data_cb, ctx, NULL, NULL);
+        return LSCall(sh, "luna://com.webos.service.telephony/getCellInfo", "{}", cell_data_cb, ctx, NULL, NULL);
         //request_cell_data(sh, ctx, TRUE);
     } else {
         if (priv->api_progress_flag & CELL_GET_POSITION_ON) {

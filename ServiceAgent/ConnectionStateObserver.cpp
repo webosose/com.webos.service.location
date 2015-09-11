@@ -112,8 +112,8 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
     }
 
     result = LSCall(ConnHandle,
-                    "palm://com.palm.bus/signal/addmatch",
-                    "{\"category\":\"/com/palm/power\", \"method\":\"suspended\"}",
+                    "luna://com.webos.service.bus/signal/addmatch",
+                    "{\"category\":\"/com/webos/service/power\", \"method\":\"suspended\"}",
                     ConnectionStateObserver::suspended_cb,
                     this,
                     NULL,
@@ -124,8 +124,8 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
     }
 
     result = LSCall(ConnHandle,
-                    "palm://com.palm.bus/signal/addmatch",
-                    "{\"category\":\"/com/palm/power\", \"method\":\"resume\"}",
+                    "luna://com.webos.service.bus/signal/addmatch",
+                    "{\"category\":\"/com/webos/service/power\", \"method\":\"resume\"}",
                     ConnectionStateObserver::resume_cb,
                     this,
                     NULL,
@@ -268,7 +268,7 @@ void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn)
     bool result;
 
     result = LSCall(HandleConn,
-                    "palm://com.palm.wifi/getstatus",
+                    "luna://com.webos.service.wifi/getstatus",
                     "{\"subscribe\":true}",
                     ConnectionStateObserver::wifi_status_cb,
                     this,
@@ -287,7 +287,7 @@ void ConnectionStateObserver::register_connectivity_status(LSHandle *HandleConn)
     bool result;
 
     result = LSCall(HandleConn,
-                    "palm://com.palm.wan/getstatus",
+                    "luna://com.webos.service.wan/getstatus",
                     "{\"subscribe\":true}",
                     ConnectionStateObserver::connectivity_status_cb,
                     this,
@@ -308,7 +308,7 @@ void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn)
     //Check modem status
     //Not implemented, will be implemented in future
     result = LSCall(HandleConn,
-                    "palm://com.palm.telephony/isTelephonyReady",
+                    "luna://com.webos.service.telephony/isTelephonyReady",
                     "{\"subscribe\":true}",
                     ConnectionStateObserver::telephony_status_cb,
                     this,

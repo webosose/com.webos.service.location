@@ -351,7 +351,7 @@ static int gps_handler_start(Handler *self, const char* license_key)
  * @param           <self> <In> <Handler GObject>
  * @return          int
  */
-static int gps_handler_stop(Handler *self,  int handler_type, gboolean forcestop)
+static int gps_handler_stop(Handler *self, gboolean forcestop)
 {
     int ret = ERROR_NONE;
     GpsHandlerPrivate *priv = GPS_HANDLER_GET_PRIVATE(self);
@@ -405,7 +405,6 @@ static int gps_handler_get_position(Handler *self,
                                     gboolean enable,
                                     PositionCallback pos_cb,
                                     gpointer handlerobj,
-                                    int handlertype,
                                     LSHandle *sh)
 {
     int result = ERROR_NONE;
@@ -887,15 +886,15 @@ static int gps_handler_function_not_implemented(Handler *self, Position *pos, Ad
  */
 static void handler_interface_init(HandlerInterface *iface)
 {
-    iface->start = (TYPE_START_FUNC) gps_handler_start;
-    iface->stop = (TYPE_STOP_FUNC) gps_handler_stop;
-    iface->get_position = (TYPE_GET_POSITION) gps_handler_get_position;
-    iface->start_tracking = (TYPE_START_TRACK) gps_handler_start_tracking;
-    iface->get_last_position = (TYPE_GET_LAST_POSITION) gps_handler_get_last_position;
-    iface->get_ttfx = (TYPE_GET_TTFF) gps_handler_get_time_to_first_fix;
-    iface->get_sat_data = (TYPE_GET_SAT) gps_handler_get_gps_satellite_data;
-    iface->get_nmea_data = (TYPE_GET_NMEA) gps_handler_get_nmea_data;
-    iface->send_extra_cmd = (TYPE_SEND_EXTRA) gps_handler_send_extra_command;
+    iface->start = gps_handler_start;
+    iface->stop = gps_handler_stop;
+    iface->get_position =  gps_handler_get_position;
+    iface->start_tracking = gps_handler_start_tracking;
+    iface->get_last_position = gps_handler_get_last_position;
+    iface->get_ttfx = gps_handler_get_time_to_first_fix;
+    iface->get_sat_data = gps_handler_get_gps_satellite_data;
+    iface->get_nmea_data = gps_handler_get_nmea_data;
+    iface->send_extra_cmd = gps_handler_send_extra_command;
 #ifdef NOMINATIUM_LBS
     iface->get_geo_code = (TYPE_GEO_CODE) gps_handler_function_not_implemented;
     iface->get_rev_geocode = (TYPE_REV_GEO_CODE) gps_handler_function_not_implemented;
@@ -903,14 +902,14 @@ static void handler_interface_init(HandlerInterface *iface)
     iface->get_google_geo_code = (TYPE_GOOGLE_GEO_CODE) gps_handler_function_not_implemented;
     iface->get_rev_google_geocode = (TYPE_REV_GOOGLE_GEO_CODE) gps_handler_function_not_implemented;
 #endif
-    iface->get_gps_status = (TYPE_GET_GPS_STATUS) gps_handler_get_gps_status;
-    iface->set_gps_params = (TYPE_SET_GPS_PARAMETERS) gps_handler_set_gps_parameters;
-    iface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) gps_handler_add_geofence_area;
-    iface->remove_geofence = (TYPE_REMOVE_GEOFENCE) gps_handler_remove_geofence;
-    iface->resume_geofence = (TYPE_RESUME_GEOFENCE) gps_handler_resume_geofence;
-    iface->pause_geofence = (TYPE_PAUSE_GEOFENCE) gps_handler_pause_geofence;
-    iface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) gps_handler_get_location_updates;
-    iface->get_handler_status = (TYPE_GET_HANDLER_STATUS) gps_handler_get_handler_status;
+    iface->get_gps_status = gps_handler_get_gps_status;
+    iface->set_gps_params = gps_handler_set_gps_parameters;
+    iface->add_geofence_area = gps_handler_add_geofence_area;
+    iface->remove_geofence = gps_handler_remove_geofence;
+    iface->resume_geofence = gps_handler_resume_geofence;
+    iface->pause_geofence = gps_handler_pause_geofence;
+    iface->get_location_updates = gps_handler_get_location_updates;
+    iface->get_handler_status = gps_handler_get_handler_status;
 }
 
 /**

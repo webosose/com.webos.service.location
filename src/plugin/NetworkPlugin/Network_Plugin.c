@@ -29,6 +29,7 @@
 #include <geoclue/geoclue-accuracy.h>
 #include <geoclue/geoclue-provider.h>
 #include <geoclue/geoclue-types.h>
+#include <Gps_stored_data.h>
 #include <loc_log.h>
 
 

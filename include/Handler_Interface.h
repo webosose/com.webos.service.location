@@ -52,7 +52,7 @@ typedef int (*TYPE_STOP_FUNC)(Handler *self,  gboolean forcestop);
 typedef int (*TYPE_GET_POSITION)(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handlerobj, LSHandle *sh);
 typedef void (*TYPE_START_TRACK)(Handler *self, gboolean enable, StartTrackingCallBack pos_cb, gpointer handlerobj,  LSHandle *sh);
 typedef int (*TYPE_GET_LAST_POSITION)(Handler *self, Position *position, Accuracy *accuracy);
-typedef int (*TYPE_GET_TTFF)(Handler *self);
+typedef guint64 (*TYPE_GET_TTFF)(Handler *self);
 typedef int (*TYPE_GET_SAT)(Handler *self, gboolean enable_satellite, SatelliteCallback sat_cb);
 typedef int (*TYPE_GET_NMEA)(Handler *self, gboolean enable_nmea, NmeaCallback nmea_cb, gpointer userdata);
 typedef int (*TYPE_SEND_EXTRA)(Handler *self , char *command);
@@ -122,7 +122,7 @@ int handler_start(Handler *self,  const char *license_key);
 
 int handler_stop(Handler *self, gboolean forcestop);
 
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler,LSHandle *sh);
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, LSHandle *sh);
 
 void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, LSHandle *sh);
 

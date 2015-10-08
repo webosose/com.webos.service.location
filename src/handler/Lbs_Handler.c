@@ -91,7 +91,7 @@ static int lbs_handler_start(Handler *handler_data, const char* license_key)
  * @param     <self> <In> <Handler Gobject>
  * @return    int
  */
-static int lbs_handler_stop(Handler *self, int handler_type, gboolean forcestop)
+static int lbs_handler_stop(Handler *self, gboolean forcestop)
 {
     LbsHandlerPrivate *priv = GET_PRIVATE(self);
     int ret = ERROR_NONE;
@@ -317,8 +317,8 @@ static int lbs_handler_function_not_implemented(Handler *self, Position *pos, Ad
  */
 static void lbs_handler_interface_init(HandlerInterface *interface)
 {
-    interface->start = (TYPE_START_FUNC) lbs_handler_start;
-    interface->stop = (TYPE_STOP_FUNC) lbs_handler_stop;
+    interface->start = lbs_handler_start;
+    interface->stop = lbs_handler_stop;
     interface->get_position = (TYPE_GET_POSITION) lbs_handler_function_not_implemented;
     interface->start_tracking = (TYPE_START_TRACK) lbs_handler_function_not_implemented;
     interface->get_last_position = (TYPE_GET_LAST_POSITION) lbs_handler_function_not_implemented;
@@ -327,17 +327,17 @@ static void lbs_handler_interface_init(HandlerInterface *interface)
     interface->get_nmea_data = (TYPE_GET_NMEA) lbs_handler_function_not_implemented;
     interface->send_extra_cmd = (TYPE_SEND_EXTRA) lbs_handler_function_not_implemented;
 #ifdef NOMINATIUM_LBS
-    interface->get_geo_code = (TYPE_GEO_CODE) lbs_handler_geo_code;
-    interface->get_rev_geocode = (TYPE_REV_GEO_CODE) lbs_handler_reverse_geo_code;
+    interface->get_geo_code = lbs_handler_geo_code;
+    interface->get_rev_geocode = lbs_handler_reverse_geo_code;
 #else
-    interface->get_google_geo_code = (TYPE_GOOGLE_GEO_CODE) lbs_handler_google_geo_code;
-    interface->get_rev_google_geocode = (TYPE_REV_GOOGLE_GEO_CODE) lbs_handler_reverse_google_geo_code;
+    interface->get_google_geo_code = lbs_handler_google_geo_code;
+    interface->get_rev_google_geocode = lbs_handler_reverse_google_geo_code;
 #endif
     interface->add_geofence_area = (TYPE_ADD_GEOFENCE_AREA) lbs_handler_function_not_implemented;
     interface->remove_geofence = (TYPE_REMOVE_GEOFENCE) lbs_handler_function_not_implemented;
     interface->resume_geofence = (TYPE_RESUME_GEOFENCE) lbs_handler_function_not_implemented;
     interface->pause_geofence = (TYPE_PAUSE_GEOFENCE) lbs_handler_function_not_implemented;
-    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) lbs_handler_get_handler_status;
+    interface->get_handler_status = lbs_handler_get_handler_status;
 }
 
 /**

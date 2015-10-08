@@ -28,6 +28,7 @@
 #include <Handler_Interface.h>
 #include <Network_Handler.h>
 #include <Plugin_Loader.h>
+#include <Gps_stored_data.h>
 #include <loc_log.h>
 #include <stdlib.h>
 #include <pbnjson.h>
@@ -109,7 +110,7 @@ static int network_handler_start(Handler *handler_data, const char* license_key)
     return ret;
 }
 
-static int network_handler_stop(Handler *self, int handler_type, gboolean forcestop)
+static int network_handler_stop(Handler *self, gboolean forcestop)
 {
     LS_LOG_INFO("network_handler_stop() \n");
     NetworkHandlerPrivate *priv = NETWORK_HANDLER_GET_PRIVATE(self);
@@ -151,7 +152,6 @@ static bool cell_data_cb(LSHandle *sh, LSMessage *reply, void *ctx)
     jvalue_ref parsedObj = NULL;
     jvalue_ref error_obj = NULL;
     int track_ret = ERROR_NONE;
-    int pos_ret = ERROR_NONE;
     int error = ERROR_NONE;
     jvalue_ref cell_data_obj = NULL ;
 
@@ -272,8 +272,7 @@ static void network_handler_get_location_updates(Handler *self,
                                                  gboolean enable,
                                                  StartTrackingCallBack loc_update_cb,
                                                  gpointer handlerobj,
-                                                 LSHandle *sh,
-                                                 LSMessage *msg)
+                                                 LSHandle *sh)
 {
     int result = ERROR_NONE;
     gboolean cell_data_result = FALSE;
@@ -379,11 +378,11 @@ static void network_handler_interface_init(HandlerInterface *interface)
 {
     memset(interface, 0, sizeof(HandlerInterface));
 
-    interface->start = (TYPE_START_FUNC) network_handler_start;
-    interface->stop = (TYPE_STOP_FUNC) network_handler_stop;
-    interface->get_last_position = (TYPE_GET_LAST_POSITION) network_handler_get_last_position;
-    interface->get_location_updates = (TYPE_GET_LOCATION_UPDATES) network_handler_get_location_updates;
-    interface->get_handler_status = (TYPE_GET_HANDLER_STATUS) network_handler_get_handler_status;
+    interface->start = network_handler_start;
+    interface->stop = network_handler_stop;
+    interface->get_last_position = network_handler_get_last_position;
+    interface->get_location_updates = network_handler_get_location_updates;
+    interface->get_handler_status = network_handler_get_handler_status;
 }
 
 static void network_handler_init(NetworkHandler *self)

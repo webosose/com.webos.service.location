@@ -113,7 +113,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
 
     result = LSCall(ConnHandle,
                     "luna://com.webos.service.bus/signal/addmatch",
-                    "{\"category\":\"/com/webos/service/power\", \"method\":\"suspended\"}",
+                    "{\"category\":\"/com/palm/power\", \"method\":\"suspended\"}",
                     ConnectionStateObserver::suspended_cb,
                     this,
                     NULL,
@@ -125,7 +125,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
 
     result = LSCall(ConnHandle,
                     "luna://com.webos.service.bus/signal/addmatch",
-                    "{\"category\":\"/com/webos/service/power\", \"method\":\"resume\"}",
+                    "{\"category\":\"/com/palm/power\", \"method\":\"resume\"}",
                     ConnectionStateObserver::resume_cb,
                     this,
                     NULL,

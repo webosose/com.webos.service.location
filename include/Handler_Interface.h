@@ -27,7 +27,6 @@
 #include <glib-object.h>
 #include <Location.h>
 #include <Position.h>
-#include <Address.h>
 #include <Location_Plugin.h>
 #include <lunaservice.h>
 
@@ -122,7 +121,7 @@ int handler_start(Handler *self,  const char *license_key);
 
 int handler_stop(Handler *self, gboolean forcestop);
 
-int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler, LSHandle *sh);
+int handler_get_position(Handler *self, gboolean enable, PositionCallback pos_cb, gpointer handler,LSHandle *sh);
 
 void handler_start_tracking(Handler *self, gboolean enable, StartTrackingCallBack track_cb, gpointer handlerobj, LSHandle *sh);
 

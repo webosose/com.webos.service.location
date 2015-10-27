@@ -21,7 +21,6 @@
  *
  **********************************************************/
 #include <Position.h>
-#include <Address.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <geoclue/geoclue-position.h>

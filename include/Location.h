@@ -26,6 +26,7 @@
 
 #include <glib-object.h>
 #include <stdint.h>
+#include <location_errors.h>
 
 #define DEFAULT_VALUE 0
 #define INVALID_PARAM -1.0
@@ -49,21 +50,6 @@ typedef enum {
     HANLDER_GEOFENCE_RESUME
 } HandlerDataTypes;
 
-/*
- * Common Error codes of Location Framework
- */
-typedef enum {
-    ERROR_NONE = 0,
-    ERROR_NOT_IMPLEMENTED,
-    ERROR_TIMEOUT,
-    ERROR_NETWORK_ERROR,
-    ERROR_NOT_APPLICABLE_TO_THIS_HANDLER,
-    ERROR_NOT_AVAILABLE,
-    ERROR_WRONG_PARAMETER,
-    ERROR_DUPLICATE_REQUEST,
-    ERROR_REQUEST_INPROGRESS,
-    ERROR_NOT_STARTED
-} ErrorCodes;
 
 /*
  * Common status codes of GPS
@@ -74,13 +60,6 @@ typedef enum {
     GPS_STATUS_ACQUIRING,
     GPS_STATUS_AVAILABLE
 } GPSStatus;
-
-enum {
-    ERROR_NETWORK_NOT_FOUND = 0,
-    ERROR_NO_MEMORY,
-    ERROR_NO_RESPONSE,
-    ERROR_NO_DATA
-};
 
 typedef GObject HandlerObject;
 typedef struct _Position Position;

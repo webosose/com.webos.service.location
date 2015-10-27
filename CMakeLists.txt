@@ -51,14 +51,53 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 
 add_subdirectory(src/plugin/GpsPlugin)
 add_subdirectory(src/plugin/NetworkPlugin)
-if(DEFINED NOMINATIUM_LBS)
-add_definitions(-DNOMINATIUM_LBS)
-add_subdirectory(src/plugin/LbsPlugin)
-else()
-add_subdirectory(src/plugin/GoogleLbsPlugin)
-endif()
-add_subdirectory(src/handler)
-add_subdirectory(src/db_utils)
+
+set(DB_UTILS_NAME dbutils)
+set(DB_UTILS_LIB_PATH ${CMAKE_INSTALL_PREFIX}/lib)
+set(DB_UTILS_DATA_PATH ${WEBOS_INSTALL_LOCALSTATEDIR}/location)
+set(DB_UTILS_SRC ${PROJECT_SOURCE_DIR}/src/utils/db_util.c ${PROJECT_SOURCE_DIR}/src/utils/Gps_stored_data.c)
+set(LIBRARIES ${GLIB2_LDFLAGS} ${LIB2XML_LDFLAGS})
+
+add_library(${DB_UTILS_NAME} SHARED ${DB_UTILS_SRC})
+target_link_libraries(${DB_UTILS_NAME} ${LIBRARIES})
+set_target_properties(${DB_UTILS_NAME} PROPERTIES VERSION 1.0.0 SOVERSION 1)
+install(TARGETS ${DB_UTILS_NAME} DESTINATION ${DB_UTILS_LIB_PATH})
+install(DIRECTORY DESTINATION ${DB_UTILS_DATA_PATH})
+
+
+set(LOCATION_SERVICE_NAME location)
+
+file(GLOB UTIL_SOURCES  ${PROJECT_SOURCE_DIR}/src/utils/*.cpp  ${PROJECT_SOURCE_DIR}/src/utils/*.c)
+file(GLOB GOOGLE_WSP_SOURCES ${PROJECT_SOURCE_DIR}/src/handler/lbs/geoservices/google/*.cpp)
+file(GLOB HANDLER_SOURCE ${PROJECT_SOURCE_DIR}/src/handler/*.c ${PROJECT_SOURCE_DIR}/src/handler/lbs/*.cpp)
+file(GLOB LUNA_IPC  ${PROJECT_SOURCE_DIR}/src/lunaIpc/*.cpp  ${PROJECT_SOURCE_DIR}/src/lunaIpc/*.c)
+
+set(SRC
+        ${PROJECT_SOURCE_DIR}/src/Main.cpp
+        ${LUNA_IPC}
+        ${SERVICE_UTIL_SOURCES}
+        ${GOOGLE_WSP_SOURCES}
+        ${HANDLER_SOURCE}
+        ${UTIL_SOURCES}
+)
+set(LIBRARIES
+        ${GLIB2_LDFLAGS}
+        ${GOBJ_LDFLAGS}
+        ${GMOD_LDFLAGS}
+        ${LUNASERVICE_LDFLAGS}
+        ${LUNAPREFS_LDFLAGS}
+        ${LIBPBNJSON_LDFLAGS}
+        ${PMLOGLIB_LDFLAGS}
+        ${LOCUTILS_LDFLAGS}
+        ${LIB2XML_LDFLAGS}
+)
+
+add_executable(${LOCATION_SERVICE_NAME} ${SRC})
+target_link_libraries(${LOCATION_SERVICE_NAME} ${LIBRARIES})
+
+webos_build_program(NAME ${LOCATION_SERVICE_NAME})
+webos_build_system_bus_files()
+
 
 install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_PREFIX}/include/location

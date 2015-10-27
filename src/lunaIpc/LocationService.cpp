@@ -25,13 +25,11 @@
 #include <LocationService.h>
 #include <Handler_Interface.h>
 #include <Gps_Handler.h>
-#include <Lbs_Handler.h>
 #include <Network_Handler.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <JsonUtility.h>
 #include <db_util.h>
-#include <Address.h>
 #include <unistd.h>
 #include <LunaLocationServiceUtil.h>
 #include <boost/lexical_cast.hpp>
@@ -148,12 +146,20 @@ bool LocationService::init(GMainLoop *mainLoop)
 
     LS_LOG_DEBUG("mServiceHandle =%x", mServiceHandle);
 
+    mNetReqMgr = NetworkRequestManager::getInstance();
+    mNetReqMgr->init();
+
     //load all handlers
     handler_array[HANDLER_GPS] = static_cast<Handler *>(g_object_new(HANDLER_TYPE_GPS, NULL));
     handler_array[HANDLER_NETWORK] =  static_cast<Handler *>(g_object_new(HANDLER_TYPE_NETWORK, NULL));
-    handler_array[HANDLER_LBS] = static_cast<Handler *>(g_object_new(HANDLER_TYPE_LBS, NULL));
 
-    if ((handler_array[HANDLER_GPS] == NULL) || (handler_array[HANDLER_NETWORK] == NULL) || (handler_array[HANDLER_LBS] == NULL))
+    mLbsEng = LBSEngine::getInstance();
+    mGoogleWspInterface = mLbsEng->getWebServiceProvider(GOOGLE_PROVIDER_ID);
+
+    if(nullptr == mGoogleWspInterface)
+        return false;
+
+    if ((handler_array[HANDLER_GPS] == NULL) || (handler_array[HANDLER_NETWORK] == NULL))
         return false;
 
     //Load initial settings from DB
@@ -251,9 +257,6 @@ LocationService::~LocationService()
     if (handler_array[HANDLER_NETWORK])
        g_object_unref(handler_array[HANDLER_NETWORK]);
 
-    if (handler_array[HANDLER_LBS])
-       g_object_unref(handler_array[HANDLER_LBS]);
-
     LSMessageReleaseErrorReply();
 
     if (htPseudoGeofence) {
@@ -296,12 +299,8 @@ LocationService::~LocationService()
         m_lifeCycleMonitor = NULL;
     }
 
-    //clear Queues
-    queue<LunaLbsRequest> emptyGeocodeQueue;
-    queue<LunaLbsRequest> emptyRevGeocodeQueue;
+   mNetReqMgr->deInit();
 
-    swap(geoCodeReqQueue, emptyGeocodeQueue);
-    swap(revGeoCodeReqQueue, emptyRevGeocodeQueue);
 }
 
 /*****API's exposed to applications****/
@@ -403,110 +402,7 @@ bool LocationService::getCachedDatafromHandler(Handler *hdl, Position *pos, Accu
        return false;
 }
 
-void LocationService::getAddressNominatiumData(jvalue_ref *serviceObject, Address *address) {
-
-    address->street != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("street"), jstring_create(address->street))
-                            : jobject_put(*serviceObject, J_CSTR_TO_JVAL("street"), jstring_create(""));
-
-    address->countrycode != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("countrycode"), jstring_create(address->countrycode))
-                                 : jobject_put(*serviceObject, J_CSTR_TO_JVAL("countrycode"), jstring_create(""));
-
-    address->postcode != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("postcode"), jstring_create(address->postcode))
-                              : jobject_put(*serviceObject, J_CSTR_TO_JVAL("postcode"), jstring_create(""));
-
-    address->area != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("area"), jstring_create(address->area))
-                          : jobject_put(*serviceObject, J_CSTR_TO_JVAL("area"), jstring_create(""));
-
-    address->locality != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("locality"), jstring_create(address->locality))
-                              : jobject_put(*serviceObject, J_CSTR_TO_JVAL("locality"), jstring_create(""));
-
-    address->region != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("region"), jstring_create(address->region))
-                            : jobject_put(*serviceObject, J_CSTR_TO_JVAL("region"), jstring_create(""));
-
-    address->country != NULL ? jobject_put(*serviceObject, J_CSTR_TO_JVAL("country"), jstring_create(address->country))
-                             : jobject_put(*serviceObject, J_CSTR_TO_JVAL("country"), jstring_create(""));
-}
-
-bool LocationService::getNominatiumReverseGeocode(LSHandle *sh, LSMessage *message, void *data) {
-
-#ifdef NOMINATIUM_LBS
-    int ret;
-    jvalue_ref parsedObj = NULL;
-    jvalue_ref jsonSubObject = NULL;
-    Address address;
-    jvalue_ref serviceObject = NULL;
-    LSError mLSError;
-    Position pos;
-    LocationErrorCode errorCode = LOCATION_SUCCESS;
-
-    if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_REVERSE_LOCATION, &parsedObj)) {
-        LS_LOG_ERROR("Schema Error in getReverseLocation");
-        return true;
-    }
-
-    if (!isInternetConnectionAvailable && !isWifiInternetAvailable) {
-        errorCode = LOCATION_DATA_CONNECTION_OFF;
-        goto EXIT;
-    }
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("latitude"), &jsonSubObject)) {
-        jnumber_get_f64(jsonSubObject, &pos.latitude);
-    }
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("longitude"), &jsonSubObject)) {
-        jnumber_get_f64(jsonSubObject, &pos.longitude);
-    }
-
-    LOCATION_ASSERT(pthread_mutex_lock(&lbs_reverse_lock) == 0);
-
-    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), lbsGeocodeKey);
-
-    if (ret == ERROR_NONE) {
-        ret = handler_get_reverse_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), &pos, &address);
-        handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
-
-        if (ret != ERROR_NONE) {
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
-
-        serviceObject = jobject_create();
-
-        if (jis_null(serviceObject)) {
-            errorCode = LOCATION_OUT_OF_MEM;
-            goto EXIT;
-        }
-
-        jobject_put(serviceObject, J_CSTR_TO_JVAL("returnValue"), jboolean_create(true));
-        jobject_put(serviceObject, J_CSTR_TO_JVAL("errorCode"), jnumber_create_i32(LOCATION_SUCCESS));
-
-        getAddressNominatiumData(&serviceObject, &address);
-
-        bool bRetVal = LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&mLSError);
-    } else {
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
-        errorCode = LOCATION_START_FAILURE;
-    }
-
-EXIT:
-    if (!jis_null(parsedObj))
-        j_release(&parsedObj);
-
-    if (errorCode != LOCATION_SUCCESS)
-        LSMessageReplyError(sh, message, errorCode);
-
-    if (!jis_null(serviceObject))
-        j_release(&serviceObject);
-
-#endif
-    return true;
-}
-
-void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos_data, Position *pos) {
+void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **posData, Position *pos) {
     jvalue_ref jsonSubObject = NULL;
     jvalue_ref arrObject = NULL;
     std::string strlat;
@@ -522,39 +418,39 @@ void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos
         strlng = boost::lexical_cast<string>(pos->longitude);
     }
 
-    *pos_data = g_string_new("latlng=");
-    g_string_append(*pos_data, strlat.c_str());
-    g_string_append(*pos_data, ",");
-    g_string_append(*pos_data, strlng.c_str());
+    *posData = g_string_new("latlng=");
+    g_string_append(*posData, strlat.c_str());
+    g_string_append(*posData, ",");
+    g_string_append(*posData, strlng.c_str());
 
     raw_buffer nameBuf;
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("language"), &jsonSubObject)){
         nameBuf = jstring_get(jsonSubObject);
-        g_string_append(*pos_data, "&language=");
-        g_string_append(*pos_data, nameBuf.m_str);
+        g_string_append(*posData, "&language=");
+        g_string_append(*posData, nameBuf.m_str);
         jstring_free_buffer(nameBuf);
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("result_type"), &jsonSubObject)) {
         int size = jarray_size(jsonSubObject);
-        g_string_append(*pos_data,"&result_type=");
+        g_string_append(*posData,"&result_type=");
         LS_LOG_DEBUG("result_type size [%d]",size);
         for (int i = 0; i < size;i++) {
             arrObject = jarray_get(jsonSubObject, i);
             nameBuf = jstring_get(arrObject);
 
             if (i > 0)
-                g_string_append(*pos_data, "|");
+                g_string_append(*posData, "|");
 
-            g_string_append(*pos_data, nameBuf.m_str);
+            g_string_append(*posData, nameBuf.m_str);
             jstring_free_buffer(nameBuf);
         }
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("location_type"), &jsonSubObject)) {
         int size = jarray_size(jsonSubObject);
-        g_string_append(*pos_data,"&location_type=");
+        g_string_append(*posData,"&location_type=");
         LS_LOG_DEBUG("location_type size [%d]",size);
 
         for (int i = 0; i < size; i++) {
@@ -562,9 +458,9 @@ void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos
             nameBuf = jstring_get(arrObject);
 
             if (i > 0)
-                g_string_append(*pos_data, "|");
+                g_string_append(*posData, "|");
 
-            g_string_append(*pos_data, nameBuf.m_str);
+            g_string_append(*posData, nameBuf.m_str);
 
             jstring_free_buffer(nameBuf);
         }
@@ -574,12 +470,12 @@ void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos
 bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void *data)
 {
     printMessageDetails("LUNA-API", message, sh);
-#ifndef NOMINATIUM_LBS
-    int ret;
+    ErrorCodes ret;
     jvalue_ref parsedObj = NULL;
-    GString *pos_data = NULL;
+    GString *posData = NULL;
     Position pos;
     LocationErrorCode errorCode = LOCATION_SUCCESS;
+    GeoLocation geoLocInfo("");
 
     if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_GOOGLE_REVERSE_LOCATION, &parsedObj)) {
         LS_LOG_ERROR("Schema Error in getReverseLocation");
@@ -605,26 +501,19 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
         LS_LOG_INFO("Succeeded to read API keys\n");
     }
 
-    getReverseGeocodeData(&parsedObj, &pos_data, &pos);
-    LOCATION_ASSERT(pthread_mutex_lock(&lbs_reverse_lock) == 0);
-    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), lbsGeocodeKey);
+    getReverseGeocodeData(&parsedObj, &posData, &pos);
+    geoLocInfo = GeoLocation((char *)posData->str);
 
-    if (ret == ERROR_NONE) {
-        if (revGeoCodeReqQueue.empty())
-            ret = handler_get_reverse_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), (char *)pos_data->str, wrapper_rev_geocoding_cb);
-        LS_LOG_DEBUG("handler_get_reverse_google_geo_code %s", (char *)pos_data->str);
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
+    ret = mGoogleWspInterface->getGeocodeImpl()->reverseGeoCode(geoLocInfo,
+                                                                                                        bind(&LocationService::reverseGeocodingCb, this, placeholders::_1, placeholders::_2, placeholders::_3),
+                                                                                                        FALSE,
+                                                                                                        message);
 
-        if (ret != ERROR_NONE) {
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
-        LSMessageRef(message);
-        revGeoCodeReqQueue.push(LunaLbsRequest(message, sh, (char *)pos_data->str));
-    } else {
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_reverse_lock) == 0);
-        errorCode = LOCATION_START_FAILURE;
+    if (ret != ERROR_NONE) {
+        errorCode = LOCATION_UNKNOWN_ERROR;
         goto EXIT;
+    } else {
+        LSMessageRef(message);
     }
 
     /* SUSPEND BLOCKER
@@ -638,142 +527,15 @@ EXIT:
 
     if (errorCode != LOCATION_SUCCESS) {
         LSMessageReplyError(sh, message, errorCode);
-        if (revGeoCodeReqQueue.empty())
-            handler_stop(handler_array[HANDLER_LBS], false);
     }
 
-    if (pos_data != NULL)
-        g_string_free(pos_data, TRUE);
+    if (posData != NULL)
+        g_string_free(posData, TRUE);
 
-    return true;
-#else
-    return getNominatiumReverseGeocode(sh, message, data);
-#endif
-}
-
-void geocodeFreeAddress(Address *addr) {
-
-    if (addr->freeformaddr != NULL)
-        g_free(addr->freeformaddr);
-
-    if (addr->freeform == false) {
-        if (addr->street)
-            g_free(addr->street);
-
-        if (addr->country)
-            g_free(addr->country);
-
-        if (addr->postcode)
-            g_free(addr->postcode);
-
-        if (addr->countrycode)
-            g_free(addr->countrycode);
-
-        if (addr->area)
-            g_free(addr->area);
-
-        if (addr->locality)
-            g_free(addr->locality);
-
-        if (addr->region)
-            g_free(addr->region);
-    }
-}
-
-bool LocationService::getNominatiumGeocode(LSHandle *sh, LSMessage *message, void *data) {
-#ifdef NOMINATIUM_LBS
-    int ret;
-    Address addr = {0};
-    LSError mLSError;
-    Accuracy acc = {0};
-    Position pos;
-    jvalue_ref parsedObj = NULL;
-    jvalue_ref serviceObject = NULL;
-    jvalue_ref jsonSubObject = NULL;
-    int errorCode = LOCATION_SUCCESS;
-
-    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer(JSCHEMA_GET_GEOCODE_LOCATION_1), DOMOPT_NOOPT, NULL);
-
-    if (!input_schema)
-        return false;
-
-    JSchemaInfo schemaInfo;
-    jschema_info_init(&schemaInfo, input_schema, NULL, NULL);
-    parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
-
-    if (jis_null(parsedObj)) {
-        if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_GEOCODE_LOCATION_2, &parsedObj))
-            return true;
-    }
-
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject)) {
-        LS_LOG_DEBUG("value of address %s",jsonSubObject);
-        raw_buffer nameBuf = jstring_get(jsonSubObject);
-        addr.freeformaddr = g_strdup(nameBuf.m_str); // free the memory occupied
-        jstring_free_buffer(nameBuf);
-        addr.freeform = true;
-    }
-    else {
-        LS_LOG_ERROR("Not free form");
-        addr.freeform = false;
-
-        if (location_util_parsejsonAddress(parsedObj, &addr) == false) {
-            LS_LOG_ERROR ("value of no freeform failed");
-            errorCode = LOCATION_INVALID_INPUT;
-            goto EXIT;
-        }
-    }
-
-    LOCATION_ASSERT(pthread_mutex_lock(&lbs_geocode_lock) == 0);
-    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), lbsGeocodeKey);
-
-    if (ret == ERROR_NONE) {
-        LS_LOG_INFO("value of addr.freeformaddr %s", addr.freeformaddr);
-        ret = handler_get_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), &addr, &pos, &acc);
-        handler_stop(handler_array[HANDLER_LBS], HANDLER_LBS, false);
-
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
-
-        if (ret != ERROR_NONE) {
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
-        LS_LOG_INFO("value of lattitude %f longitude %f atitude %f", pos.latitude, pos.longitude, pos.altitude);
-        serviceObject = jobject_create();
-
-        if (jis_null(serviceObject)) {
-            LS_LOG_INFO("value of lattitude..1");
-            errorCode = LOCATION_OUT_OF_MEM;
-            goto EXIT;
-        }
-
-        location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-        jobject_put(serviceObject, J_CSTR_TO_JVAL("latitude"), jnumber_create_f64(pos.latitude));
-        jobject_put(serviceObject, J_CSTR_TO_JVAL("longitude"), jnumber_create_f64(pos.longitude));
-
-        LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
-        j_release(&serviceObject);
-
-    } else {
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
-        errorCode = LOCATION_START_FAILURE;
-        LS_LOG_INFO("value of lattitude..2");
-    }
-
-EXIT:
-    if (errorCode != LOCATION_SUCCESS)
-        LSMessageReplyError(sh, message, errorCode);
-
-    if (!jis_null(parsedObj))
-        j_release(&parsedObj);
-
-    geocodeFreeAddress(&addr);
-    jschema_release(&input_schema);
-#endif
     return true;
 }
 
-void getAddressData(jvalue_ref *parsedObj, GString *address_data) {
+void LocationService::getGeocodeData(jvalue_ref *parsedObj, GString *addressData) {
     jvalue_ref jsonBoundSubObject = NULL;
     jvalue_ref jsonSubObject = NULL;
     jvalue_ref jsonComponetObject = NULL;
@@ -782,42 +544,42 @@ void getAddressData(jvalue_ref *parsedObj, GString *address_data) {
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("components"), &jsonComponetObject)){
 
         if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject))
-            g_string_append(address_data, "&components=");
+            g_string_append(addressData, "&components=");
         else
-            g_string_append(address_data, "components=");
+            g_string_append(addressData, "components=");
 
         if (jobject_get_exists(jsonComponetObject, J_CSTR_TO_BUF("route"), &jsonSubObject)) {
             nameBuf = jstring_get(jsonSubObject);
-            g_string_append(address_data, "route:");
-            g_string_append(address_data, nameBuf.m_str);
+            g_string_append(addressData, "route:");
+            g_string_append(addressData, nameBuf.m_str);
             jstring_free_buffer(nameBuf);
         }
 
         if (jobject_get_exists(jsonComponetObject, J_CSTR_TO_BUF("locality"), &jsonSubObject)) {
             nameBuf = jstring_get(jsonSubObject);
-            g_string_append(address_data, "|locality:");
-            g_string_append(address_data, nameBuf.m_str);
+            g_string_append(addressData, "|locality:");
+            g_string_append(addressData, nameBuf.m_str);
             jstring_free_buffer(nameBuf);
         }
 
         if (jobject_get_exists(jsonComponetObject, J_CSTR_TO_BUF("administrative_area"), &jsonSubObject)) {
             nameBuf = jstring_get(jsonSubObject);
-            g_string_append(address_data, "|administrative_area:");
-            g_string_append(address_data, nameBuf.m_str);
+            g_string_append(addressData, "|administrative_area:");
+            g_string_append(addressData, nameBuf.m_str);
             jstring_free_buffer(nameBuf);
         }
 
         if (jobject_get_exists(jsonComponetObject, J_CSTR_TO_BUF("postal_code"), &jsonSubObject)) {
             nameBuf = jstring_get(jsonSubObject);
-            g_string_append(address_data, "|postal_code:");
-            g_string_append(address_data, nameBuf.m_str);
+            g_string_append(addressData, "|postal_code:");
+            g_string_append(addressData, nameBuf.m_str);
             jstring_free_buffer(nameBuf);
         }
 
         if (jobject_get_exists(jsonComponetObject, J_CSTR_TO_BUF("country"), &jsonSubObject)) {
             nameBuf = jstring_get(jsonSubObject);
-            g_string_append(address_data, "|country:");
-            g_string_append(address_data, nameBuf.m_str);
+            g_string_append(addressData, "|country:");
+            g_string_append(addressData, nameBuf.m_str);
             jstring_free_buffer(nameBuf);
         }
     }
@@ -842,46 +604,44 @@ void getAddressData(jvalue_ref *parsedObj, GString *address_data) {
         std::string strnortheastLon = boost::lexical_cast<string>(northeastLon);
 
         LS_LOG_DEBUG("value of bounds %f,%f,%f",southwestLat, southwestLon, northeastLat);
-        g_string_append(address_data, "&bounds=");
-        g_string_append(address_data, strsouthwestLat.c_str());
-        g_string_append(address_data, ",");
-        g_string_append(address_data, strsouthwestLon.c_str());
-        g_string_append(address_data, "|");
-        g_string_append(address_data, strnortheastLat.c_str());
-        g_string_append(address_data, ",");
-        g_string_append(address_data, strnortheastLon.c_str());
+        g_string_append(addressData, "&bounds=");
+        g_string_append(addressData, strsouthwestLat.c_str());
+        g_string_append(addressData, ",");
+        g_string_append(addressData, strsouthwestLon.c_str());
+        g_string_append(addressData, "|");
+        g_string_append(addressData, strnortheastLat.c_str());
+        g_string_append(addressData, ",");
+        g_string_append(addressData, strnortheastLon.c_str());
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("language"), &jsonSubObject)) {
         nameBuf = jstring_get(jsonSubObject);
-        g_string_append(address_data, "&language=");
-        g_string_append(address_data, nameBuf.m_str);
+        g_string_append(addressData, "&language=");
+        g_string_append(addressData, nameBuf.m_str);
         jstring_free_buffer(nameBuf);
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("region"), &jsonSubObject)) {
         nameBuf = jstring_get(jsonSubObject);
-        g_string_append(address_data, "&region=");
-        g_string_append(address_data, nameBuf.m_str);
+        g_string_append(addressData, "&region=");
+        g_string_append(addressData, nameBuf.m_str);
         jstring_free_buffer(nameBuf);
     }
 
 }
 
-bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data)
-{
+bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message,
+        void *data) {
     printMessageDetails("LUNA-API", message, sh);
-#ifndef NOMINATIUM_LBS
-    int ret;
-    Address addr = {0};
-    bool bRetVal;
     jvalue_ref parsedObj = NULL;
     jvalue_ref jsonSubObject = NULL;
-
-    GString *address_data = NULL;
     int errorCode = LOCATION_SUCCESS;
+    ErrorCodes ret = ERROR_NONE;
+    GString *addressData = NULL;
+    bool bRetVal = false;
+    GeoAddress geoAddressInfo("");
 
-    if (!LSMessageValidateSchema(sh, message, JSCHEMA_GET_GOOGLE_GEOCODE_LOCATION, &parsedObj)) {
+    if (!LSMessageValidateSchema(sh, message,JSCHEMA_GET_GOOGLE_GEOCODE_LOCATION, &parsedObj)) {
         LS_LOG_ERROR("LSMessageValidateSchema");
         return true;
     }
@@ -891,87 +651,59 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message, void 
         goto EXIT;
     }
 
-    if (lbsGeocodeKey == NULL) {
-        LS_LOG_INFO("LBS API key is invalid, re-trying to read ...\n");
-        /*Read again*/
-        getApiKeys(this);
-
-        if (lbsGeocodeKey == NULL) {
-            LS_LOG_ERROR("Failed to read API keys\n");
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
-
-        LS_LOG_INFO("Succeeded to read API keys\n");
-    }
-
-    if ((!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject)) &&
-        (!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("components"),&jsonSubObject))) {
+    if ((!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"),
+            &jsonSubObject))
+            && (!jobject_get_exists(parsedObj, J_CSTR_TO_BUF("components"),
+                    &jsonSubObject))) {
         LS_LOG_ERROR("Schema validation error");
         errorCode = LOCATION_INVALID_INPUT;
         goto EXIT;
     }
 
-    address_data = g_string_new(NULL);
-    bRetVal = jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject);
+    addressData = g_string_new(NULL);
+    bRetVal = jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"),&jsonSubObject);
 
     if (bRetVal == true) {
-        LS_LOG_DEBUG("value of address %s",jsonSubObject);
+        LS_LOG_DEBUG("value of address %s", jsonSubObject);
         raw_buffer nameBuf = jstring_get(jsonSubObject);
         std::string str(nameBuf.m_str);
-        boost::replace_all(str, " ","+");
-        g_string_append(address_data,"address=");
-        g_string_append(address_data, str.c_str());
-        LS_LOG_DEBUG("value of address %s", address_data->str);
+        std::replace(str.begin(), str.end(), ' ', '+');
+        g_string_append(addressData, "address=");
+        g_string_append(addressData, str.c_str());
+        LS_LOG_DEBUG("value of address %s", addressData->str);
         jstring_free_buffer(nameBuf);
-        addr.freeform = true;
     }
 
-    getAddressData(&parsedObj, address_data);
-    LOCATION_ASSERT(pthread_mutex_lock(&lbs_geocode_lock) == 0);
-    ret = handler_start(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), lbsGeocodeKey);
+    getGeocodeData(&parsedObj, addressData);
+
+    geoAddressInfo = GeoAddress(addressData->str);
+
+    ret = mGoogleWspInterface->getGeocodeImpl()->geoCode(geoAddressInfo,
+                                                                                            bind(&LocationService::geocodingCb, this, placeholders::_1, placeholders::_2, placeholders::_3),
+                                                                                            FALSE,
+                                                                                            message);
 
     if (ret == ERROR_NONE) {
-        LS_LOG_INFO("value of addr.freeformaddr %s", addr.freeformaddr);
-        if (geoCodeReqQueue.empty())
-            ret = handler_get_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), address_data->str, wrapper_geocoding_cb);
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
-
-        if (ret != ERROR_NONE) {
-            errorCode = LOCATION_UNKNOWN_ERROR;
-            goto EXIT;
-        }
         LSMessageRef(message);
-        geoCodeReqQueue.push(LunaLbsRequest(message, sh, address_data->str));
     } else {
-        LOCATION_ASSERT(pthread_mutex_unlock(&lbs_geocode_lock) == 0);
-        errorCode = LOCATION_START_FAILURE;
+        errorCode = LOCATION_UNKNOWN_ERROR;
         goto EXIT;
     }
-
-    /* SUSPEND BLOCKER
-    if (m_enableSuspendBlocker)
-        m_lifeCycleMonitor->setWakeLock(true);
-    */
 
 EXIT:
     if (errorCode != LOCATION_SUCCESS) {
         LSMessageReplyError(sh, message, errorCode);
-        if (geoCodeReqQueue.empty())
-            handler_stop(handler_array[HANDLER_LBS], false);
     }
 
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
-    if (address_data != NULL)
-        g_string_free(address_data, TRUE);
+    if (addressData != NULL)
+       g_string_free(addressData, TRUE);
 
     return true;
-#else
-    return getNominatiumGeocode(sh, message, data);
-#endif
 }
+
 
 bool LocationService::getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data)
 {
@@ -1733,7 +1465,7 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
     LOCATION_ASSERT(pthread_mutex_lock(&sat_lock) == 0);
 
     ret = ERROR_NONE;
-    if(suspended_state == false)
+    if (suspended_state == false)
         ret = handler_get_gps_satellite_data(handler_array[HANDLER_GPS], START, wrapper_getGpsSatelliteData_cb);
 
     LOCATION_ASSERT(pthread_mutex_unlock(&sat_lock) == 0);
@@ -2120,7 +1852,7 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
 
     LS_LOG_INFO("handlerName %s", handlerName);
 
-    if(((strcmp(handlerName, GPS) == 0) && (getHandlerStatus(GPS) == false)) ||
+    if (((strcmp(handlerName, GPS) == 0) && (getHandlerStatus(GPS) == false)) ||
        ((strcmp(handlerName, NETWORK) == 0) && (getHandlerStatus(NETWORK) == false))) {
         errorCode = LOCATION_LOCATION_OFF;
         goto EXIT;
@@ -2528,16 +2260,16 @@ int LocationService::getHandlerVal(char *handlerName)
  ********************   Called from handlers********************************************************************
  **************************************************************************************************************/
 
-void LocationService::wrapper_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type)
+void LocationService::geocodingCb(GeoLocation location ,int errCode, LSMessage *message)
 {
-    LS_LOG_DEBUG("wrapper_geocoding_cb");
-    getInstance()->geocoding_reply(response, error);
+    LS_LOG_DEBUG("geocodingCb");
+    geocodingReply(location.toString().c_str(), errCode, message);
 }
 
-void LocationService::wrapper_rev_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type)
+void LocationService::reverseGeocodingCb(GeoAddress address, int errCode, LSMessage *message)
 {
-    LS_LOG_DEBUG("wrapper_rev_geocoding_cb");
-    getInstance()->rev_geocoding_reply(response, error);
+    LS_LOG_DEBUG("reverseGeocodingCb");
+    geocodingReply(address.toString().c_str(), errCode, message);
 }
 
 /**
@@ -3178,16 +2910,14 @@ EXIT:
     }
 }
 
-void LocationService::geocoding_reply(char *response, int error)
+void LocationService::geocodingReply(const char *response, int error, LSMessage *message)
 {
     const char *retString = NULL;
     jvalue_ref jval = NULL;
     jdomparser_ref parser = NULL;
     jvalue_ref serviceObject = NULL;
     LSError lsError;
-    LunaLbsRequest request;
     bool bRetVal;
-
 
     if (NULL == response) {
         retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
@@ -3209,7 +2939,13 @@ void LocationService::geocoding_reply(char *response, int error)
         break;
         default:
         {
-            LS_LOG_INFO("geocoding_reply: unknown error id received \n");
+            LS_LOG_INFO("geocodingReply: unknown error id received \n");
+            goto EXIT;
+        }
+        break;
+        case ERROR_NONE:
+        {
+            LS_LOG_INFO("geocodingReply: successful \n");
         }
         break;
     }
@@ -3242,135 +2978,13 @@ void LocationService::geocoding_reply(char *response, int error)
     retString = jvalue_tostring_simple(serviceObject);
 
 EXIT:
-    if (!geoCodeReqQueue.empty()) {
-        request = geoCodeReqQueue.front();
-        geoCodeReqQueue.pop();
 
-        bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&lsError);
+    bRetVal = LSMessageReply(mServiceHandle, message, retString, &lsError);
 
-       LSMessageUnref(request.getMessage());
-    }
+    if (bRetVal == false)
+        LSErrorPrintAndFree(&lsError);
 
-    if (!geoCodeReqQueue.empty()) {
-        request = geoCodeReqQueue.front();
-        bRetVal = handler_get_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), request.getRequestString().c_str(), wrapper_geocoding_cb);
-        if (bRetVal != ERROR_NONE) {
-            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-            do {
-                request = geoCodeReqQueue.front();
-                geoCodeReqQueue.pop();
-                bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
-                if (bRetVal == false)
-                    LSErrorPrintAndFree(&lsError);
-                LSMessageUnref(request.getMessage());
-            } while(!geoCodeReqQueue.empty());
-        }
-    }
-    if (geoCodeReqQueue.empty()) {
-        handler_stop(handler_array[HANDLER_LBS], false);
-    }
-    if (!jis_null(serviceObject))
-        j_release(&serviceObject);
-
-    if (parser != NULL)
-        jdomparser_release(&parser);
-}
-
-void LocationService::rev_geocoding_reply(char *response, int error)
-{
-    const char *retString = NULL;
-    jvalue_ref jval = NULL;
-    jdomparser_ref parser = NULL;
-    jvalue_ref serviceObject = NULL;
-    LSError lsError;
-    LunaLbsRequest request;
-    bool bRetVal;
-
-    if (NULL==response) {
-        retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-        goto EXIT;
-    }
-
-    switch (error) {
-        case ERROR_NOT_AVAILABLE:
-        {
-            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-            goto EXIT;
-        }
-        break;
-        case ERROR_NETWORK_ERROR:
-        {
-            retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
-            goto EXIT;
-        }
-        break;
-        default:
-        {
-            LS_LOG_INFO("rev_geocoding_reply: unknown error id received \n");
-        }
-        break;
-    }
-
-    serviceObject = jobject_create();
-
-    if (jis_null(serviceObject)) {
-        LS_LOG_INFO("value of lattitude..1");
-        retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
-        goto EXIT;
-    }
-
-    location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
-    JSchemaInfo schemaInfo;
-    jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
-    //create parser
-    parser = jdomparser_create(&schemaInfo, 0);
-
-    if (!parser) {
-        retString = LSMessageGetErrorReply(LOCATION_OUT_OF_MEM);
-        goto EXIT;
-    }
-
-    if (!jdomparser_feed(parser, response, strlen(response))) {
-        retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-        goto EXIT;
-    }
-
-    jval = jdomparser_get_result(parser);
-    jobject_put(serviceObject, J_CSTR_TO_JVAL("response"), jval);
-    retString = jvalue_tostring_simple(serviceObject);
-
-EXIT:
-    if (!revGeoCodeReqQueue.empty()) {
-        request = revGeoCodeReqQueue.front();
-        revGeoCodeReqQueue.pop();
-
-        bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
-        if (bRetVal == false)
-            LSErrorPrintAndFree(&lsError);
-
-       LSMessageUnref(request.getMessage());
-    }
-
-    if (!revGeoCodeReqQueue.empty()) {
-        request = revGeoCodeReqQueue.front();
-        bRetVal = handler_get_reverse_google_geo_code(HANDLER_INTERFACE(handler_array[HANDLER_LBS]), request.getRequestString().c_str(), wrapper_rev_geocoding_cb);
-        if (bRetVal != ERROR_NONE) {
-            retString = LSMessageGetErrorReply(LOCATION_UNKNOWN_ERROR);
-            do {
-                request = revGeoCodeReqQueue.front();
-                revGeoCodeReqQueue.pop();
-                bRetVal = LSMessageReply(request.getHandle(), request.getMessage(), retString, &lsError);
-                if (bRetVal == false)
-                    LSErrorPrintAndFree(&lsError);
-                LSMessageUnref(request.getMessage());
-            } while (!revGeoCodeReqQueue.empty());
-        }
-    }
-    if (revGeoCodeReqQueue.empty()) {
-        handler_stop(handler_array[HANDLER_LBS], false);
-    }
+    LSMessageUnref(message);
 
     if (!jis_null(serviceObject))
         j_release(&serviceObject);
@@ -3448,7 +3062,7 @@ bool LocationService::cancelSubscription(LSHandle *sh, LSMessage *message, void 
         getLocRequestStopSubscription(sh, message);
         LSMessageRemoveReqList(message);
 
-    } else if(!isSubscListFilled(message, key, true)) {
+    } else if (!isSubscListFilled(message, key, true)) {
             stopSubcription(sh, key);
     }
 
@@ -3847,7 +3461,7 @@ bool LocationService::LSMessageReplyLocUpdateCase(LSMessage *msg,
             m_lifeCycleMonitor->setWakeLock(false);
 
         /*remove from request list*/
-        if(!LSMessageRemoveReqList(msg))
+        if (!LSMessageRemoveReqList(msg))
             LS_LOG_ERROR("Message is not found in the LocationUpdateRequestPtr");
     } else {
         removeTimer(msg);
@@ -3912,7 +3526,7 @@ bool LocationService::LSMessageRemoveReqList(LSMessage *message)
     if (it != m_locUpdate_req_table.end()) {
         if ((it->second).get()->getMessage() == message) {
             timerID = (it->second).get()->getTimerID();
-            if(timerID != 0)
+            if (timerID != 0)
                 timerRemoved = g_source_remove (timerID);
 
             timerdata = (it->second).get()->getTimerData();

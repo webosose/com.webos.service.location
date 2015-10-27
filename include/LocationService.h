@@ -38,9 +38,10 @@
 #include <sys/time.h>
 #include <LifeCycleMonitor.h>
 #include <loc_logger.h>
-#include <LunaLbsRequest.h>
-#include <queue>
 #include <unordered_map>
+#include <LBSEngine.h>
+#include <NetworkRequestManager.h>
+
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -55,6 +56,7 @@
 #define MAX_GETSTATE_PARAM 32
 #define TIME_SCALE_SEC 1000
 #define LOCATION_SERVICE_NAME           "com.webos.service.location"
+#define GOOGLE_PROVIDER_ID "google"
 
 #define GEOFENCE_ENTERED                    0
 #define GEOFENCE_EXITED                     1
@@ -216,8 +218,7 @@ public:
 
     bool isLocationRequestEmpty() {
         bool ret = !(handler_get_handler_status(handler_array[HANDLER_NETWORK]) ||
-                     handler_get_handler_status(handler_array[HANDLER_GPS]) ||
-                     handler_get_handler_status(handler_array[HANDLER_LBS]));
+                     handler_get_handler_status(handler_array[HANDLER_GPS]));
 
         LS_LOG_INFO("isLocationRequestEmpty ret %d\n", ret);
 
@@ -225,11 +226,11 @@ public:
     }
 
     // /**Callback called from Handlers********/
+
+    void geocodingCb(GeoLocation location ,int errCode, LSMessage *message);
+    void reverseGeocodingCb(GeoAddress address, int errCode, LSMessage *message);
+
     static void wrapper_getNmeaData_cb(gboolean enable_cb, int64_t timestamp, char *nmea, int length, gpointer privateIns);
-    static void wrapper_rev_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type);
-    static void wrapper_geocoding_cb(gboolean enable_cb, char *response, int error, gpointer userdata, int type);
-    static void wrappergetReverseLocation_cb(gboolean enable_cb, Address *address, gpointer privateIns);
-    static void wrapper_getGeoCodeLocation_cb(gboolean enable_cb, Position *position, gpointer privateIns);
     static void wrapper_getGpsSatelliteData_cb(gboolean enable_cb, Satellite *satellite, gpointer privateIns);
     static void wrapper_sendExtraCommand_cb(gboolean enable_cb, int command, gpointer privateIns);
     static void wrapper_gpsStatus_cb(gboolean enable_cb, int state, gpointer data);
@@ -512,6 +513,9 @@ private:
     pthread_mutex_t geofence_resume_lock;
     //mapped with HandlerTypes
     Handler *handler_array[HANDLER_MAX];
+    WSPInterface* mGoogleWspInterface;
+    NetworkRequestManager* mNetReqMgr;
+    LBSEngine* mLbsEng;
 
     static const char* geofenceStateText[GEOFENCE_MAXIMUM];
 
@@ -522,17 +526,12 @@ private:
     char *lbsGeocodeKey;
 
     data_logger_t *location_request_logger;
-    std::queue<LunaLbsRequest> geoCodeReqQueue;
-    std::queue<LunaLbsRequest> revGeoCodeReqQueue;
 
     LocationService();
     bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
     bool getCurrentPosition(LSHandle *sh, LSMessage *message, void *data);
     bool getReverseLocation(LSHandle *sh, LSMessage *message, void *data);
     bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
-    bool get_nominatium_geocode(LSHandle *sh, LSMessage *message, void *data);
-    bool get_nominatium_reverse_geocode(LSHandle *sh, LSMessage *message, void *data);
-    void geocodeFreeAddress(Address *addr);
     bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
     bool getGpsStatus(LSHandle *sh, LSMessage *message, void *data);
     bool getState(LSHandle *sh, LSMessage *message, void *data);
@@ -555,8 +554,7 @@ private:
     gboolean _TimerCallbackLocationUpdate (void *data);
     bool reqLocationToHandler(int handler_type, unsigned char *reqHandlerType, int subHandlerType, LSHandle *sh, const char *key);
     bool getCachedDatafromHandler(Handler *hdl, Position *pos, Accuracy *acc);
-    void geocoding_reply(char *response, int error);
-    void rev_geocoding_reply(char *response, int error);
+    void geocodingReply(const char *response, int error, LSMessage *message);
     void get_nmea_reply(long long timestamp, char *data, int length);
     void getGpsSatelliteData_reply(Satellite *);
     void getGpsStatus_reply(int);
@@ -573,10 +571,8 @@ private:
     Position comparePositionTimeStamps(Position pos1, Position pos2, Accuracy acc1, Accuracy acc2, Accuracy *retAcc);
     int getConnectionErrorCode();
     void replyHandlerState(HandlerTypes handler, bool state, char *subscription_key, jvalue_ref *serviceObject, jvalue_ref *getAllLocationHandlersReplyObject);
-    void getAddressNominatiumData(jvalue_ref *serviceObject, Address *address);
-    bool getNominatiumReverseGeocode(LSHandle *sh, LSMessage *message, void *data);
     void getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos_data, Position *pos);
-    bool getNominatiumGeocode(LSHandle *sh, LSMessage *message, void *data);
+    void getGeocodeData(jvalue_ref *parsedObj, GString *addressData);
     void printMessageDetails(const char *usage, LSMessage *msg, LSHandle *sh);
     bool isListFilled(LSHandle *sh, LSMessage *message, const char *key, bool cancelCase);
     void replyErrorToGpsNwReq(HandlerTypes handler);

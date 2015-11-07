@@ -8,7 +8,6 @@
 #ifndef SERVICEAGENT_H_
 #define SERVICEAGENT_H_
 
-#include <Handler_Interface.h>
 #include <Location.h>
 
 #define REQ_HANDLER_TYPE(type) (1u << type)

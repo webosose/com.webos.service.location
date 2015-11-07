@@ -13,6 +13,7 @@
 
 #if !defined(_GEOCODEINTERFACE_H)
 #define _GEOCODEINTERFACE_H
+
 #include <iostream>
 #include <GeoLocation.h>
 #include <GeoAddress.h>
@@ -21,22 +22,26 @@
 #include <loc_log.h>
 #include <functional>
 
-typedef  std::function <void (GeoLocation, int, LSMessage*)> GeoCodeCb;
-typedef  std::function <void (GeoAddress, int, LSMessage*)> ReverseGeoCodeCb;
+typedef std::function<void(GeoLocation, int, LSMessage *)> GeoCodeCb;
+typedef std::function<void(GeoAddress, int, LSMessage *)> ReverseGeoCodeCb;
 
 class GeoCodeInterface {
 public:
 
     GeoCodeInterface() {
     }
+
     virtual ~GeoCodeInterface() {
 
     }
-    virtual ErrorCodes geoCode(GeoAddress address ,GeoCodeCb geocodeCallback ,bool isSync, LSMessage *message) {
+
+    virtual ErrorCodes geoCode(GeoAddress address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message) {
         LS_LOG_ERROR("No support for geocode");
-        return  ERROR_NOT_IMPLEMENTED;
+        return ERROR_NOT_IMPLEMENTED;
     }
-    virtual ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGecodeCallback, bool isSync, LSMessage *message) {
+
+    virtual ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGecodeCallback, bool isSync,
+                                      LSMessage *message) {
         LS_LOG_ERROR("No support for reverseGeoCode");
         return ERROR_NOT_IMPLEMENTED;
     }

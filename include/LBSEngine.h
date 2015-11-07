@@ -13,6 +13,7 @@
 
 #if !defined(_LBSENGINE_H)
 #define _LBSENGINE_H
+
 #include <string>
 #include <map>
 #include <WSPInterface.h>
@@ -22,17 +23,21 @@
 class LBSEngine {
 
 public:
-    typedef std::map<std::string, WSPInterface* > WspProviderMap;
+    typedef std::map<std::string, WSPInterface *> WspProviderMap;
+
     static LBSEngine *getInstance() {
         static LBSEngine lbsObject;
         return &lbsObject;
     }
-    WSPInterface* getWebServiceProvider(const std::string provideId);
-    bool registerWebServiceProvider(const std::string provideId,  WSPInterface* wspInterface);
-    void unregisterWebServiceProvider(const std::string provideId);
+
+    WSPInterface *getWebServiceProvider(const std::string &provideId);
+
+    bool registerWebServiceProvider(const std::string &provideId, WSPInterface *wspInterface);
+
+    void unregisterWebServiceProvider(const std::string &provideId);
+
     virtual ~LBSEngine() {
         LS_LOG_DEBUG("Dtor of LBSEngine");
-
         mWspProviderMap.clear();
     }
 
@@ -41,8 +46,10 @@ private:
     LBSEngine() {
         LS_LOG_DEBUG("Ctor of LBSEngine");
     }
-    LBSEngine(const LBSEngine& rhs);
-    LBSEngine& operator=(const LBSEngine& rhs);
+
+    LBSEngine(const LBSEngine &rhs) = delete;
+
+    LBSEngine &operator=(const LBSEngine &rhs) = delete;
 
 private:
 

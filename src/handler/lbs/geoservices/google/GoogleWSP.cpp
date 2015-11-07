@@ -16,9 +16,11 @@
 
 #define GOOGLEWSPNAME  "google"
 
-bool GoogleWSP::mRegistered =  LBSEngine::getInstance()->registerWebServiceProvider(GOOGLEWSPNAME, new(std::nothrow) GoogleWSP(GOOGLEWSPNAME));
+bool GoogleWSP::mRegistered = LBSEngine::getInstance()->registerWebServiceProvider(std::string(GOOGLEWSPNAME),
+                                                                                   new(std::nothrow) GoogleWSP(
+                                                                                           GOOGLEWSPNAME));
 
-GeoCodeInterface* GoogleWSP::getGeocodeImpl() {
+GeoCodeInterface *GoogleWSP::getGeocodeImpl() {
     static GoogleGeoImpl geoCodeImpl;
     return &geoCodeImpl;
 }

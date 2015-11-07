@@ -17,9 +17,8 @@
 //class HttpReqTask;
 /*This interface is necessary to be implemented by teh clients of HTTPEngine*/
 
-class HttpInterface
-{
-    public:
+class HttpInterface {
+public:
     virtual void handleResponse(HttpReqTask *task) = 0;
 
 };

@@ -14,8 +14,7 @@
 #define __NETWORK_MANAGER_DEFINES__
 
 
-namespace Network_Defines
-{
+namespace Network_Defines {
     enum {
         ACTIVE = 0,
         INACTIVE,

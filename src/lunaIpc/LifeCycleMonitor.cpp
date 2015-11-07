@@ -11,17 +11,14 @@
 #define SUSPEND_MONITOR_CLIENT_NAME     "location-suspend"
 
 
-static bool dummyCallback(LSHandle* sh, LSMessage* message, void* ctx)
-{
+static bool dummyCallback(LSHandle *sh, LSMessage *message, void *ctx) {
     LS_LOG_INFO("%s\n", LSMessageGetPayload(message));
 
     return true;
 }
 
 
-
-LifeCycleMonitor::LifeCycleMonitor()
-{
+LifeCycleMonitor::LifeCycleMonitor() {
     m_suspendService = NULL;
     m_suspendMonitorId = NULL;
     m_registeredWakeLock = false;
@@ -29,14 +26,12 @@ LifeCycleMonitor::LifeCycleMonitor()
     m_refWakeLock = 0;
 }
 
-LifeCycleMonitor::~LifeCycleMonitor()
-{
+LifeCycleMonitor::~LifeCycleMonitor() {
     setWakeLock(false, true);
     g_free(m_suspendMonitorId);
 }
 
-bool LifeCycleMonitor::registerSuspendMonitor(LSHandle* service)
-{
+bool LifeCycleMonitor::registerSuspendMonitor(LSHandle *service) {
     bool result;
     LSError lsErr;
 
@@ -62,8 +57,7 @@ bool LifeCycleMonitor::registerSuspendMonitor(LSHandle* service)
     return true;
 }
 
-void LifeCycleMonitor::setWakeLock(bool set, bool force)
-{
+void LifeCycleMonitor::setWakeLock(bool set, bool force) {
     char payload[256];
 
     if (!m_registeredWakeLock) {
@@ -89,7 +83,7 @@ void LifeCycleMonitor::setWakeLock(bool set, bool force)
         return;
 
     memset(payload, 0, 256);
-    snprintf(payload, 256, "{\"clientId\":\"%s\",\"isWakeup\":%s}", m_suspendMonitorId, (set ? "true":"false"));
+    snprintf(payload, 256, "{\"clientId\":\"%s\",\"isWakeup\":%s}", m_suspendMonitorId, (set ? "true" : "false"));
 
     if (callService(m_suspendService,
                     NULL,
@@ -101,11 +95,10 @@ void LifeCycleMonitor::setWakeLock(bool set, bool force)
     }
 }
 
-bool LifeCycleMonitor::callService(LSHandle* service,
+bool LifeCycleMonitor::callService(LSHandle *service,
                                    LSFilterFunc callback,
-                                   const char* url,
-                                   const char* payload)
-{
+                                   const char *url,
+                                   const char *payload) {
     bool result;
     LSError lsErr;
 
@@ -121,12 +114,11 @@ bool LifeCycleMonitor::callService(LSHandle* service,
     return result;
 }
 
-bool LifeCycleMonitor::cbPowerdUp(LSHandle* sh, const char *serviceName, bool connected, void* ctx)
-{
-    LifeCycleMonitor* monitor = NULL;
+bool LifeCycleMonitor::cbPowerdUp(LSHandle *sh, const char *serviceName, bool connected, void *ctx) {
+    LifeCycleMonitor *monitor = NULL;
     char payload[256];
 
-    monitor = static_cast<LifeCycleMonitor*>(ctx);
+    monitor = static_cast<LifeCycleMonitor *>(ctx);
     if (!monitor)
         return true;
 
@@ -151,9 +143,8 @@ bool LifeCycleMonitor::cbPowerdUp(LSHandle* sh, const char *serviceName, bool co
     return true;
 }
 
-bool LifeCycleMonitor::cbIdentify(LSHandle* sh, LSMessage* message, void* ctx)
-{
-    LifeCycleMonitor* monitor = NULL;
+bool LifeCycleMonitor::cbIdentify(LSHandle *sh, LSMessage *message, void *ctx) {
+    LifeCycleMonitor *monitor = NULL;
     JSchemaInfo schemaInfo;
     jvalue_ref parsed_obj = NULL;
     jvalue_ref obj = NULL;
@@ -161,7 +152,7 @@ bool LifeCycleMonitor::cbIdentify(LSHandle* sh, LSMessage* message, void* ctx)
     raw_buffer clientId;
     char payload[256];
 
-    monitor = static_cast<LifeCycleMonitor*>(ctx);
+    monitor = static_cast<LifeCycleMonitor *>(ctx);
     if (!monitor)
         return true;
 
@@ -209,15 +200,14 @@ bool LifeCycleMonitor::cbIdentify(LSHandle* sh, LSMessage* message, void* ctx)
     return true;
 }
 
-bool LifeCycleMonitor::cbRegisterWakeLock(LSHandle* sh, LSMessage* message, void* ctx)
-{
-    LifeCycleMonitor* monitor = NULL;
+bool LifeCycleMonitor::cbRegisterWakeLock(LSHandle *sh, LSMessage *message, void *ctx) {
+    LifeCycleMonitor *monitor = NULL;
     JSchemaInfo schemaInfo;
     jvalue_ref parsed_obj = NULL;
     jvalue_ref obj = NULL;
     bool bReturnValue = false;
 
-    monitor = static_cast<LifeCycleMonitor*>(ctx);
+    monitor = static_cast<LifeCycleMonitor *>(ctx);
     if (!monitor)
         return true;
 
@@ -239,7 +229,7 @@ bool LifeCycleMonitor::cbRegisterWakeLock(LSHandle* sh, LSMessage* message, void
 
     LS_LOG_ERROR("Failed to register wake lock\n");
 
-EXIT:
+    EXIT:
     j_release(&parsed_obj);
 
     return true;

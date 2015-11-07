@@ -17,6 +17,8 @@
 /*
  * Common Error codes of Location Framework
  */
+//get rid of  LocationError_t later on
+typedef uint32_t LocationError_t;
 typedef enum {
     ERROR_NONE = 0,
     ERROR_NOT_IMPLEMENTED,
@@ -31,4 +33,18 @@ typedef enum {
     ERROR_LICENSE_KEY_INVALID,
     ERROR_MUTLITHREAD
 } ErrorCodes;
+
+enum {
+    ERROR_NETWORK_NOT_FOUND = 0,
+    ERROR_NO_MEMORY,
+    ERROR_NO_RESPONSE,
+    ERROR_NO_DATA
+};
+
+    typedef enum {
+        REQUEST_NONE = 0,
+        REQUEST_PROGRESS,
+        REQUEST_COMPLETED
+    } request_state_cellid_type;
+
 #endif /* LOCATION_ERRORS_H_ */

@@ -7,12 +7,12 @@
  * Author: rajeshgopu.iv
  */
 
+#include <glib.h>
 #include <stdlib.h>
-#include <string.h>
 #include <Position.h>
 
-Satellite *satellite_create(guint visible_satellites_count)
-{
+
+Satellite *satellite_create(guint visible_satellites_count) {
     Satellite *satellite = g_slice_new0(Satellite);
     g_return_val_if_fail(satellite, NULL);
 
@@ -22,8 +22,7 @@ Satellite *satellite_create(guint visible_satellites_count)
     return satellite;
 }
 
-static void update_satellite_used_in_fix_count(Satellite *satellite)
-{
+static void update_satellite_used_in_fix_count(Satellite *satellite) {
     g_return_if_fail(satellite);
 
     satellite->num_satellite_used = 0;
@@ -36,8 +35,7 @@ static void update_satellite_used_in_fix_count(Satellite *satellite)
 }
 
 int set_satellite_details(Satellite *satellite, gint index, gdouble snr, gint prn, gdouble elevation, gdouble azimuth,
-                          gboolean used, gboolean hasalmanac, gboolean hasephemeris)
-{
+                          gboolean used, gboolean hasalmanac, gboolean hasephemeris) {
     g_return_val_if_fail(satellite, FALSE);
     g_return_val_if_fail(satellite->sat_used, FALSE);
 
@@ -53,8 +51,7 @@ int set_satellite_details(Satellite *satellite, gint index, gdouble snr, gint pr
     return TRUE;
 }
 
-void satellite_free(Satellite *satellite)
-{
+void satellite_free(Satellite *satellite) {
     g_return_if_fail(satellite);
 
     g_free(satellite->sat_used);

@@ -15,11 +15,12 @@
 #include <cmath>
 
 GeoLocation::GeoLocation() :
-        mLatitude(0), mLongitude(0), mAltitude(0) {
+        mLatitude(0.0), mLongitude(0.0), mAltitude(0.0), mHorAccuracy(0.0),
+        mTimeStamp(    0.0), mDirection(0.0), mClimb(0.0), mSpeed(0.0), mVertAccuracy(    0.0) {
 
 }
 GeoLocation::GeoLocation(std::string slocation) :
-        mLatitude(0), mLongitude(0), mAltitude(0) {
+        mLatitude(0), mLongitude(0), mAltitude(0), mHorAccuracy(0), mVertAccuracy(0) {
     this->mStrLocation = slocation;
 }
 bool GeoLocation::operator==(const GeoLocation &location) const {
@@ -30,35 +31,74 @@ bool GeoLocation::operator==(const GeoLocation &location) const {
 
     return (latitudeEq && longitudeEq && altitudeEq);
 }
+
+GeoLocation::GeoLocation(double latitude, double longitude, double altitude, double accuracy,
+                                             double timestamp, double direction, double climb, double speed, double vertAcc) :
+        mLatitude(latitude), mLongitude(longitude), mAltitude(altitude), mHorAccuracy(accuracy),
+     mTimeStamp(timestamp), mDirection(direction), mClimb(climb), mSpeed(speed), mVertAccuracy(vertAcc) {
+
+}
+
 GeoLocation::~GeoLocation() {
 }
 
 double GeoLocation::getLatitude() const {
-    return this->mLatitude;
+    return mLatitude;
 }
 
 double GeoLocation::getLongitude() const {
-    return this->mLongitude;
+    return mLongitude;
 }
 std::string GeoLocation::toString() const {
-    return this->mStrLocation;
+    return mStrLocation;
 }
 double GeoLocation::getAltitude() const {
-    return this->mAltitude;
+    return mAltitude;
+}
+
+double GeoLocation::getTimeStamp() const  {
+    return mTimeStamp;
+}
+
+double GeoLocation::getSpeed() const  {
+    return mSpeed;
+}
+
+double GeoLocation::getDirection() const  {
+    return mDirection;
+}
+
+double GeoLocation::getClimb() const  {
+    return mClimb;
+}
+
+double GeoLocation::getVerticalAccuracy() const  {
+    return mVertAccuracy;
+}
+
+double GeoLocation::getHorizontalAccuracy() const  {
+    return mHorAccuracy;
 }
 
 void GeoLocation::setLatitude(double latitude) {
-    this->mLatitude = latitude;
+    mLatitude = latitude;
 }
 
 void GeoLocation::setLongitude(double longitude) {
-    this->mLongitude = longitude;
+    mLongitude = longitude;
 }
 
 void GeoLocation::setAltitude(double altitude) {
-    this->mAltitude = altitude;
+    mAltitude = altitude;
 }
 
+void GeoLocation::setHorizontalAccuracy(double horAccuracy) {
+    mHorAccuracy = horAccuracy;
+}
+
+void GeoLocation::setVerticalAccuracy(double vertAccuracy) {
+    mVertAccuracy = vertAccuracy;
+}
 void GeoLocation::printLocation() {
     LS_LOG_DEBUG("-->POSITION-INFO<---");
     LS_LOG_DEBUG("mProviderId    => %s", getProviderId().c_str());

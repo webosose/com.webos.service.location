@@ -21,13 +21,10 @@
  * Sl No Modified by  Date  Version Description
  *
  **********************************************************/
-#include <ConnectionStateObserver.h>
-#include <iostream>
-#include <set>
-#include <algorithm>
-#include <string>
-#include <boost/foreach.hpp>
+#include "ConnectionStateObserver.h"
+#include <loc_log.h>
 #include <JsonUtility.h>
+#include <algorithm>
 
 /*
  * JSON SCHEMA: _suspended_cb ()
@@ -42,73 +39,62 @@
     REQUIRED_1(resumetype))
 
 
-
-void ConnectionStateObserver::RegisterListener(IConnectivityListener *l)
-{
+void ConnectionStateObserver::RegisterListener(IConnectivityListener *l) {
     if (l == NULL)
         return;
 
     m_listeners.insert(l);
 }
 
-void ConnectionStateObserver::UnregisterListener(IConnectivityListener *l)
-{
+void ConnectionStateObserver::UnregisterListener(IConnectivityListener *l) {
     if (l == NULL)
         return;
 
-    std::set<IConnectivityListener *>::const_iterator iter = m_listeners.find(l);
+    if (!m_listeners.erase(l))
+         LS_LOG_DEBUG("Key not present listeners");
 
-    if (iter != m_listeners.end()) {
-        m_listeners.erase(iter);
-    } else {
-        LS_LOG_DEBUG("Could not unregister the specified listener object as it is not registered.\n");
-    }
 }
 
-void ConnectionStateObserver::init(LSHandle *ConnHandle)
-{
+void ConnectionStateObserver::init(LSHandle *ConnHandle) {
     LSError lserror;
     LSErrorInit(&lserror);
     bool result;
 
-    LS_LOG_INFO("init\n");
+    LS_LOG_DEBUG("init");
 
     if (ConnHandle == NULL)
         return;
 
     //Register for status of wifi,wan,telephony service
-    result =  LSRegisterServerStatusEx(ConnHandle,
-                                       WIFI_SERVICE,
-                                       ConnectionStateObserver::wifi_service_status_cb,
-                                       this,
-                                       &m_wifi_cookie,
-                                       &lserror);
-    if (!result)
-    {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+    result = LSRegisterServerStatusEx(ConnHandle,
+                                      WIFI_SERVICE,
+                                      ConnectionStateObserver::wifi_service_status_cb,
+                                      this,
+                                      &m_wifi_cookie,
+                                      &lserror);
+    if (!result) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
-    result =  LSRegisterServerStatusEx(ConnHandle,
-                                       WAN_SERVICE,
-                                       ConnectionStateObserver::wan_service_status_cb,
-                                       this,
-                                       &m_wan_cookie,
-                                       &lserror);
-    if (!result)
-    {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+    result = LSRegisterServerStatusEx(ConnHandle,
+                                      WAN_SERVICE,
+                                      ConnectionStateObserver::wan_service_status_cb,
+                                      this,
+                                      &m_wan_cookie,
+                                      &lserror);
+    if (!result) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
-    result =  LSRegisterServerStatusEx(ConnHandle,
-                                       TELEPHONY_SERVICE,
-                                       ConnectionStateObserver::tel_service_status_cb,
-                                       this,
-                                       &m_telephony_cookie,
-                                       &lserror);
-    if (!result)
-    {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+    result = LSRegisterServerStatusEx(ConnHandle,
+                                      TELEPHONY_SERVICE,
+                                      ConnectionStateObserver::tel_service_status_cb,
+                                      this,
+                                      &m_telephony_cookie,
+                                      &lserror);
+    if (!result) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 
     result = LSCall(ConnHandle,
@@ -119,8 +105,8 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
                     NULL,
                     &lserror);
     if (!result) {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 
     result = LSCall(ConnHandle,
@@ -131,17 +117,16 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle)
                     NULL,
                     &lserror);
     if (!result) {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 }
 
-bool ConnectionStateObserver::_suspended_cb(LSHandle* sh, LSMessage* msg)
-{
+bool ConnectionStateObserver::_suspended_cb(LSHandle *sh, LSMessage *msg) {
     jvalue_ref parsedObj = NULL;
     JSchemaInfo schemaInfo;
 
-    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer(JSCHEMA_SIGNAL_SUSPEND), DOMOPT_NOOPT, NULL);
+    jschema_ref input_schema = jschema_parse(j_cstr_to_buffer(JSCHEMA_SIGNAL_SUSPEND), DOMOPT_NOOPT, NULL);
     if (!input_schema)
         return true;
 
@@ -161,14 +146,13 @@ bool ConnectionStateObserver::_suspended_cb(LSHandle* sh, LSMessage* msg)
     return true;
 }
 
-bool ConnectionStateObserver::_resume_cb(LSHandle* sh, LSMessage* msg)
-{
+bool ConnectionStateObserver::_resume_cb(LSHandle *sh, LSMessage *msg) {
     int resumetype;
     jvalue_ref jsonSubObj = NULL;
     jvalue_ref parsedObj = NULL;
     JSchemaInfo schemaInfo;
 
-    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer(JSCHEMA_SIGNAL_RESUME), DOMOPT_NOOPT, NULL);
+    jschema_ref input_schema = jschema_parse(j_cstr_to_buffer(JSCHEMA_SIGNAL_RESUME), DOMOPT_NOOPT, NULL);
     if (!input_schema)
         return true;
 
@@ -195,74 +179,74 @@ bool ConnectionStateObserver::_resume_cb(LSHandle* sh, LSMessage* msg)
 
 }
 
-void ConnectionStateObserver::finalize(LSHandle *ConnHandle)
-{
+void ConnectionStateObserver::finalize(LSHandle *ConnHandle) {
     LSError lserror;
     LSErrorInit(&lserror);
     bool result;
 
     result = LSCancelServerStatus(ConnHandle, m_telephony_cookie, &lserror);
 
-    if (!result)
-    {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+    if (!result) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 
     result = LSCancelServerStatus(ConnHandle, m_wifi_cookie, &lserror);
 
-    if (!result)
-    {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+    if (!result) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 
     result = LSCancelServerStatus(ConnHandle, m_wan_cookie, &lserror);
 
-    if (!result)
-    {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+    if (!result) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 }
 
-void ConnectionStateObserver::Notify_WifiStateChange(bool WifiState)
-{
-    BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
-        l->Handle_WifiNotification(WifiState);
-    }
+void ConnectionStateObserver::Notify_WifiStateChange(bool WifiState) {
+    std::for_each(m_listeners.begin(), m_listeners.end(),
+                  [ & ] (IConnectivityListener *l )  {
+                     l->Handle_WifiNotification(WifiState);
+                        });
     LS_LOG_DEBUG("Notify_WifiStateChange\n");
 }
-void ConnectionStateObserver::Notify_WifiInternetStateChange(bool WifiInternetState)
-{
-    BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
-        l->Handle_WifiInternetNotification(WifiInternetState);
-    }
+
+void ConnectionStateObserver::Notify_WifiInternetStateChange(bool WifiInternetState) {
+    std::for_each(m_listeners.begin(), m_listeners.end(),
+           [ & ] (IConnectivityListener *l )  {
+                    l->Handle_WifiInternetNotification(WifiInternetState);
+                });
     LS_LOG_DEBUG("Notify_WifiInternetStateChange\n");
 }
-void ConnectionStateObserver::Notify_ConnectivityStateChange(bool ConnState)
-{
-    BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
-        l->Handle_ConnectivityNotification(ConnState);
-    }
+
+void ConnectionStateObserver::Notify_ConnectivityStateChange(bool ConnState) {
+    std::for_each(m_listeners.begin(), m_listeners.end(),
+           [ & ] (IConnectivityListener *l )  {
+                    l->Handle_ConnectivityNotification(ConnState);
+                });
     LS_LOG_DEBUG("Notify_ConnectivityStateChange\n");
 }
-void ConnectionStateObserver::Notify_TelephonyStateChange(bool TeleState)
-{
-    BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
-        l->Handle_TelephonyNotification(TeleState);
-    }
+
+void ConnectionStateObserver::Notify_TelephonyStateChange(bool TeleState) {
+    std::for_each(m_listeners.begin(), m_listeners.end(),
+           [ & ] (IConnectivityListener *l )  {
+                    l->Handle_TelephonyNotification(TeleState);
+                });
     LS_LOG_DEBUG("Notify_TelephonyStateChange\n");
 }
-void ConnectionStateObserver::Notify_SuspendedStateChange(bool SuspendState)
-{
-    BOOST_FOREACH(IConnectivityListener * l, m_listeners) {
-        l->Handle_SuspendedNotification(SuspendState);
-    }
-    LS_LOG_DEBUG("Notify_SuspendedStateChange = %d\n",SuspendState);
+
+void ConnectionStateObserver::Notify_SuspendedStateChange(bool SuspendState) {
+    std::for_each(m_listeners.begin(), m_listeners.end(),
+           [ & ] (IConnectivityListener *l )  {
+                    l->Handle_SuspendedNotification(SuspendState);
+                });
+    LS_LOG_DEBUG("Notify_SuspendedStateChange = %d\n", SuspendState);
 }
-void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn)
-{
+
+void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn) {
     LSError lserror;
     LSErrorInit(&lserror);
     bool result;
@@ -275,32 +259,31 @@ void ConnectionStateObserver::register_wifi_status(LSHandle *HandleConn)
                     NULL,
                     &lserror);
     if (!result) {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 }
 
-void ConnectionStateObserver::register_connectivity_status(LSHandle *HandleConn)
-{
+void ConnectionStateObserver::register_connectivity_status(LSHandle *HandleConn) {
     LSError lserror;
     LSErrorInit(&lserror);
     bool result;
 
     result = LSCall(HandleConn,
-                    "luna://com.webos.service.wan/getstatus",
+                    "luna://com.webos.service.connectionmanager/getStatus",
                     "{\"subscribe\":true}",
                     ConnectionStateObserver::connectivity_status_cb,
                     this,
                     NULL,
                     &lserror);
     if (!result) {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+        LS_LOG_INFO("subscription failure for connection manager");
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 }
 
-void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn)
-{
+void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn) {
     LSError lserror;
     LSErrorInit(&lserror);
     bool result;
@@ -315,18 +298,12 @@ void ConnectionStateObserver::register_telephony_status(LSHandle *HandleConn)
                     NULL,
                     &lserror);
     if (!result) {
-        LSErrorPrint (&lserror, stderr);
-        LSErrorFree (&lserror);
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
     }
 }
 
-bool ConnectionStateObserver::wifi_status_cb(LSHandle *sh, LSMessage *message, void *ctx)
-{
-    return ((ConnectionStateObserver *) ctx)->_wifi_status_cb(sh, message);
-}
-
-bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
-{
+bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message) {
     bool ret = false;
     bool found = false;
     char *wifisrvEnable = NULL;
@@ -336,7 +313,7 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
 
     JSchemaInfo schemaInfo;
 
-    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+    jschema_ref input_schema = jschema_parse(j_cstr_to_buffer(SCHEMA_ANY), DOMOPT_NOOPT, NULL);
     if (!input_schema)
         return true;
 
@@ -344,11 +321,11 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
     parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
     jschema_release(&input_schema);
 
-    if (jis_null(parsedObj)){
+    if (jis_null(parsedObj)) {
         return true;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)){
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)) {
         jboolean_get(jsonSubObj, &ret);
         found = true;
     }
@@ -364,7 +341,7 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
     if (ret == false) {
         int error = -1;
 
-        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)){
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)) {
             jnumber_get_i32(jsonSubObj, &error);
         }
 
@@ -377,12 +354,12 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
         return true;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("status"), &jsonSubObj)){
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("status"), &jsonSubObj)) {
         raw_buffer buf = jstring_get(jsonSubObj);
         wifisrvEnable = strdup(buf.m_str);
         jstring_free_buffer(buf);
-        if(wifisrvEnable != NULL)
-           found = true;
+        if (wifisrvEnable != NULL)
+            found = true;
     }
 
     if (found == false) {
@@ -405,13 +382,9 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
         wifistatus = true;
         Notify_WifiStateChange(wifistatus);
         Notify_WifiInternetStateChange(true);
-    } else {
-        Notify_WifiInternetStateChange(true);
-        Notify_WifiStateChange(wifistatus);
     }
 
-    if (wifisrvEnable != NULL)
-        g_free(wifisrvEnable);
+    g_free(wifisrvEnable);
 
     j_release(&parsedObj);
     return true;
@@ -422,8 +395,7 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message)
  9","netmask":"255.255.248.0","gateway":"192.168.200.1","dns1":"8.8.8.8","dns2":"4.2.2.2","method":"dhcp","ssid":"LGSI-TEST","isWakeOnWifiEnabled":false,"onInternet":"no"}
  }*/
 
-bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *message)
-{
+bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *message) {
     bool ret = false;
     bool found = false;
     bool isInternetConnectionAvailable = false;
@@ -431,19 +403,19 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
     jvalue_ref parsedObj = NULL;
     JSchemaInfo schemaInfo;
 
-    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
-    if(!input_schema)
-       return false;
+    jschema_ref input_schema = jschema_parse(j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+    if (!input_schema)
+        return false;
 
     jschema_info_init(&schemaInfo, input_schema, NULL, NULL); // no external refs & no error handlers
     parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
     jschema_release(&input_schema);
 
-    if (jis_null(parsedObj)){
+    if (jis_null(parsedObj)) {
         return true;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)){
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)) {
         jboolean_get(jsonSubObj, &ret);
         found = true;
     }
@@ -457,9 +429,9 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
     found = false;
 
     if (ret) {
-        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("isInternetConnectionAvailable"), &jsonSubObj)){
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("isInternetConnectionAvailable"), &jsonSubObj)) {
             jboolean_get(jsonSubObj, &isInternetConnectionAvailable);
-            found=true;
+            found = true;
         }
 
         if (found == false) {
@@ -471,7 +443,7 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
     } else {
         int error = -1;
 
-        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)){
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)) {
             jnumber_get_i32(jsonSubObj, &error);
         }
 
@@ -490,8 +462,8 @@ bool ConnectionStateObserver::_connectivity_status_cb(LSHandle *sh, LSMessage *m
     j_release(&parsedObj);
     return true;
 }
-bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *message)
-{
+
+bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *message) {
     bool ret = false;
     bool found = false;
     bool isTelephonyAvailable = false;
@@ -500,7 +472,7 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
     jvalue_ref parsedObj = NULL;
     JSchemaInfo schemaInfo;
 
-    jschema_ref input_schema = jschema_parse (j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
+    jschema_ref input_schema = jschema_parse(j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
 
     if (!input_schema)
         return true;
@@ -509,11 +481,11 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
     parsedObj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schemaInfo);
     jschema_release(&input_schema);
 
-    if (jis_null(parsedObj)){
+    if (jis_null(parsedObj)) {
         return true;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)){
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("returnValue"), &jsonSubObj)) {
         jboolean_get(jsonSubObj, &ret);
         found = true;
     }
@@ -525,24 +497,13 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
     }
 
     if (ret == false) {
-        int error = -1;
-
-        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("errorCode"), &jsonSubObj)){
-            jnumber_get_i32(jsonSubObj, &error);
-        }
-
-        if (error == -1) {
-            LS_LOG_ERROR("Telephony service is not running");
-            Notify_TelephonyStateChange(false);
-        }
-
         j_release(&parsedObj);
         return true;
     } else {
 
-        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("extended"), &extendedobj)){
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("extended"), &extendedobj)) {
             LS_LOG_DEBUG("extendedobj reading power state %s", jvalue_tostring_simple(extendedobj));
-            isTelephonyAvailable = jobject_get_exists(extendedobj,  J_CSTR_TO_BUF("power"), &jsonSubObj);
+            isTelephonyAvailable = jobject_get_exists(extendedobj, J_CSTR_TO_BUF("power"), &jsonSubObj);
         }
 
     }
@@ -552,32 +513,32 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
     return true;
 }
 
-bool ConnectionStateObserver::_wifi_service_status_cb(LSHandle*sh, const char *serviceName, bool connected) {
-    if(connected) {
-        LS_LOG_DEBUG("wifi service Name = %s connected",serviceName);
+bool ConnectionStateObserver::_wifi_service_status_cb(LSHandle *sh, const char *serviceName, bool connected) {
+    if (connected) {
+        LS_LOG_DEBUG("wifi service Name = %s connected", serviceName);
         register_wifi_status(sh);
     } else {
-        LS_LOG_DEBUG("wifi service Name = %s disconnected",serviceName);
+        LS_LOG_DEBUG("wifi service Name = %s disconnected", serviceName);
     }
     return true;
 }
 
 bool ConnectionStateObserver::_wan_service_status_cb(LSHandle *sh, const char *serviceName, bool connected) {
-    if(connected) {
-        LS_LOG_DEBUG("WAN service Name = %s connected",serviceName);
+    if (connected) {
+        LS_LOG_DEBUG("WAN service Name = %s connected", serviceName);
         register_connectivity_status(sh);
     } else {
-        LS_LOG_DEBUG("WAN service Name = %s disconnected",serviceName);
+        LS_LOG_DEBUG("WAN service Name = %s disconnected", serviceName);
     }
     return true;
 }
 
 bool ConnectionStateObserver::_tel_service_status_cb(LSHandle *sh, const char *serviceName, bool connected) {
-    if(connected) {
-        LS_LOG_DEBUG("telephony service Name = %s connected",serviceName);
+    if (connected) {
+        LS_LOG_DEBUG("telephony service Name = %s connected", serviceName);
         register_telephony_status(sh);
     } else {
-        LS_LOG_DEBUG("telephony service Name = %s disconnected",serviceName);
+        LS_LOG_DEBUG("telephony service Name = %s disconnected", serviceName);
     }
     return true;
 }

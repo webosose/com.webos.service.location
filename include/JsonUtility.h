@@ -28,7 +28,6 @@
 #include <Location.h>
 #include <glib.h>
 #include <glib-object.h>
-#include <geoclue/geoclue-position.h>
 #include <pbnjson.h>
 #include <sys/time.h>
 

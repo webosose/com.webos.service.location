@@ -19,15 +19,16 @@
 #include <GoogleGeoImpl.h>
 
 
-class GoogleWSP : public WSPInterface
-{
+class GoogleWSP : public WSPInterface {
 
 public:
 
-    GoogleWSP(std::string googleWSPName): WSPInterface(googleWSPName) {
+    GoogleWSP(std::string googleWSPName) : WSPInterface(googleWSPName) {
         publishFeatures();
     }
-    GeoCodeInterface* getGeocodeImpl();
+
+    GeoCodeInterface *getGeocodeImpl();
+
     virtual void publishFeatures();
 
 private:

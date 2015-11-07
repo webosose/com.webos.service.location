@@ -275,9 +275,16 @@ char *LSMessageGetErrorReply(int errorCode);
 void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSMessageReplySuccess(LSHandle *sh, LSMessage *message);
-bool LSMessageValidateSchema(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);
+bool LSMessageValidateSchemaReplyOnError(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);
 
 bool securestorage_get(LSHandle *sh, void *ptr);
-bool getApiKeys(void *ptr);
+Position *position_create(gint64 timestamp,
+                          gdouble latitude,
+                          gdouble longitude,
+                          gdouble altitude,
+                          gdouble speed,
+                          gdouble direction,
+                          gdouble climb,
+                          int flags);
 
 #endif

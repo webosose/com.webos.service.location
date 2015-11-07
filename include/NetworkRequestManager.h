@@ -13,6 +13,7 @@
 #ifndef __NETWORK_MANAGER__
 #define __NETWORK_MANAGER__
 
+#include <string.h>
 #include <bitset>
 #include <mutex>
 #include <iostream>
@@ -23,13 +24,11 @@
 #include <lunaservice.h>
 
 
-class NetworkRequestManager
-{
+class NetworkRequestManager {
 
 public:
 
-    static NetworkRequestManager * getInstance()
-    {
+    static NetworkRequestManager *getInstance() {
         static NetworkRequestManager netMgrReq;
         return &netMgrReq;
     }
@@ -37,25 +36,30 @@ public:
     ~NetworkRequestManager();
 
     void init();
+
     void deInit();
-    ErrorCodes initiateTransaction(const char **headers, int size, std::string url, bool isSync, LSMessage *message, HttpInterface* userdata);
-    void cancelTransaction(HttpReqTask*);
+
+    ErrorCodes initiateTransaction(const char **headers, int size, std::string url, bool isSync, LSMessage *message,
+                                   HttpInterface *userdata, char *post_data = NULL);
+
+    void cancelTransaction(HttpReqTask *);
+
     void clearTransaction(HttpReqTask *task);
 
     //callback from loc_http
-    static void handleDataCb(HttpReqTask* task,void *user_data);
+    static void handleDataCb(HttpReqTask *task, void *user_data);
 
 private:
 
     NetworkRequestManager();
-    NetworkRequestManager(const NetworkRequestManager& rhs); // prevent copy construction
-    NetworkRequestManager& operator=(const NetworkRequestManager& rhs); // prevent assignment operation
+
+    NetworkRequestManager(const NetworkRequestManager &rhs) = delete; // prevent copy construction
+    NetworkRequestManager &operator=(const NetworkRequestManager &rhs) = delete; // prevent assignment operation
 
 private:
 
     std::bitset<sizeof(unsigned long)> _attributes;
-    std::mutex _attributeGuard;
-    std::unordered_map <LSMessage *, HttpInterface *>httpRequestList;
+    std::unordered_map<LSMessage *, HttpInterface *> httpRequestList;
 
 };
 

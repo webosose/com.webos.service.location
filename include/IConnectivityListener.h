@@ -21,14 +21,21 @@
  * Sl No Modified by  Date  Version Description
  *
  **********************************************************/
-#include <lunaservice.h>
+#ifndef _ICONNECTIVITY_LISTENER_H_
+#define _ICONNECTIVITY_LISTENER_H_
 
-class IConnectivityListener
-{
+
+class IConnectivityListener {
 public:
     virtual void Handle_WifiNotification(bool) = 0;
+
     virtual void Handle_ConnectivityNotification(bool) = 0;
+
     virtual void Handle_TelephonyNotification(bool) = 0;
+
     virtual void Handle_WifiInternetNotification(bool) = 0;
+
     virtual void Handle_SuspendedNotification(bool) = 0;
 };
+
+#endif

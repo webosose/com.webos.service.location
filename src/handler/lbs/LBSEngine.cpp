@@ -12,9 +12,9 @@
 
 
 #include <LBSEngine.h>
-#include <GoogleWSP.h>
+#include <WSPInterface.h>
 
-WSPInterface* LBSEngine::getWebServiceProvider(const std::string provideId)  {
+WSPInterface* LBSEngine::getWebServiceProvider(const std::string &provideId)  {
     auto it = mWspProviderMap.find(provideId);
     if (it != mWspProviderMap.end()) {
         return it->second;
@@ -22,7 +22,7 @@ WSPInterface* LBSEngine::getWebServiceProvider(const std::string provideId)  {
     return nullptr;
 }
 
-bool LBSEngine::registerWebServiceProvider(const std::string provideId,
+bool LBSEngine::registerWebServiceProvider(const std::string &provideId,
          WSPInterface* wspInterface) {
     auto it = mWspProviderMap.find(provideId);
     if (it == mWspProviderMap.end() && wspInterface) {
@@ -31,7 +31,7 @@ bool LBSEngine::registerWebServiceProvider(const std::string provideId,
     return true;
 }
 
-void LBSEngine::unregisterWebServiceProvider(const std::string provideId) {
+void LBSEngine::unregisterWebServiceProvider(const std::string &provideId) {
     auto iter = mWspProviderMap.find(provideId);
 
     if ( iter != mWspProviderMap.end() ) {

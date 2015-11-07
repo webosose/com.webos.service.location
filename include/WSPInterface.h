@@ -30,7 +30,7 @@ typedef enum {
     MAX
 } FeatureType;
 
-typedef std::array<FeatureType, MAX> SupportedFeatureList;
+typedef std::array<FeatureType, FeatureType::MAX> SupportedFeatureList;
 
 class WSPInterface {
 

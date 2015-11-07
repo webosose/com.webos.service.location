@@ -12,6 +12,7 @@
 
 
 #include <GoogleGeoImpl.h>
+
 using namespace std;
 
 #define GEOCODEMETHOD    "getGeoCodeLocation"
@@ -30,7 +31,7 @@ void GoogleGeoImpl::handleResponse(HttpReqTask *task) {
 
     if (HTTP_STATUS_CODE_SUCCESS == task->curlDesc.httpResponseCode) {
         response = g_strdup(task->responseData);
-        LS_LOG_DEBUG( "cbHttpResponsee %s", response);
+        LS_LOG_DEBUG("cbHttpResponsee %s", response);
     } else {
         LS_LOG_INFO("task->curlDesc.curlResultErrorStr %s", task->curlDesc.curlResultErrorStr);
         error = ERROR_NETWORK_ERROR;
@@ -41,7 +42,6 @@ void GoogleGeoImpl::handleResponse(HttpReqTask *task) {
 
     LS_LOG_INFO("cbHttpResponse : %d %p", error, message);
 
-
     if (!strcmp(LSMessageGetMethod(message), GEOCODEMETHOD)) {
         mGeoCodeCb(GeoLocation(response), error, message);
     } else if (!strcmp(LSMessageGetMethod(message), REVGEOMETHOD)) {
@@ -49,7 +49,7 @@ void GoogleGeoImpl::handleResponse(HttpReqTask *task) {
     }
 
     if (response)
-       free(response);
+        free(response);
 
 }
 
@@ -61,7 +61,7 @@ GoogleGeoImpl::~GoogleGeoImpl() {
     LS_LOG_DEBUG("===GoogleGeoImpl Dtor====");
 }
 
-ErrorCodes GoogleGeoImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb,bool isSync, LSMessage *message) {
+ErrorCodes GoogleGeoImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb, bool isSync, LSMessage *message) {
     LS_LOG_DEBUG("GoogleGeoImpl Geocode %s %p", address.toString().c_str(), message);
 
     if (nullptr == geoCodeCb) {
@@ -80,8 +80,8 @@ ErrorCodes GoogleGeoImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb,bool i
     return lbsPostQuery(strFormattedUrl, isSync, message);
 }
 
-ErrorCodes GoogleGeoImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync, LSMessage *message)
-{
+ErrorCodes GoogleGeoImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
+                                         LSMessage *message) {
     LS_LOG_DEBUG("GoogleGeoImpl reverseGeoCode %s %p", geolocation.toString().c_str(), message);
 
     if (nullptr == revGeocodeCallback) {
@@ -89,7 +89,7 @@ ErrorCodes GoogleGeoImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCode
         return ERROR_NOT_AVAILABLE;
     }
 
-    if  (mGoogleGeoCodeApiKey.empty()) {
+    if (mGoogleGeoCodeApiKey.empty()) {
         LS_LOG_ERROR("License Key not present");
         return ERROR_LICENSE_KEY_INVALID;
     }
@@ -100,7 +100,7 @@ ErrorCodes GoogleGeoImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCode
     return lbsPostQuery(strFormattedUrl, isSync, message);
 }
 
-string GoogleGeoImpl::formatUrl(string geoData ,const char* key){
+string GoogleGeoImpl::formatUrl(string geoData, const char *key) {
     guchar *decodedKey = NULL;
     gsize size = 0;
     gsize len;
@@ -117,32 +117,32 @@ string GoogleGeoImpl::formatUrl(string geoData ,const char* key){
         goto EXIT;
     }
 
-    hmac = g_hmac_new (G_CHECKSUM_SHA1 , decodedKey, size);
+    hmac = g_hmac_new(G_CHECKSUM_SHA1, decodedKey, size);
     if (NULL == hmac) {
         goto EXIT;
     }
 
-    g_hmac_update (hmac,(unsigned char *)urlToSign.c_str(), -1);
-    buffer =  (guint8*)g_malloc(strlen(urlToSign.c_str()));
+    g_hmac_update(hmac, (unsigned char *) urlToSign.c_str(), -1);
+    buffer = (guint8 *) g_malloc(strlen(urlToSign.c_str()));
     if (NULL == buffer) {
         goto EXIT;
     }
 
     len = urlToSign.length();
-    g_hmac_get_digest (hmac, buffer, &len);
+    g_hmac_get_digest(hmac, buffer, &len);
 
     //Encode the binary signature into base64 for use within a URL
-    encodedSignature  = g_base64_encode(buffer,len);
+    encodedSignature = g_base64_encode(buffer, len);
 
     if (NULL == encodedSignature) {
         goto EXIT;
     }
 
-    encodedSignatureStr = string((const char*)encodedSignature);
+    encodedSignatureStr = string((const char *) encodedSignature);
 
     //make url-safe by replacing '+' and '/' characters
-    replace( encodedSignatureStr.begin(), encodedSignatureStr.end(), '/', '_');
-    replace( encodedSignatureStr.begin(), encodedSignatureStr.end(), '+', '-');
+    replace(encodedSignatureStr.begin(), encodedSignatureStr.end(), '/', '_');
+    replace(encodedSignatureStr.begin(), encodedSignatureStr.end(), '+', '-');
 
     finalURL = TOSTRING(GOOGLE_LBS_URL);
     finalURL.append(urlToSign);
@@ -151,7 +151,7 @@ string GoogleGeoImpl::formatUrl(string geoData ,const char* key){
 
     LS_LOG_DEBUG("url: formatted succesfully");
 
-EXIT:
+    EXIT:
 
     if (decodedKey != NULL)
         g_free(decodedKey);
@@ -168,18 +168,18 @@ EXIT:
     return finalURL;
 }
 
-char* GoogleGeoImpl::readApiKey() {
+char *GoogleGeoImpl::readApiKey() {
     unsigned char *geocode_api_key = NULL;
     int ret_geocode = LOC_SECURITY_ERROR_FAILURE;
 
-    ret_geocode = loc_security_openssl_decrypt_file(GEOCODEKEY_CONFIG_PATH,
-            &geocode_api_key);
+    ret_geocode = locSecurityBase64Decode(GEOCODEKEY_CONFIG_PATH,
+                                          &geocode_api_key);
 
     if (LOC_SECURITY_ERROR_SUCCESS == ret_geocode) {
-        return (char*)geocode_api_key;
+        return (char *) geocode_api_key;
     }
 
-    return (char*)geocode_api_key;
+    return (char *) geocode_api_key;
 }
 
 ErrorCodes GoogleGeoImpl::lbsPostQuery(string url, bool isSync, LSMessage *message) {

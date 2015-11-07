@@ -30,7 +30,7 @@
 #include <libxml/xmlwriter.h>
 #include <glib-object.h>
 
-G_BEGIN_DECLS
+
 
 #define PREF_PATH   "."             //Path of all prefence to store in system
 #define MY_ENCODING "ISO-8859-1"    //Not used now
@@ -40,7 +40,7 @@ typedef struct _DBHandle DBHandle;
  */
 struct _DBHandle {
     xmlDocPtr doc;
-    char *fileName;
+  const char *fileName;
 };
 
 /*
@@ -66,7 +66,7 @@ enum {
  * @param           <title> <In> <the Root elemnet in XML file>
  * @return          int
  */
-int createPreference(char *filename, DBHandle *handle, char *title, int enablecheck);
+int createPreference(const char *filename, DBHandle *handle, char *title, int enablecheck);
 
 /**
  * <Funciton>       put
@@ -121,6 +121,6 @@ int isFileExists(const char *fname);
  */
 int deletePreference(char *filename);
 
-G_END_DECLS
+
 
 #endif /* _DB_UTIL_H_ */

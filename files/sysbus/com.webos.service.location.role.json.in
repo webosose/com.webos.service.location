@@ -6,7 +6,7 @@
         {
             "service":"com.webos.service.location",
             "inbound":["*"],
-            "outbound":["com.webos.service.telephony","com.webos.service.wifi","com.webos.service.wan"]
+            "outbound":["com.webos.service.telephony","com.webos.service.wifi","com.webos.service.wan","com.webos.service.connectionmanager","com.webos.settingsservice"]
         }
     ]
 }

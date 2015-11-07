@@ -15,7 +15,6 @@
 #define _GEOADDRESS_H
 
 #include <string>
-
 class GeoAddress {
 public:
 

@@ -16,14 +16,13 @@ include(FindPkgConfig)
 pkg_check_modules(GLIB2 REQUIRED glib-2.0)
 add_definitions(${GLIB2_CFLAGS})
 
+pkg_check_modules(GIO2 REQUIRED gio-2.0)
+add_definitions(${GIO2_CFLAGS})
 pkg_check_modules(GOBJ REQUIRED gobject-2.0)
 add_definitions(${GOBJ_CFLAGS})
 
 pkg_check_modules(GMOD REQUIRED gmodule-2.0)
 add_definitions(${GMOD_CFLAGS})
-
-pkg_check_modules(GEOCLUE REQUIRED geoclue)
-add_definitions(${GEOCLUE_CFLAGS})
 
 pkg_check_modules(LUNASERVICE REQUIRED luna-service2)
 add_definitions(${LUNASERVICE_CFLAGS})
@@ -34,6 +33,9 @@ add_definitions(${LUNAPREFS_CFLAGS})
 pkg_check_modules(LIBPBNJSON REQUIRED pbnjson_c)
 add_definitions(${LIBPBNJSON_CFLAGS})
 
+pkg_check_modules(PBNJSON_CXX REQUIRED pbnjson_cpp)
+add_definitions(${PBNJSON_CXX_CFLAGS})
+
 pkg_check_modules(LIB2XML REQUIRED libxml-2.0)
 add_definitions(${LIB2XML_CFLAGS})
 
@@ -43,19 +45,22 @@ add_definitions(${PMLOGLIB_CFLAGS})
 pkg_check_modules(LOCUTILS REQUIRED loc-utils)
 add_definitions(${LOCUTILS_CFLAGS})
 
+pkg_check_modules(NYXLIB REQUIRED nyx)
+add_definitions(${NYXLIB_CFLAGS})
+#include_directories(${NYXLIB_INCLUDE_DIRS})
+#webos_add_compiler_flags(ALL ${NYXLIB_CFLAGS_OTHER})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-add_subdirectory(src/plugin/GpsPlugin)
-add_subdirectory(src/plugin/NetworkPlugin)
+
 
 set(DB_UTILS_NAME dbutils)
 set(DB_UTILS_LIB_PATH ${CMAKE_INSTALL_PREFIX}/lib)
 set(DB_UTILS_DATA_PATH ${WEBOS_INSTALL_LOCALSTATEDIR}/location)
-set(DB_UTILS_SRC ${PROJECT_SOURCE_DIR}/src/utils/db_util.c ${PROJECT_SOURCE_DIR}/src/utils/Gps_stored_data.c)
+set(DB_UTILS_SRC ${PROJECT_SOURCE_DIR}/src/utils/db_util.cpp ${PROJECT_SOURCE_DIR}/src/utils/Gps_stored_data.cpp)
 set(LIBRARIES ${GLIB2_LDFLAGS} ${LIB2XML_LDFLAGS})
 
 add_library(${DB_UTILS_NAME} SHARED ${DB_UTILS_SRC})
@@ -69,7 +74,7 @@ set(LOCATION_SERVICE_NAME location)
 
 file(GLOB UTIL_SOURCES  ${PROJECT_SOURCE_DIR}/src/utils/*.cpp  ${PROJECT_SOURCE_DIR}/src/utils/*.c)
 file(GLOB GOOGLE_WSP_SOURCES ${PROJECT_SOURCE_DIR}/src/handler/lbs/geoservices/google/*.cpp)
-file(GLOB HANDLER_SOURCE ${PROJECT_SOURCE_DIR}/src/handler/*.c ${PROJECT_SOURCE_DIR}/src/handler/lbs/*.cpp)
+file(GLOB HANDLER_SOURCE ${PROJECT_SOURCE_DIR}/src/handler/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/*.c ${PROJECT_SOURCE_DIR}/src/handler/lbs/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/position/network/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/position/gps/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/position/gps/*.c)
 file(GLOB LUNA_IPC  ${PROJECT_SOURCE_DIR}/src/lunaIpc/*.cpp  ${PROJECT_SOURCE_DIR}/src/lunaIpc/*.c)
 
 set(SRC
@@ -82,14 +87,18 @@ set(SRC
 )
 set(LIBRARIES
         ${GLIB2_LDFLAGS}
+	${GIO2_LDFLAGS}
         ${GOBJ_LDFLAGS}
         ${GMOD_LDFLAGS}
         ${LUNASERVICE_LDFLAGS}
         ${LUNAPREFS_LDFLAGS}
         ${LIBPBNJSON_LDFLAGS}
+	${PBNJSON_CXX_LDFLAGS}
         ${PMLOGLIB_LDFLAGS}
         ${LOCUTILS_LDFLAGS}
         ${LIB2XML_LDFLAGS}
+	${NYXLIB_LDFLAGS}
+	pthread
 )
 
 add_executable(${LOCATION_SERVICE_NAME} ${SRC})

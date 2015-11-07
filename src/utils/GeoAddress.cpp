@@ -16,7 +16,7 @@ GeoAddress::GeoAddress(std::string addressString) {
     mAddressStr = addressString;
 }
 const std::string GeoAddress::getCity() const {
-    return mCity;
+   return mCity;
 }
 
 void GeoAddress::setCity(const std::string& city) {
@@ -24,7 +24,7 @@ void GeoAddress::setCity(const std::string& city) {
 }
 
 const std::string GeoAddress::getCountry() const {
-    return mCountry;
+   return mCountry;
 }
 
 void GeoAddress::setCountry(const std::string& country) {

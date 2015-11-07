@@ -33,17 +33,25 @@
 #define TOSTRING(x) STRINGIFY(x)
 
 
-class GoogleGeoImpl: public GeoCodeInterface, public HttpInterface {
+class GoogleGeoImpl : public GeoCodeInterface, public HttpInterface {
 
 public:
 
     GoogleGeoImpl();
+
     ~GoogleGeoImpl();
-    ErrorCodes geoCode(GeoAddress address,GeoCodeCb geocodeCallback ,bool isSync, LSMessage *message);
-    ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync, LSMessage *message);
-    ErrorCodes lbsPostQuery(std::string url ,bool isSync, LSMessage *message);
-    std::string formatUrl(std::string address ,const char* key);
-    char* readApiKey();
+
+    ErrorCodes geoCode(GeoAddress address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message);
+
+    ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
+                              LSMessage *message);
+
+    ErrorCodes lbsPostQuery(std::string url, bool isSync, LSMessage *message);
+
+    std::string formatUrl(std::string address, const char *key);
+
+    char *readApiKey();
+
     void handleResponse(HttpReqTask *task);
 
 private:

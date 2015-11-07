@@ -106,15 +106,6 @@ struct _Address {
     gboolean freeform;
 };
 
-Position *position_create(gint64 timestamp,
-                          gdouble latitude,
-                          gdouble longitude,
-                          gdouble altitude,
-                          gdouble speed,
-                          gdouble direction,
-                          gdouble climb,
-                          int flags);
-void position_free(Position *position);
 
 Satellite *satellite_create(guint visible_satellites_count);
 int set_satellite_details(Satellite *satellite,
@@ -127,10 +118,6 @@ int set_satellite_details(Satellite *satellite,
                           gboolean hasalmanac,
                           gboolean hasephemeris);
 void satellite_free(Satellite *satellite);
-
-
-Accuracy *accuracy_create(GpsAccuracyLevel level, gdouble horizontal_accuracy, gdouble vertical_accuracy);
-void accuracy_free(Accuracy *accuracy);
 
 G_END_DECLS
 

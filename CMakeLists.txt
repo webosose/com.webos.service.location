@@ -76,6 +76,7 @@ file(GLOB UTIL_SOURCES  ${PROJECT_SOURCE_DIR}/src/utils/*.cpp  ${PROJECT_SOURCE_
 file(GLOB GOOGLE_WSP_SOURCES ${PROJECT_SOURCE_DIR}/src/handler/lbs/geoservices/google/*.cpp)
 file(GLOB HANDLER_SOURCE ${PROJECT_SOURCE_DIR}/src/handler/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/*.c ${PROJECT_SOURCE_DIR}/src/handler/lbs/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/position/network/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/position/gps/*.cpp ${PROJECT_SOURCE_DIR}/src/handler/position/gps/*.c)
 file(GLOB LUNA_IPC  ${PROJECT_SOURCE_DIR}/src/lunaIpc/*.cpp  ${PROJECT_SOURCE_DIR}/src/lunaIpc/*.c)
+file(GLOB MOCK_LOCATION  ${PROJECT_SOURCE_DIR}/src/mock/*.cpp  ${PROJECT_SOURCE_DIR}/src/mock/*.c)
 
 set(SRC
         ${PROJECT_SOURCE_DIR}/src/Main.cpp
@@ -84,6 +85,7 @@ set(SRC
         ${GOOGLE_WSP_SOURCES}
         ${HANDLER_SOURCE}
         ${UTIL_SOURCES}
+        ${MOCK_LOCATION}
 )
 set(LIBRARIES
         ${GLIB2_LDFLAGS}

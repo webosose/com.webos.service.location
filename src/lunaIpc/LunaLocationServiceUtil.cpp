@@ -44,7 +44,10 @@ static const locErrorTextPair_t mapLocErrorText[LOCATION_ERROR_MAX] = {
         {LOCATION_GEOFENCE_TOO_MANY_GEOFENCE,  "Too many geofences are added"},
         {LOCATION_GEOFENCE_ID_EXIST,           "Geofence id already exists"},
         {LOCATION_GEOFENCE_ID_UNKNOWN,         "Geofecne id unknown"},
-        {LOCATION_GEOFENCE_INVALID_TRANSITION, "Geofence invalid transition"}
+        {LOCATION_GEOFENCE_INVALID_TRANSITION, "Geofence invalid transition"},
+        {LOCATION_NOT_STARTED,                 "Location determination was not started"},
+        {LOCATION_MOCK_DISABLED,               "Mock location was not enabled"},
+        {LOCATION_UNKNOWN_MOCK_PROVIDER,       "Unknown mock location provider name was supplied" },
 };
 
 char *locationErrorReply[LOCATION_ERROR_MAX] = {0};
@@ -281,3 +284,5 @@ Position *position_create(gint64 timestamp,
 
     return position;
 }
+
+/* vim:set et: */

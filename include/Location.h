@@ -69,4 +69,26 @@ typedef struct _Satellite Satellite;
 typedef struct _Accuracy Accuracy;
 typedef struct _Address Address;
 
+struct _Location {
+    double speed;
+    double longitude;
+    double latitude;
+    double altitude;
+    double horizontalAccuracy;
+    double verticalAccuracy;
+    double heading;
+    int64_t timestamp;
+    unsigned flag;
+};
+
+/* optional parameter bits */
+#define LOCATION_SPEED_BIT               0x0001
+#define LOCATION_ALTITUDE_BIT            0x0002
+#define LOCATION_HORIZONTAL_ACCURACY_BIT 0x0004
+#define LOCATION_VERTICAL_ACCURACY_BIT   0x0008
+#define LOCATION_HEADING_BIT             0x0010
+#define LOCATION_TIMESTAMP_BIT           0x0020
+
 #endif /* _LOCATION_H_ */
+
+/* vim:set et: */

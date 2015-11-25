@@ -98,7 +98,6 @@
         }                                   \
     } while (0)
 
-
 #define LOCATION_SERVICE_METHOD(name) \
     bool name(LSHandle *sh, LSMessage *message, void *data); \
     static bool _##name(LSHandle *sh, LSMessage *message, void *data) { \
@@ -304,6 +303,7 @@ public:
     static void sendGeofenceBreachData(GObject *source, GAsyncResult *res, gpointer userdata);
     static void geofenceAddDataUnref(gpointer data);
     static void geofenceRemoveDataUnref(gpointer data);
+
     static gboolean TimerCallbackLocationUpdate(void *data) {
         return getInstance()->_TimerCallbackLocationUpdate(data);
     }
@@ -506,6 +506,8 @@ private:
     static LSMethod rootMethod[];
     static LSMethod prvMethod[];
     static LSMethod geofenceMethod[];
+    static LSMethod mockPublicMethod[];
+    static LSMethod mockPrivateMethod[];
     bool is_geofenceId_used[MAX_GEOFENCE_ID];
     GHashTable *htPseudoGeofence;
     LSHandle *mServiceHandle;
@@ -554,6 +556,9 @@ private:
     LOCATION_SERVICE_METHOD(pauseGeofence);
     LOCATION_SERVICE_METHOD(resumeGeofence);
     LOCATION_SERVICE_METHOD(removeGeofenceArea);
+    LOCATION_SERVICE_METHOD(enableMockLocation);
+    LOCATION_SERVICE_METHOD(disableMockLocation);
+    LOCATION_SERVICE_METHOD(setMockLocation);
 
     gboolean _TimerCallbackLocationUpdate(void *data);
 
@@ -600,6 +605,8 @@ private:
 
     void resumeGpsEngine(void);
 
+    bool getLocationParameter( _Location* loc, jvalue_ref parsedObj );
+    bool setMockLocationState( LSHandle *sh, LSMessage *message, void *data, int state );
 };
 
 #endif  //  H_LocationService

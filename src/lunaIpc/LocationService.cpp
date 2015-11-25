@@ -23,6 +23,7 @@
  **********************************************************/
 #include <stdio.h>
 #include "LocationService.h"
+#include "MockLocation.h"
 #include <JsonUtility.h>
 #include <LunaLocationServiceUtil.h>
 #include <lunaprefs.h>
@@ -89,6 +90,17 @@ const char *LocationService::geofenceStateText[GEOFENCE_MAXIMUM] = {
         "transitionEntered",    // GEOFENCE_TRANSITION_ENTERED
         "transitionExited",     // GEOFENCE_TRANSITION_EXITED
         "transitionUncertain"   // GEOFENCE_TRANSITION_UNCERTAIN
+};
+
+LSMethod LocationService::mockPublicMethod[] = {
+    { "setLocation", LocationService::_setMockLocation },
+    { 0, 0 },
+};
+
+LSMethod LocationService::mockPrivateMethod[] = {
+    { "enable", LocationService::_enableMockLocation },
+    { "disable", LocationService::_disableMockLocation },
+    { 0, 0 },
 };
 
 LocationService *LocationService::getInstance() {
@@ -233,6 +245,16 @@ bool LocationService::locationServiceRegister(const char *srvcname, GMainLoop *m
     LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
 
     bRetVal = LSCategorySetData(*msvcHandle, "/geofence", this, &mLSError);
+    LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
+
+    // add mock categoty
+    bRetVal = LSRegisterCategoryAppend(*msvcHandle, "/mock", mockPublicMethod, NULL, &mLSError);
+    LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
+
+    bRetVal = LSRegisterCategoryAppend(*msvcHandle, "/mock", mockPrivateMethod, NULL, &mLSError);
+    LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
+
+    bRetVal = LSCategorySetData(*msvcHandle, "/mock", this, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
 
     //Register cancel function cb to publicbus
@@ -1145,6 +1167,7 @@ bool LocationService::setGPSParameters(LSHandle *sh, LSMessage *message, void *d
 
 bool LocationService::exitLocation(LSHandle *sh, LSMessage *message, void *data) {
     printMessageDetails("LUNA-API", message, sh);
+    finalize_mock_location();
     stopGpsEngine();
     g_main_loop_quit(mMainLoop);
     return true;
@@ -1680,6 +1703,140 @@ bool LocationService::resumeGeofence(LSHandle *sh, LSMessage *message, void *dat
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
+    return true;
+}
+
+bool LocationService::getLocationParameter( _Location* loc, jvalue_ref parsedObj ) {
+    jvalue_ref param;
+    jvalue_ref object = jobject_get(parsedObj, J_CSTR_TO_BUF("location") );
+    if ( jis_null(object) ) {
+        return false;
+    }
+
+    memset( loc, 0, sizeof(_Location) );
+
+    loc->flag = 0;
+
+    /* lon & lat are mendatory */
+    param = jobject_get(object, J_CSTR_TO_BUF("longitude") );
+    if ( jis_null(param) ) {
+        return false;
+    }
+    jnumber_get_f64(param, &loc->longitude );
+
+    param = jobject_get(object, J_CSTR_TO_BUF("latitude") );
+    if ( jis_null(param) ) {
+        return false;
+    }
+    jnumber_get_f64(param, &loc->latitude );
+
+    /* optional */
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("altitude"), &object)) {
+        jnumber_get_f64(param, &loc->altitude );
+        loc->flag |= LOCATION_ALTITUDE_BIT;
+    }
+
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("speed"), &object)) {
+        jnumber_get_f64(param, &loc->speed );
+        loc->flag |= LOCATION_SPEED_BIT;
+    }
+
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("horizontalAccuracy"), &object)) {
+        jnumber_get_f64(param, &loc->horizontalAccuracy );
+        loc->flag |= LOCATION_HORIZONTAL_ACCURACY_BIT;
+    }
+
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("verticalAccuracy"), &object)) {
+        jnumber_get_f64(param, &loc->verticalAccuracy );
+        loc->flag |= LOCATION_VERTICAL_ACCURACY_BIT;
+    }
+
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("heading"), &object)) {
+        jnumber_get_f64(param, &loc->heading );
+        loc->flag |= LOCATION_HEADING_BIT;
+    }
+
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("timestamp"), &object)) {
+        jnumber_get_i64(param, &loc->timestamp );
+        loc->flag |= LOCATION_TIMESTAMP_BIT;
+    }
+
+    return true;
+}
+
+bool LocationService::setMockLocationState(LSHandle *sh, LSMessage *message, void *data, int state ) {
+    jvalue_ref parsedObj;
+    MOCK_CALL_LOG;
+    if (!LSMessageValidateSchemaReplyOnError( sh, message,
+            STRICT_SCHEMA(
+                PROPS_1(
+                    ENUM_PROP(name,string,"gps","network")
+                ) REQUIRED_1(name)
+            ),
+        &parsedObj)) {
+        LS_LOG_ERROR( MOCK_TAG "Schema Error in %s\n", __func__);
+    }
+    else {
+        LocationErrorCode e;
+        jvalue_ref object  = jobject_get( parsedObj, J_CSTR_TO_BUF("name") );
+        if ( jis_null(object) ) {
+            e = LOCATION_OUT_OF_MEM;
+        } else {
+            raw_buffer name = jstring_get(object);
+            e = set_mock_location_state( name.m_str, state );
+            jstring_free_buffer(name);
+        }
+        j_release(&parsedObj);
+
+        LSMessageReplyError( sh, message, e );
+    }
+    return true;
+}
+
+bool LocationService::enableMockLocation(LSHandle *sh, LSMessage *message, void *data) {
+    return setMockLocationState( sh, message, data, 1 );
+}
+
+bool LocationService::disableMockLocation(LSHandle *sh, LSMessage *message, void *data) {
+    return setMockLocationState( sh, message, data, 0 );
+}
+
+bool LocationService::setMockLocation(LSHandle *sh, LSMessage *message, void *data) {
+    struct _Location loc;
+    jvalue_ref param;
+    jvalue_ref parsedObj = NULL;
+
+    MOCK_CALL_LOG;
+
+    /* get parameters */
+    if (!LSMessageValidateSchemaReplyOnError( sh, message,
+            STRICT_SCHEMA(
+                PROPS_2(
+                    ENUM_PROP(name,string,"gps","network"),
+                    OBJECT(location,
+                        OBJSCHEMA_1( PROP(longitude,number) "," PROP(latitude,number) )
+                    )
+                ) REQUIRED_2(name,location)
+            ),
+        &parsedObj)) {
+        LS_LOG_ERROR( MOCK_TAG "Schema Error in %s\n", __func__);
+        return true;
+    }
+
+    while ( getLocationParameter( &loc, parsedObj ) ) {
+        jvalue_ref object  = jobject_get( parsedObj, J_CSTR_TO_BUF("name") );
+        if ( jis_null(object) ) {
+            break;
+        }
+
+        raw_buffer name = jstring_get(object);
+        LocationErrorCode e = set_mock_location( name.m_str, &loc );
+        jstring_free_buffer(name);
+        LSMessageReplyError( sh, message, e );
+        break;
+    }
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
     return true;
 }
 
@@ -3762,3 +3919,4 @@ void LocationService::stopGpsEngine(void) {
     }
 }
 
+/* vim:set et: */

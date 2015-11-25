@@ -12,6 +12,7 @@
 
 
 #include <GPSPositionProvider.h>
+#include <MockLocation.h>
 
 
 nyx_error_t GPSNyxInterface::initialize(void *instance) {

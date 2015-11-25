@@ -13,8 +13,9 @@
 #include <loc-utils/loc_security.h>
 #include "NetworkPositionProvider.h"
 #include "Gps_stored_data.h"
+#include "MockLocation.h"
 
-#define NETWORK_URL                            "https://www.googleapis.com/geolocation/v1/geolocate?key=%s"
+#define NETWORK_URL network_location_provider_url("https://www.googleapis.com/geolocation/v1/geolocate?key=%s")
 #define SIGNAL_CHANGE_THRESHOLD                20
 #define SCHEMA_ANY                             "{}"
 #define URL_LENGTH                             256

@@ -49,7 +49,6 @@
 #include <PositionProviderInterface.h>
 #include <GPSPositionProvider.h>
 #include <Position.h>
-#include <unordered_map>
 
 #define SHORT_RESPONSE_TIME                 10000
 #define MEDIUM_RESPONSE_TIME                100000
@@ -98,6 +97,13 @@
             assert(!#cond);                 \
         }                                   \
     } while (0)
+
+
+#define LOCATION_SERVICE_METHOD(name) \
+    bool name(LSHandle *sh, LSMessage *message, void *data); \
+    static bool _##name(LSHandle *sh, LSMessage *message, void *data) { \
+        return ((LocationService*)data)->name(sh, message, NULL); \
+    }
 
 /**
  * @brief CONSTANT DEFINITIONS
@@ -298,95 +304,6 @@ public:
     static void sendGeofenceBreachData(GObject *source, GAsyncResult *res, gpointer userdata);
     static void geofenceAddDataUnref(gpointer data);
     static void geofenceRemoveDataUnref(gpointer data);
-
-    static bool _getNmeaData(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getNmeaData(sh, message, NULL);
-    }
-
-    static bool _getReverseLocation(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getReverseLocation(sh, message, NULL);
-    }
-
-    static bool _getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getGeoCodeLocation(sh, message, NULL);
-    }
-
-    static bool _getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getAllLocationHandlers(sh, message, NULL);
-    }
-
-    static bool _getGpsStatus(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getGpsStatus(sh, message, NULL);
-    }
-
-    static bool _setState(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->setState(sh, message, NULL);
-    }
-
-    static bool _getState(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getState(sh, message, NULL);
-    }
-
-    static bool _sendExtraCommand(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->sendExtraCommand(sh, message, NULL);
-    }
-
-    static bool _setGPSParameters(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->setGPSParameters(sh, message, NULL);
-    }
-
-    static bool _stopGPS(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->stopGPS(sh, message, NULL);
-    }
-
-    static bool _exitLocation(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->exitLocation(sh, message, NULL);
-    }
-
-    static bool _getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getLocationHandlerDetails(sh, message, NULL);
-    }
-
-    static bool _getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getGpsSatelliteData(sh, message, NULL);
-    }
-
-    static bool _getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getTimeToFirstFix(sh, message, NULL);
-    }
-
-    static bool _getLocationUpdates(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getLocationUpdates(sh, message, NULL);
-    }
-
-    static bool _getCachedPosition(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getCachedPosition(sh, message, NULL);
-    }
-
-    static bool _cancelSubscription(LSHandle *sh, LSMessage *message, void *data) {
-        return getInstance()->cancelSubscription(sh, message, NULL);
-    }
-
-    static bool _addGeofenceArea(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->addGeofenceArea(sh, message, NULL);
-    }
-
-    static bool _getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->getGeofenceStatus(sh, message, NULL);
-    }
-
-    static bool _pauseGeofence(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->pauseGeofence(sh, message, NULL);
-    }
-
-    static bool _resumeGeofence(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->resumeGeofence(sh, message, NULL);
-    }
-
-    static bool _removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data) {
-        return ((LocationService*)data)->removeGeofenceArea(sh, message, NULL);
-    }
-
     static gboolean TimerCallbackLocationUpdate(void *data) {
         return getInstance()->_TimerCallbackLocationUpdate(data);
     }
@@ -423,7 +340,7 @@ public:
             LS_LOG_INFO("Internet connection not available");
         }
 
-        isInternetConnectionAvailable = state; //state; for TESTING
+        isInternetConnectionAvailable = state;
     }
 
     bool getConnectionManagerState() {
@@ -438,7 +355,7 @@ public:
             LS_LOG_INFO("Telephony connection not available");
         }
 
-        isTelephonyAvailable = state; //state; for TESTING
+        isTelephonyAvailable = state;
     }
 
     void updateSuspendedState(bool state) {
@@ -615,48 +532,29 @@ private:
 
     LocationService();
 
-    bool getNmeaData(LSHandle *sh, LSMessage *message, void *data);
+    LOCATION_SERVICE_METHOD(getNmeaData);
+    LOCATION_SERVICE_METHOD(getReverseLocation);
+    LOCATION_SERVICE_METHOD(getGeoCodeLocation);
+    LOCATION_SERVICE_METHOD(getAllLocationHandlers);
+    LOCATION_SERVICE_METHOD(getGpsStatus);
+    LOCATION_SERVICE_METHOD(setState);
+    LOCATION_SERVICE_METHOD(getState);
+    LOCATION_SERVICE_METHOD(sendExtraCommand);
+    LOCATION_SERVICE_METHOD(setGPSParameters);
+    LOCATION_SERVICE_METHOD(stopGPS);
+    LOCATION_SERVICE_METHOD(exitLocation);
+    LOCATION_SERVICE_METHOD(getLocationHandlerDetails);
+    LOCATION_SERVICE_METHOD(getGpsSatelliteData);
+    LOCATION_SERVICE_METHOD(getTimeToFirstFix);
+    LOCATION_SERVICE_METHOD(getLocationUpdates);
+    LOCATION_SERVICE_METHOD(getCachedPosition);
+    LOCATION_SERVICE_METHOD(cancelSubscription);
+    LOCATION_SERVICE_METHOD(addGeofenceArea);
+    LOCATION_SERVICE_METHOD(getGeofenceStatus);
+    LOCATION_SERVICE_METHOD(pauseGeofence);
+    LOCATION_SERVICE_METHOD(resumeGeofence);
+    LOCATION_SERVICE_METHOD(removeGeofenceArea);
 
-    bool getReverseLocation(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getGeoCodeLocation(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getAllLocationHandlers(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getGpsStatus(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getState(LSHandle *sh, LSMessage *message, void *data);
-
-    bool setState(LSHandle *sh, LSMessage *message, void *data);
-
-    bool sendExtraCommand(LSHandle *sh, LSMessage *message, void *data);
-
-    bool setGPSParameters(LSHandle *sh, LSMessage *message, void *data);
-
-    bool stopGPS(LSHandle *sh, LSMessage *message, void *data);
-
-    bool exitLocation(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getLocationHandlerDetails(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getGpsSatelliteData(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getTimeToFirstFix(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getLocationUpdates(LSHandle *sh, LSMessage *message, void *data);
-
-    bool getCachedPosition(LSHandle *sh, LSMessage *message, void *data);
-
-    bool cancelSubscription(LSHandle *sh, LSMessage *message, void *data);
-
-    bool addGeofenceArea(LSHandle *sh, LSMessage *message, void *data);
-
-    bool removeGeofenceArea(LSHandle *sh, LSMessage *message, void *data);
-
-    bool pauseGeofence(LSHandle *sh, LSMessage *message, void *data);
-
-    bool resumeGeofence(LSHandle *sh, LSMessage *message, void *data);
-    bool getGeofenceStatus(LSHandle *sh, LSMessage *message, void *data);
     gboolean _TimerCallbackLocationUpdate(void *data);
 
     void geocodingReply(const char *response, int error, LSMessage *message);

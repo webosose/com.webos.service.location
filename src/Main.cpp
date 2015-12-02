@@ -26,7 +26,6 @@
 #include <loc_log.h>
 #include "LocationService.h"
 
-
 // PmLogging
 #define LS_LOG_CONTEXT_NAME     "location"
 PmLogContext gLsLogContext;

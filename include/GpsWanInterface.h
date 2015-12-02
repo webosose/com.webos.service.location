@@ -20,28 +20,28 @@ class GpsWanInterface
         }
         ~GpsWanInterface() {
         }
-        void register_luna_methods();
+        void registerLunaMethods();
         void initialize(LSHandle *sh);
         void connect();
         void disconnect();
-        bool settingsservicelunacall();
-        bool serviceStatus(){return serviceConnected;};
+        bool settingsServiceLunaCall();
+        bool serviceStatus(){return mServiceConnected;};
 
     private:
-        void wan_service_status();
-        void service_started();
-        void service_stopped();
+        void wanServiceStatus();
+        void serviceStarted();
+        void serviceStopped();
 
     private:
         static bool getContextCb(LSHandle *sh, LSMessage *message, void * context);
         static bool connectCb(LSHandle *sh, LSMessage *message, void * context);
         static bool disconnectCb(LSHandle *sh, LSMessage *message, void * context);
         static bool settingServiceCb(LSHandle *sh, LSMessage *message, void * context);
-        static bool service_up_cb(LSHandle* handle, LSMessage* message, void* ctxt);
+        static bool serviceUpCb(LSHandle* handle, LSMessage* message, void* ctxt);
 
     private:
         LSMessageToken mWanGetContext;
         LSHandle *_mLSHandle;
-        bool serviceConnected;
+        bool mServiceConnected;
         static std::string mApnName;
 };

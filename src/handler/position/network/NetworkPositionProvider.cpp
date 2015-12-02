@@ -35,6 +35,7 @@ NetworkPositionProvider::NetworkPositionProvider(LSHandle *sh) : PositionProvide
     mTelephonyCookie = nullptr;
     mWifiCookie = nullptr;
     mConnectivityStatus = false;
+    misFirstCellResponse = true;
     mTimeoutId = 0;
 }
 
@@ -44,20 +45,20 @@ char *NetworkPositionProvider::readApiKey() {
 
     retGeoLocAPIKey = locSecurityBase64Decode(GEOLOCKEY_CONFIG_PATH,
                                               &geoLocAPIKey);
-
     if (LOC_SECURITY_ERROR_SUCCESS == retGeoLocAPIKey) {
         return (char *) geoLocAPIKey;
     }
-
-    LS_LOG_INFO("readApiKey failed");
-    return (char *) geoLocAPIKey;
+    else {
+        LS_LOG_ERROR("readApiKey failed");
+        return NULL;
+    }
 }
 
 void NetworkPositionProvider::enable() {
-    LS_LOG_INFO("#NetworkPositionProvider::enable");
+    LS_LOG_DEBUG("#NetworkPositionProvider::enable");
 
     if (mEnabled) {
-        LS_LOG_INFO("#NetworkPositionProvider::already enabled");
+        LS_LOG_ERROR("#NetworkPositionProvider::already enabled");
         return;
     }
 
@@ -67,7 +68,7 @@ void NetworkPositionProvider::enable() {
 }
 
 void NetworkPositionProvider::disable() {
-    LS_LOG_INFO("#NetworkPositionProvider::disable ");
+    LS_LOG_DEBUG("#NetworkPositionProvider::disable ");
 
     if (mEnabled) {
         g_source_remove(mTimeoutId);
@@ -75,13 +76,13 @@ void NetworkPositionProvider::disable() {
         mEnabled = false;
         mTimeoutId = 0;
     } else {
-        LS_LOG_INFO("#NetworkPositionProvider::already disabled ");
+        LS_LOG_ERROR("#NetworkPositionProvider::already disabled ");
     }
 
 }
 
-void NetworkPositionProvider::onUpdateCellData(char *cellData, LSMessage *message) {
-    LS_LOG_INFO("############NetworkPositionProvider::onUpdateCellData = %s", cellData);
+void NetworkPositionProvider::onUpdateCellData(const char *cellData) {
+    LS_LOG_DEBUG("############NetworkPositionProvider::onUpdateCellData = %s", cellData);
 
     if (mPositionData.cellInfo) {
         g_free(mPositionData.cellInfo);
@@ -89,10 +90,14 @@ void NetworkPositionProvider::onUpdateCellData(char *cellData, LSMessage *messag
     }
 
     mPositionData.cellInfo = g_strdup(cellData);
-    triggerPostQuery(message);
+
+    if (misFirstCellResponse && !mwifiStatus) {
+        misFirstCellResponse = false;
+        triggerPostQuery();
+    }
 }
 
-void NetworkPositionProvider::onUpdateWifiData(GHashTable *wifiAccessPoints, LSMessage *message) {
+void NetworkPositionProvider::onUpdateWifiData(GHashTable *wifiAccessPoints) {
     GHashTableIter iter;
     gpointer key = NULL;
     gpointer newValue = NULL;
@@ -112,17 +117,16 @@ void NetworkPositionProvider::onUpdateWifiData(GHashTable *wifiAccessPoints, LSM
             updateKey = g_strdup((const gchar *) key);
             updateValue = GPOINTER_TO_INT(newValue);
             g_hash_table_insert(mPositionData.wifiAccessPointsList, updateKey, GINT_TO_POINTER(updateValue));
-            LS_LOG_INFO("###### onUpdateWifiData New key/value: %s, %d", (char *) updateKey,
+            LS_LOG_DEBUG("###### onUpdateWifiData New key/value: %s, %d", (char *) updateKey,
                         GPOINTER_TO_INT(updateValue));
         }
 
     }
 
-    triggerPostQuery(message);
-
+    triggerPostQuery();
 }
 
-bool NetworkPositionProvider::triggerPostQuery(LSMessage *message) {
+bool NetworkPositionProvider::triggerPostQuery() {
     char *postData = NULL;
 
     if (!mwifiStatus && mtelephonyPowerd) {
@@ -146,7 +150,7 @@ bool NetworkPositionProvider::triggerPostQuery(LSMessage *message) {
         return false;
     }
 
-    if (!networkPostQuery(postData, mPositionData.nwGeolocationKey, FALSE, message)) {
+    if (!networkPostQuery(postData, mPositionData.nwGeolocationKey, FALSE)) {
         LS_LOG_ERROR("Failed to post query!");
         g_free(postData);
         return false;
@@ -176,7 +180,17 @@ gboolean NetworkPositionProvider::networkUpdateCallback(void *obj) {
         return true;
     }
 
-    pThis->lunaServiceCall(SCAN_METHOD, SCAN_PAYLOAD, scanCb, &(pThis->mScanToken), true);
+    if (!(pThis->mConnectivityStatus)) {
+        LS_LOG_ERROR("networkUpdateCallback no internetConnection");
+        pThis->getCallback()->getLocationUpdateCb(GeoLocation((pThis->mPositionData).lastLatitude, (pThis->mPositionData).lastLongitude, -1.0,
+                                                 (pThis->mPositionData).lastAccuracy, (pThis->mPositionData).lastTimeStamp, -1.0, -1.0, -1.0,
+                                                  -1.0),ERROR_NETWORK_ERROR, HANDLER_NETWORK);
+        return true;
+    }
+    if (pThis->mwifiStatus)
+        pThis->lunaServiceCall(SCAN_METHOD, SCAN_PAYLOAD, scanCb, &(pThis->mScanToken), true);
+    else if (pThis->mtelephonyPowerd)
+        pThis->triggerPostQuery();
 
     return true;
 }
@@ -185,7 +199,7 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
     LS_LOG_INFO("processRequest");
 
     if (!mEnabled) {
-        LS_LOG_INFO("processRequest::NetworkPositionProvider is not enabled!!!");
+        LS_LOG_ERROR("processRequest::NetworkPositionProvider is not enabled!!!");
         return ERROR_NOT_STARTED;
     }
 
@@ -224,6 +238,10 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
         case STOP_POSITION_CMD:
 
             LS_LOG_INFO("processRequest:STOP_POSITION_CMD received");
+            if (!mProcessRequestInProgress) {
+                LS_LOG_ERROR("no request in progress");
+                return ERROR_NOT_STARTED;
+            }
             mProcessRequestInProgress = false;
             mNetworkData.unregisterForWifiAccessPoints();
             mNetworkData.unregisterForCellInfo();
@@ -237,6 +255,7 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
             }
 
             mPositionData.resetData();
+            misFirstCellResponse = true;
             break;
 
         default:
@@ -246,416 +265,77 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
     return ERROR_NONE;
 }
 
-char *NetworkPositionProvider::updateCellData() {
-    jvalue_ref parsedObj = NULL;
-    jvalue_ref cellObj = NULL;
-    jvalue_ref cellTower = NULL;
-    jvalue_ref subObj = NULL;
-    bool state = FALSE;
-    int32_t cellID = 0;
-    char *cellData = NULL;
-
-    if (mPositionData.cellInfo) {
-        JSchemaInfo schemaInfo;
-        jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
-        parsedObj = jdom_parse(j_cstr_to_buffer(mPositionData.cellInfo), DOMOPT_NOOPT, &schemaInfo);
-
-        if (jis_null(parsedObj)) {
-            LS_LOG_INFO("cellInfo parse failed");
-            return NULL;
-        }
-
-        //CheckIf cellID changed, query should be posted only if cellID changed
-        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("cellTowers"), &cellObj)) {
-            if (!jis_array(cellObj))
-                goto EXIT;
-
-            for (int i = 0; i < jarray_size(cellObj); i++) {
-                cellTower = jarray_get(cellObj, i);
-                if (jobject_get_exists(cellTower, J_CSTR_TO_BUF("registered"), &subObj)) {
-                    jboolean_get(subObj, &state);
-
-                    if (state && jobject_get_exists(cellTower, J_CSTR_TO_BUF("cellId"), &subObj)) {
-                        jnumber_get_i32(subObj, &cellID);
-
-                        if (cellID != mPositionData.curCellid) {
-                            mPositionData.curCellid = cellID;
-                            mPositionData.cellChanged = TRUE;
-                        } else {
-                            mPositionData.cellChanged = FALSE;
-                        }
-                    }
-                }
-
-                if (state) //exit if registered cell tower found
-                    break;
-            }
-        }
-    }
-    //if cell changed and new cell info is available
-    if ((mPositionData.cellInfo) && mPositionData.cellChanged) {
-        cellData = g_strdup(jvalue_tostring_simple(cellObj));
-        LS_LOG_DEBUG("cellData %s", cellData);
-    }
-
-    EXIT:
-    if (!jis_null(parsedObj))
-        j_release(&parsedObj);
-
-    return cellData;
-
-}
-
 char *NetworkPositionProvider::createCellWifiCombinedQuery() {
-    gchar *updateKey = NULL;
     char *postData = NULL;
-    gboolean isFirst = FALSE;
-    int vanishedCount = 0;
-    int signalChange = 0;
-    guint oldSize = 0;
-    guint newSize = 0;
-    int signalChangeSum = 0;
-    int updateValue = 0;
-    double avgSignalChange = 0;
-    GHashTableIter iter;
-    gpointer key = NULL;
-    gpointer oldValue = NULL;
-    gpointer newValue = NULL;
-    char *cellData = NULL;
     jvalue_ref wifiCellIdObject = NULL;
-    jvalue_ref wifiAccessPointsList = NULL;
-    jvalue_ref wifiAccessPointsListItem = NULL;
-    jvalue_ref parsedObj = NULL;
-    jvalue_ref cellObj = NULL;
+    bool dataAvailable = false;
 
+    LS_LOG_DEBUG("NetworkPositionProvider::createCellWifiCombinedQuery ");
     wifiCellIdObject = jobject_create();
 
     if (jis_null(wifiCellIdObject)) {
         return NULL;
     }
 
-    LS_LOG_INFO("NetworkPositionProvider::createCellWifiCombinedQuery ");
+    if (parseCellData(wifiCellIdObject))
+        dataAvailable = true;
+    if (parseWifiData(wifiCellIdObject))
+        dataAvailable = true;
 
-    if (mPositionData.cellInfo != NULL) {
-        cellData = updateCellData();
-
-        if (cellData) {
-
-            JSchemaInfo schemaInfo;
-            jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
-            parsedObj = jdom_parse(j_cstr_to_buffer(mPositionData.cellInfo), DOMOPT_NOOPT, &schemaInfo);
-
-            if (!jis_null(parsedObj)) {
-                LS_LOG_INFO("cellInfo parsed");
-                if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("cellTowers"), &cellObj))
-                    jobject_put(wifiCellIdObject, J_CSTR_TO_JVAL("cellTowers"), cellObj);
-                LS_LOG_INFO("==%s====", jvalue_tostring_simple(wifiCellIdObject));
-            }
-
-            if (!mPositionData.wifiAccessPointsList || (g_hash_table_size(mPositionData.wifiAccessPointsList) < 2)) {
-                postData = g_strdup(jvalue_tostring_simple(wifiCellIdObject));
-                LS_LOG_DEBUG("WiFi AP <2, updated with only cell data %s", postData);
-                goto EXIT;
-            }
-
-        }
-    }
-
-    LS_LOG_INFO("Checking wifi AP list...");
-
-    if (!mPositionData.wifiAccessPointsList || (g_hash_table_size(mPositionData.wifiAccessPointsList) < 2)) {
-        LS_LOG_DEBUG("wifiAccessPointsList is less than 2");
-        goto EXIT;
-    }
-
-    if (!mPositionData.lastAps) {
-        LS_LOG_INFO("Checking mPositionData.lastAps null...");
-        isFirst = TRUE;
-        mPositionData.lastAps = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                                      (GDestroyNotify) g_free, NULL);
-    }
-
-    LS_LOG_INFO("Checking mPositionData.last_aps not null...");
-    oldSize = g_hash_table_size(mPositionData.lastAps);
-    LS_LOG_INFO("Existing table size = %d", oldSize);
-
-    newSize = g_hash_table_size(mPositionData.wifiAccessPointsList);
-
-    LS_LOG_INFO("New table size = %d", newSize);
-
-    if (!isFirst) {
-        g_hash_table_iter_init(&iter, mPositionData.wifiAccessPointsList);
-
-        while (g_hash_table_iter_next(&iter, &key, &newValue)) {
-            LS_LOG_INFO("New key/value: %s, %d", (char *) key, GPOINTER_TO_INT(newValue));
-            if ((oldValue = g_hash_table_lookup(mPositionData.lastAps, (gconstpointer) key))) {
-                LS_LOG_INFO("Found key in existing table");
-
-                signalChange = abs(GPOINTER_TO_INT(newValue) - GPOINTER_TO_INT(oldValue));
-            } else {
-                LS_LOG_INFO("Not found key");
-
-                signalChange = abs(GPOINTER_TO_INT(newValue));
-            }
-
-            LS_LOG_INFO("signal change of %s = %d", (char *) key, signalChange);
-            signalChangeSum += signalChange;
-        }
-
-        g_hash_table_iter_init(&iter, mPositionData.lastAps);
-
-        while (g_hash_table_iter_next(&iter, &key, &oldValue)) {
-            if (!(newValue = g_hash_table_lookup(mPositionData.wifiAccessPointsList, (gconstpointer) key))) {
-                LS_LOG_INFO("Existing key is vanished in new table");
-
-                signalChange = abs(GPOINTER_TO_INT(oldValue));
-                LS_LOG_INFO("signal change of %s = %d", (char *) key, signalChange);
-
-                signalChangeSum += signalChange;
-                vanishedCount++;
-            }
-        }
-
-        avgSignalChange = (double) signalChangeSum / (double) (newSize + vanishedCount);
-        LS_LOG_INFO("Average signal change = %f", avgSignalChange);
-    }
-
-    if (isFirst || (!isFirst && avgSignalChange > SIGNAL_CHANGE_THRESHOLD)) {
-        g_hash_table_remove_all(mPositionData.lastAps);
-
-        wifiAccessPointsList = jarray_create(NULL);
-        if (jis_null(wifiAccessPointsList))
-            goto EXIT;
-
-        if (jis_null(wifiCellIdObject)) {
-            j_release(&wifiCellIdObject);
-            goto EXIT;
-        }
-
-        g_hash_table_iter_init(&iter, mPositionData.wifiAccessPointsList);
-        while (g_hash_table_iter_next(&iter, &key, &newValue)) {
-            updateKey = g_strdup((const gchar *) key);
-            updateValue = GPOINTER_TO_INT(newValue);
-
-            LS_LOG_INFO("inserting key/value: %s, %d", updateKey, updateValue);
-            g_hash_table_insert(mPositionData.lastAps, updateKey, GINT_TO_POINTER(updateValue));
-
-            wifiAccessPointsListItem = jobject_create();
-            if (!jis_null(wifiAccessPointsListItem)) {
-                jobject_put(wifiAccessPointsListItem, J_CSTR_TO_JVAL("macAddress"), jstring_create((char *) key));
-                jobject_put(wifiAccessPointsListItem, J_CSTR_TO_JVAL("signalStrength"),
-                            jnumber_create_i32(GPOINTER_TO_INT(newValue)));
-                jarray_append(wifiAccessPointsList, wifiAccessPointsListItem);
-            }
-        }
-
-        jobject_put(wifiCellIdObject, J_CSTR_TO_JVAL("wifiAccessPoints"), wifiAccessPointsList);
-    } else {
-        LS_LOG_INFO("No update in wifi AP list");
-        if (!(mPositionData.cellInfo && mPositionData.cellChanged)) {
-            goto EXIT;
-        }
+    if (!dataAvailable) {
+        LS_LOG_INFO("no data parsed"); //both cell and wifi data is not present in JSONObj
+        return postData;
     }
 
     postData = g_strdup(jvalue_tostring_simple(wifiCellIdObject));
-    LS_LOG_INFO("data posted for query %s", postData);
 
-    EXIT:
-    if (!jis_null(wifiCellIdObject))
-        j_release(&wifiCellIdObject);
-
-    if (cellData)
-        g_free(cellData);
+    j_release(&wifiCellIdObject);
 
     return postData;
 }
 
 char *NetworkPositionProvider::createCellQuery() {
     char *postData = NULL;
-    char *cellData = NULL;
-    jvalue_ref cellIdObject = NULL;
-    jvalue_ref parsedObj = NULL;
-    jvalue_ref cellObj = NULL;
+    jvalue_ref cellObject = NULL;
 
-    cellIdObject = jobject_create();
+    cellObject = jobject_create();
 
-    if (jis_null(cellIdObject)) {
+    if (jis_null(cellObject)) {
         return NULL;
     }
 
-    LS_LOG_INFO("NetworkPositionProvider::createCellQuery ");
+    if (parseCellData(cellObject)) {
 
-    if (mPositionData.cellInfo != NULL) {
-        cellData = updateCellData();
-
-        if (cellData) {
-
-            JSchemaInfo schemaInfo;
-            jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
-            parsedObj = jdom_parse(j_cstr_to_buffer(mPositionData.cellInfo), DOMOPT_NOOPT, &schemaInfo);
-
-            if (!jis_null(parsedObj)) {
-                LS_LOG_INFO("cellInfo parsed");
-
-                if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("cellTowers"), &cellObj))
-                    jobject_put(cellIdObject, J_CSTR_TO_JVAL("cellTowers"), cellObj);
-                LS_LOG_INFO("cellIdObject ==%s====", jvalue_tostring_simple(cellIdObject));
-            }
-
-            postData = g_strdup(jvalue_tostring_simple(cellIdObject));
-            LS_LOG_DEBUG("list updated with cell data only %s", postData);
-            goto EXIT;
+        if (!jis_null(cellObject)) {
+            postData = g_strdup(jvalue_tostring_simple(cellObject));
+            j_release(&cellObject);
         }
-
-    } else {
-        LS_LOG_INFO("NetworkPositionProvider::createCellQuery no cell info");
     }
-
-    EXIT:
-    if (!jis_null(cellIdObject))
-        j_release(&cellIdObject);
-
-    if (cellData)
-        g_free(cellData);
-
     return postData;
 }
 
 char *NetworkPositionProvider::createWifiQuery() {
-    gchar *updateKey = NULL;
     char *postData = NULL;
-    gboolean isFirst = FALSE;
-    int vanishedCount = 0;
-    int signalChange = 0;
-    guint oldSize = 0;
-    guint newSize = 0;
-    int signalChangeSum = 0;
-    int updateValue = 0;
-    double avgSignalChange = 0;
-    GHashTableIter iter;
-    gpointer key = NULL;
-    gpointer oldValue = NULL;
-    gpointer newValue = NULL;
     jvalue_ref wifiObject = NULL;
-    jvalue_ref wifiAccessPointsList = NULL;
-    jvalue_ref wifiAccessPointsListItem = NULL;
 
     wifiObject = jobject_create();
+    if (jis_null(wifiObject))
+        return postData;
 
-    if (jis_null(wifiObject)) {
-        return NULL;
+    if (parseWifiData(wifiObject)) {
+        postData = g_strdup(jvalue_tostring_simple(wifiObject));
     }
 
-    LS_LOG_INFO("NetworkPositionProvider::createWifiQuery ");
-
-    if (!mPositionData.wifiAccessPointsList || (g_hash_table_size(mPositionData.wifiAccessPointsList) < 2)) {
-        LS_LOG_DEBUG("Access point empty or less than 2");
-        goto EXIT;
-    }
-
-    LS_LOG_INFO("Checking wifi AP list...");
-
-    if (!mPositionData.lastAps) {
-        LS_LOG_INFO("Checking mPositionData.lastAps null...");
-        isFirst = TRUE;
-        mPositionData.lastAps = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                                      (GDestroyNotify) g_free, NULL);
-    }
-    LS_LOG_INFO("Checking mPositionData.last aps not null...");
-    oldSize = g_hash_table_size(mPositionData.lastAps);
-    LS_LOG_INFO("Existing table size = %d", oldSize);
-
-    newSize = g_hash_table_size(mPositionData.wifiAccessPointsList);
-
-    LS_LOG_INFO("New table size = %d", newSize);
-
-    if (!isFirst) {
-        g_hash_table_iter_init(&iter, mPositionData.wifiAccessPointsList);
-
-        while (g_hash_table_iter_next(&iter, &key, &newValue)) {
-            LS_LOG_INFO("New key/value: %s, %d", (char *) key, GPOINTER_TO_INT(newValue));
-
-            if ((oldValue = g_hash_table_lookup(mPositionData.lastAps, (gconstpointer) key))) {
-                LS_LOG_INFO("Found key in existing table");
-                signalChange = abs(GPOINTER_TO_INT(newValue) - GPOINTER_TO_INT(oldValue));
-            } else {
-                LS_LOG_INFO("Not found key");
-                signalChange = abs(GPOINTER_TO_INT(newValue));
-            }
-
-            LS_LOG_INFO("signal change of %s = %d", (char *) key, signalChange);
-            signalChangeSum += signalChange;
-        }
-
-        g_hash_table_iter_init(&iter, mPositionData.lastAps);
-
-        while (g_hash_table_iter_next(&iter, &key, &oldValue)) {
-            if (!(newValue = g_hash_table_lookup(mPositionData.wifiAccessPointsList, (gconstpointer) key))) {
-                LS_LOG_INFO("Existing key is vanished in new table");
-
-                signalChange = abs(GPOINTER_TO_INT(oldValue));
-                LS_LOG_INFO("signal change of %s = %d", (char *) key, signalChange);
-
-                signalChangeSum += signalChange;
-                vanishedCount++;
-            }
-        }
-
-        avgSignalChange = (double) signalChangeSum / (double) (newSize + vanishedCount);
-        LS_LOG_INFO("Average signal change = %f", avgSignalChange);
-    }
-
-    if (isFirst || (!isFirst && avgSignalChange > SIGNAL_CHANGE_THRESHOLD)) {
-        g_hash_table_remove_all(mPositionData.lastAps);
-
-        wifiAccessPointsList = jarray_create(NULL);
-        if (jis_null(wifiAccessPointsList))
-            goto EXIT;
-
-        if (jis_null(wifiObject)) {
-            j_release(&wifiObject);
-            goto EXIT;
-        }
-
-        g_hash_table_iter_init(&iter, mPositionData.wifiAccessPointsList);
-        while (g_hash_table_iter_next(&iter, &key, &newValue)) {
-            updateKey = g_strdup((const gchar *) key);
-            updateValue = GPOINTER_TO_INT(newValue);
-
-            LS_LOG_INFO("inserting key/value: %s, %d", updateKey, updateValue);
-            g_hash_table_insert(mPositionData.lastAps, updateKey, GINT_TO_POINTER(updateValue));
-
-            wifiAccessPointsListItem = jobject_create();
-            if (!jis_null(wifiAccessPointsListItem)) {
-                jobject_put(wifiAccessPointsListItem, J_CSTR_TO_JVAL("macAddress"), jstring_create((char *) key));
-                jobject_put(wifiAccessPointsListItem, J_CSTR_TO_JVAL("signalStrength"),
-                            jnumber_create_i32(GPOINTER_TO_INT(newValue)));
-                jarray_append(wifiAccessPointsList, wifiAccessPointsListItem);
-            }
-        }
-
-        jobject_put(wifiObject, J_CSTR_TO_JVAL("wifiAccessPoints"), wifiAccessPointsList);
-    } else {
-        LS_LOG_INFO("No update in wifi AP list");
-        goto EXIT;
-    }
-
-    postData = g_strdup(jvalue_tostring_simple(wifiObject));
-    LS_LOG_INFO("data posted for query %s", postData);
-
-    EXIT:
-    if (!jis_null(wifiObject))
-        j_release(&wifiObject);
-
+    j_release(&wifiObject);
     return postData;
 }
 
-bool NetworkPositionProvider::networkPostQuery(char *postData, const char *APIKey, gboolean sync, LSMessage *message) {
+bool NetworkPositionProvider::networkPostQuery(char *postData, const char *APIKey, gboolean sync) {
     char url[URL_LENGTH] = {0};
     sprintf(url, NETWORK_URL, APIKey);
     LS_LOG_DEBUG("networkPostQuery %s", url);
 
-    int errorCode = NetworkRequestManager::getInstance()->initiateTransaction(NULL, 0, url, sync, message, this,
+    int errorCode = NetworkRequestManager::getInstance()->initiateTransaction(NULL, 0, url, sync, NULL, this,
                                                                               postData);
 
     if (ERROR_NONE == errorCode) {
@@ -678,7 +358,7 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
     }
 
     if (HTTP_STATUS_CODE_SUCCESS == task->curlDesc.httpResponseCode) {
-        LS_LOG_INFO("curlResultCode: %d, httpResponseCode: %ld, httpConnectCode: %ld, desc: %s",
+        LS_LOG_DEBUG("curlResultCode: %d, httpResponseCode: %ld, httpConnectCode: %ld, desc: %s",
                     task->curlDesc.curlResultCode,
                     task->curlDesc.httpResponseCode,
                     task->curlDesc.httpConnectCode,
@@ -699,11 +379,9 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
             return;
         }
 
-        LS_LOG_DEBUG("parseHTTPResponse succeeded");
-
         // for tracking, if responded coordinates are same as the last coordinates,
         // no need to emit signal.
-        LS_LOG_INFO("latitude/longitude change: %f, %f", fabs(mPositionData.lastLatitude - latitude),
+        LS_LOG_DEBUG("latitude/longitude change: %f, %f", fabs(mPositionData.lastLatitude - latitude),
                     fabs(mPositionData.lastLongitude - longitude));
 
         if (latitude == mPositionData.lastLatitude &&
@@ -731,7 +409,7 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
                       HANDLER_NETWORK);
     } else {
         //error case handling
-        LS_LOG_INFO("network error: task->curlDesc.curlResultErrorStr %s", task->curlDesc.curlResultErrorStr);
+        LS_LOG_ERROR("network error: task->curlDesc.curlResultErrorStr %s", task->curlDesc.curlResultErrorStr);
 
         NetworkRequestManager::getInstance()->clearTransaction(task);
 
@@ -804,8 +482,7 @@ bool NetworkPositionProvider::registerServiceStatus(const char *service, void **
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
     }
-
-    if (result)
+    else
         LS_LOG_INFO("Registered to service %s with cookie value %p", service, cookie);
 
     return result;
@@ -815,8 +492,8 @@ bool NetworkPositionProvider::unregisterServiceStatus(void *cookie) {
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if (!cookie) {
-        LS_LOG_INFO("unregisterServiceStatus: invalid cookie received %p", cookie);
+    if ((!cookie)||(!mLSHandle)) {
+        LS_LOG_ERROR("unregisterServiceStatus: invalid cookie/handle received %p %p", cookie, mLSHandle);
         return false;
     }
     bool result = LSCancelServerStatus(mLSHandle, cookie, &lserror);
@@ -825,9 +502,10 @@ bool NetworkPositionProvider::unregisterServiceStatus(void *cookie) {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
     }
-
-    if (result)
+    else
         LS_LOG_INFO("Unregistered successfully for cookie %p", cookie);
+
+    cookie = NULL;
 
     return result;
 }
@@ -892,18 +570,27 @@ bool NetworkPositionProvider::scanCb(LSHandle *sh, LSMessage *reply, void *ctx) 
 
 
 void NetworkPositionProvider::Handle_WifiNotification(bool status) {
-    LS_LOG_INFO("Handle_WifiNotification status %d", status);
+    LS_LOG_DEBUG("Handle_WifiNotification status %d", status);
     mwifiStatus = status;
 }
 
 void NetworkPositionProvider::Handle_ConnectivityNotification(bool status) {
-    LS_LOG_INFO("Handle_ConnectivityNotification status %d", status);
+    LS_LOG_DEBUG("Handle_ConnectivityNotification status %d", status);
     mConnectivityStatus = status;
 }
 
 void NetworkPositionProvider::Handle_TelephonyNotification(bool status) {
-    LS_LOG_INFO("Handle_TelephonyNotification status %d", status);
+    LS_LOG_DEBUG("Handle_TelephonyNotification status %d", status);
     mtelephonyPowerd = status;
+
+    if (!mtelephonyPowerd) {
+        LS_LOG_INFO("resetting CellData");
+        if (mPositionData.cellInfo) {
+            g_free(mPositionData.cellInfo);
+            mPositionData.cellInfo = NULL;
+        }
+        mPositionData.curCellid = 0;
+    }
 }
 
 void NetworkPositionProvider::Handle_WifiInternetNotification(bool status) {
@@ -913,3 +600,188 @@ void NetworkPositionProvider::Handle_WifiInternetNotification(bool status) {
 void NetworkPositionProvider::Handle_SuspendedNotification(bool status) {
 
 }
+
+template<typename T>
+bool NetworkPositionProvider::parseWifiData(T& jsonObj) {
+    gchar *updateKey = NULL;
+    gboolean isFirst = FALSE;
+    int vanishedCount = 0;
+    int signalChange = 0;
+    guint oldSize = 0;
+    guint newSize = 0;
+    int signalChangeSum = 0;
+    int updateValue = 0;
+    double avgSignalChange = 0;
+    GHashTableIter iter;
+    gpointer key = NULL;
+    gpointer oldValue = NULL;
+    gpointer newValue = NULL;
+    jvalue_ref wifiAccessPointsList = NULL;
+    jvalue_ref wifiAccessPointsListItem = NULL;
+
+    if (jis_null(jsonObj)) {
+        return false;
+    }
+
+    LS_LOG_DEBUG("NetworkPositionProvider::parseWifiData ");
+
+    if (!mPositionData.wifiAccessPointsList || (g_hash_table_size(mPositionData.wifiAccessPointsList) < 2)) {
+        LS_LOG_DEBUG("Access point empty or less than 2");
+        return false;
+    }
+
+    LS_LOG_DEBUG("Checking wifi AP list...");
+
+    if (!mPositionData.lastAps) {
+        LS_LOG_INFO("Checking mPositionData.lastAps null...");
+        isFirst = TRUE;
+        mPositionData.lastAps = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                                      (GDestroyNotify) g_free, NULL);
+    }
+    LS_LOG_DEBUG("Checking mPositionData.last aps not null...");
+    oldSize = g_hash_table_size(mPositionData.lastAps);
+    LS_LOG_INFO("Existing table size = %d", oldSize);
+
+    newSize = g_hash_table_size(mPositionData.wifiAccessPointsList);
+
+    LS_LOG_INFO("New table size = %d", newSize);
+
+    if (!isFirst) {
+        g_hash_table_iter_init(&iter, mPositionData.wifiAccessPointsList);
+
+        while (g_hash_table_iter_next(&iter, &key, &newValue)) {
+            LS_LOG_INFO("New key/value: %s, %d", (char *) key, GPOINTER_TO_INT(newValue));
+
+            if ((oldValue = g_hash_table_lookup(mPositionData.lastAps, (gconstpointer) key))) {
+                LS_LOG_INFO("Found key in existing table");
+                signalChange = abs(GPOINTER_TO_INT(newValue) - GPOINTER_TO_INT(oldValue));
+            } else {
+                LS_LOG_INFO("Not found key");
+                signalChange = abs(GPOINTER_TO_INT(newValue));
+            }
+
+            LS_LOG_INFO("signal change of %s = %d", (char *) key, signalChange);
+            signalChangeSum += signalChange;
+        }
+
+        g_hash_table_iter_init(&iter, mPositionData.lastAps);
+
+        while (g_hash_table_iter_next(&iter, &key, &oldValue)) {
+            if (!(newValue = g_hash_table_lookup(mPositionData.wifiAccessPointsList, (gconstpointer) key))) {
+                LS_LOG_INFO("Existing key is vanished in new table");
+
+                signalChange = abs(GPOINTER_TO_INT(oldValue));
+                LS_LOG_INFO("signal change of %s = %d", (char *) key, signalChange);
+
+                signalChangeSum += signalChange;
+                vanishedCount++;
+            }
+        }
+
+        avgSignalChange = (double) signalChangeSum / (double) (newSize + vanishedCount);
+        LS_LOG_INFO("Average signal change = %f", avgSignalChange);
+    }
+
+    if (isFirst || (!isFirst && avgSignalChange > SIGNAL_CHANGE_THRESHOLD)) {
+        g_hash_table_remove_all(mPositionData.lastAps);
+
+        wifiAccessPointsList = jarray_create(NULL);
+
+        if (jis_null(wifiAccessPointsList)) {
+            LS_LOG_ERROR("fatal, unable to create wifiAccessPointsList");
+            return false;
+        }
+
+        g_hash_table_iter_init(&iter, mPositionData.wifiAccessPointsList);
+
+        while (g_hash_table_iter_next(&iter, &key, &newValue)) {
+            updateKey = g_strdup((const gchar *) key);
+            updateValue = GPOINTER_TO_INT(newValue);
+
+            LS_LOG_INFO("inserting key/value: %s, %d", updateKey, updateValue);
+            g_hash_table_insert(mPositionData.lastAps, updateKey, GINT_TO_POINTER(updateValue));
+
+            wifiAccessPointsListItem = jobject_create();
+            if (!jis_null(wifiAccessPointsListItem)) {
+                jobject_put(wifiAccessPointsListItem, J_CSTR_TO_JVAL("macAddress"), jstring_create((char *) key));
+                jobject_put(wifiAccessPointsListItem, J_CSTR_TO_JVAL("signalStrength"),
+                            jnumber_create_i32(GPOINTER_TO_INT(newValue)));
+                jarray_append(wifiAccessPointsList, wifiAccessPointsListItem);
+            }
+        }
+
+        if (jobject_put(jsonObj, J_CSTR_TO_JVAL("wifiAccessPoints"), wifiAccessPointsList)) {
+            LS_LOG_DEBUG("table updation complete");
+            return true;
+        }
+    }
+
+    LS_LOG_DEBUG("No update in wifi AP list");
+    return false;
+}
+
+template<typename T>
+bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
+    jvalue_ref parsedObj = NULL;
+    jvalue_ref jsonObj = NULL;
+    jvalue_ref cellTower = NULL;
+    jvalue_ref subObj = NULL;
+    bool state = FALSE;
+    int32_t cellID = 0;
+
+    if (mPositionData.cellInfo) {
+        JSchemaInfo schemaInfo;
+        jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
+        parsedObj = jdom_parse(j_cstr_to_buffer(mPositionData.cellInfo), DOMOPT_NOOPT, &schemaInfo);
+
+        if (jis_null(parsedObj)) {
+            LS_LOG_ERROR("cellInfo parsing failed");
+            return false;
+        }
+
+        //CheckIf cellID changed, query should be posted only if cellID changed
+        if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("cellTowers"), &jsonObj)) {
+            if (!jis_array(jsonObj)) {
+                LS_LOG_ERROR("cellTowers array not found in JSON schema");
+                j_release(&parsedObj);
+                return false;
+            }
+            for (int i = 0; i < jarray_size(jsonObj); i++) {
+                cellTower = jarray_get(jsonObj, i);
+                if (jobject_get_exists(cellTower, J_CSTR_TO_BUF("registered"), &subObj)) {
+                    jboolean_get(subObj, &state);
+                    LS_LOG_DEBUG("registered status of cellID %d",state);
+                    if (state && jobject_get_exists(cellTower, J_CSTR_TO_BUF("cellId"), &subObj)) {
+                        jnumber_get_i32(subObj, &cellID);
+
+                        if (cellID != mPositionData.curCellid) {
+                            mPositionData.curCellid = cellID;
+                            mPositionData.cellChanged = TRUE;
+                        } else {
+                            mPositionData.cellChanged = FALSE;
+                        }
+                    }
+                }
+
+                if (state) //exit if registered cell tower found
+                    break;
+            }
+        }
+    }
+
+    if (mPositionData.cellChanged) {
+        LS_LOG_INFO("registered changed cell ID detected");//not a single registered cell change detected, nothing appended
+        if (jobject_put(refJsonObj, J_CSTR_TO_JVAL("cellTowers"), jsonObj))
+            return true;
+        else if(!jis_null(parsedObj)) {
+            LS_LOG_INFO("failure to insert cell data");
+            j_release(&parsedObj);
+            return false;
+        }
+    }
+    else
+        LS_LOG_DEBUG("no registered changed cell ID detected");
+
+    return false;
+}
+

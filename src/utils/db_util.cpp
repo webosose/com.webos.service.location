@@ -24,7 +24,7 @@
 #include <db_util.h>
 #include <unistd.h>
 
-int get(DBHandle *handle, char *keyVal, xmlChar **result) {
+int get(DBHandle *handle, const char *keyVal, xmlChar **result) {
   if (!keyVal || !handle) {
     return NULL_VALUE;
   }
@@ -50,7 +50,7 @@ int get(DBHandle *handle, char *keyVal, xmlChar **result) {
   return SUCCESS;
 }
 
-int put(DBHandle *handle, char *key, char *value) {
+int put(DBHandle *handle, const char *key, char *value) {
   //TODO: allow duplicate keys?
   if (!key) {
     return NULL_VALUE;
@@ -103,7 +103,7 @@ int isFileExists(const char *fname) {
      return (access(fname, F_OK) == 0);
 }
 
-int createPreference(const char *filename, DBHandle *handle, char *title, int enablecheck) {
+int createPreference(const char *filename, DBHandle *handle, const char *title, int enablecheck) {
   if (!handle || !title || !filename) {
     return NULL_VALUE;
   }

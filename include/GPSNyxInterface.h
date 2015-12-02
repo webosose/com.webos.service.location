@@ -19,8 +19,7 @@
 
 class GPSNyxInterface :public INtpClinetCallback{
 public:
-    GPSNyxInterface() :
-            gpsProviderInstance(nullptr), mNyxGpsSystem(nullptr) ,mDownloadNtpDataStatus(IDLE){
+    GPSNyxInterface(): gpsProviderInstance(nullptr), mDownloadNtpDataStatus(IDLE),mNyxGpsSystem(nullptr) {
     }
     nyx_error_t initialize(void *instance);
     void deInitialize();

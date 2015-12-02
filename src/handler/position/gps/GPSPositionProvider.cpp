@@ -41,7 +41,7 @@ NetworkInfo::NetworkInfo() {
     bearerType = 0;
 }
 
-static void *gpsThreadProc(void *args) {
+void * GPSPositionProvider::gpsThreadProc(void *args) {
     GPSPositionProvider *gpsService = (GPSPositionProvider *) args;
     nyx_error_t rc;
 
@@ -74,9 +74,9 @@ static void *gpsThreadProc(void *args) {
                         &gpsService->mNetworkInfo);
                 printf_debug("data_conn_open returned %d\n", rc);
                 gpsService->mGPSDataConnectionState = DATA_CONNECTION_OPEN;
-            } else if (gpsService->mGpsWanInterface->serviceStatus()) {
+            } else if (gpsService->mGpsWanInterface.serviceStatus()) {
                 gpsService->mGPSDataConnectionState = DATA_CONNECTION_IDLE;
-                gpsService->mGpsWanInterface->connect();
+                gpsService->mGpsWanInterface.connect();
             }
                 break;
 
@@ -84,7 +84,7 @@ static void *gpsThreadProc(void *args) {
             printf_debug("ACTION_CLOSE_ATL\n");
 
             if (gpsService->mNetworkInfo.available) {
-                gpsService->mGpsWanInterface->disconnect();
+                gpsService->mGpsWanInterface.disconnect();
             } else {
                     rc = gpsService->mGPSNyxInterface.dataConnectionClosed(
                             NYX_AGPS_TYPE_SUPL);
@@ -248,7 +248,7 @@ bool GPSPositionProvider::handleDeleteAidingData(void *data) {
     printf_info("requesting delete_aiding_data...\n");
     if (NYX_ERROR_NONE != mGPSNyxInterface.deleteAidingData()) {
         printf_error("failed to delete aiding data\n");
-        //                return false;
+        return false;
     }
     return true;
 }
@@ -402,28 +402,6 @@ bool GPSPositionProvider::handleExtraCommand(void *data) {
     return retVal;
 }
 
-/*
- bool GPSPositionProvider::handleAddGeofenceCommand(void *data) {
- char* cvalue=(char *)data;
- printf_info("requesting cvalue=%s command generic ...\n", cvalue);
- if (NYX_ERROR_NONE != mGPSNyxInterface.geofenceAdd(int32_t geofenceId, double latitude, double longitude, double radius, GError * * error).injectExtraCommand(cvalue)) {
- printf_error("Failed to Add Geofence Command\n");
- return false;
- }
- return true;
- }
-
- bool GPSPositionProvider::handleRemoveGeofenceCommand(void *data) {
- char* cvalue=(char *)data;
- printf_info("requesting cvalue=%s command generic ...\n", cvalue);
- if (NYX_ERROR_NONE != mGPSNyxInterface.geofenceRemove(int32_t geofenceId, GError * * error).geofenceAdd(int32_t geofenceId, double latitude, double longitude, double radius, GError * * error).injectExtraCommand(cvalue)) {
- printf_error("Failed to Add Geofence Command\n");
- return false;
- }
- return true;
- }
- */
-
 bool GPSPositionProvider::handleSetGpsParameterCommand(void *data) {
     if (data == nullptr)
         return false;
@@ -434,6 +412,7 @@ bool GPSPositionProvider::handleSetGpsParameterCommand(void *data) {
     char supl_host[256];
     int supl_port = 0;
     JSchemaInfo schemaInfo;
+
     printf_info("value of json in setGPSParameters %s\n", cvalue);
     // parse json object
     jschema_ref input_schema = jschema_parse(j_cstr_to_buffer(SCHEMA_ANY),
@@ -479,6 +458,27 @@ bool GPSPositionProvider::handleSetGpsParameterCommand(void *data) {
     return true;
 }
 
+bool GPSPositionProvider::handleAddGeofenceCommand(void *data) {
+    if (!data)
+        return false;
+    PositionRequest *request = (PositionRequest*)data;
+    printf_info("requesting add geofence...\n");
+
+    return mGPSNyxInterface.geofenceAdd(request->getGeofenceID(),
+                                        request->getGeofenceLatitude(),
+                                        request->getGeofenceLongitude(),
+                                        request->getGeofenceRadius());
+}
+
+bool GPSPositionProvider::handleRemoveGeofenceCommand(void *data) {
+    if (!data)
+        return false;
+    int32_t geofenceId = *(int32_t*)data;
+    printf_info("requesting remove geofence, id = %d...\n", geofenceId);
+
+    return mGPSNyxInterface.geofenceRemove(geofenceId);
+}
+
 /**
  * gpsAccuracyGetDetails:
  * @accuracy: A #struct _Accuracy
@@ -492,10 +492,10 @@ bool GPSPositionProvider::handleSetGpsParameterCommand(void *data) {
 void GPSPositionProvider::gpsAccuracyGetDetails(double *horizontal_accuracy,
                                                 double *vertical_accuracy) {
     if (horizontal_accuracy != NULL) {
-        *horizontal_accuracy =mLocation->getHorizontalAccuracy();
+        *horizontal_accuracy =mLocation.getHorizontalAccuracy();
     }
     if (vertical_accuracy != NULL) {
-        *vertical_accuracy = mLocation->getVerticalAccuracy();
+        *vertical_accuracy = mLocation.getVerticalAccuracy();
     }
 }
 
@@ -510,8 +510,8 @@ void GPSPositionProvider::gpsAccuracyGetDetails(double *horizontal_accuracy,
  */
 void GPSPositionProvider::gpsAccuracySetDetails(double horizontal_accuracy,
                                                 double vertical_accuracy) {
-    mLocation->setHorizontalAccuracy(horizontal_accuracy);
-    mLocation->setVerticalAccuracy(vertical_accuracy);
+    mLocation.setHorizontalAccuracy(horizontal_accuracy);
+    mLocation.setVerticalAccuracy(vertical_accuracy);
 }
 
 void GPSPositionProvider::mutexInit() {
@@ -527,7 +527,7 @@ void GPSPositionProvider::mutexDestroy() {
 void GPSPositionProvider::updateNetworkState(NetworkInfo *networkInfo) {
 
     pthread_mutex_lock(&mGPSThreadMutex);
-    printf_debug("enter GpsWanInterface::getContextCb updateNetworkState %d \n",networkInfo->available);
+    printf_debug("enter GPSPositionProvider::updateNetworkState %d \n",networkInfo->available);
 
     if ((networkInfo->available == 1) && (0 == mNetworkInfo.available))
     {
@@ -644,21 +644,6 @@ GPSStatus GPSPositionProvider::getGPSStatus() {
     return mGPSStatus;
 }
 
-void GPSPositionProvider::setLunaHandle(LSHandle *sh){
-    mLSHandle = sh;
-}
-
-void GPSPositionProvider::finalize() {
-    loc_http_stop();
-
-    if (mHttpReqTask) {
-        loc_http_task_destroy(&mHttpReqTask);
-        mHttpReqTask = nullptr;
-    }
-
-    delete(mLocation);
-}
-
 void GPSPositionProvider::shutdown() {
     int thread_return;
 
@@ -677,6 +662,13 @@ void GPSPositionProvider::shutdown() {
     mutexDestroy();
     printf_debug("mutex destroy done\n");
 
+    loc_http_stop();
+
+    if (mHttpReqTask) {
+        loc_http_task_destroy(&mHttpReqTask);
+        mHttpReqTask = nullptr;
+    }
+
     loc_geometry_rtcep_destroy(&mCEPCalculator);
     loc_logger_destroy(&mNMEALogger);
     loc_logger_destroy(&mCEPLogger);
@@ -685,53 +677,52 @@ void GPSPositionProvider::shutdown() {
     printf_debug("gps-service is terminated\n");
 }
 
-GPSPositionProvider::GPSPositionProvider() :
-        PositionProviderInterface("GPS") {
-    printf_debug("ctor\n");
-    RegisterMessageHandlers(COMMAND_GPS_ENABLE, &GPSPositionProvider::handleGpsEnable,
-                            COMMAND_GPS_DISABLE, &GPSPositionProvider::handleGpsDisable,
-                            COMMAND_GPS_PERIODIC_UPDATE, &GPSPositionProvider::handlePeriodicUpdates,
-                            COMMAND_EXTRA_COMMAND, &GPSPositionProvider::handleExtraCommand,
-                            COMMAND_SET_GPS_PARAMETER, &GPSPositionProvider::handleSetGpsParameterCommand,
-//               COMMAND_ADD_GEOFENCE,&GPSPositionProvider::handleAddGeofence,
-            //                COMMAND_REMOVE_GEOFENCE,&GPSPositionProvider::handleRemoveGeofence,
-                            HandlerBase::kEndList);
-    loc_http_start();
-    mGpsWanInterface = new GpsWanInterface();
+bool GPSPositionProvider::init(LSHandle *sh) {
+    printf_debug("init\n");
 
-    mLocation = new GeoLocation;
-    mGPSThreadAction = ACTION_NONE;
+    mLSHandle = sh;
     mutexInit();
 
     if (pthread_create(&mGPSThreadID, nullptr, gpsThreadProc, this) != 0) {
         printf_error("failed to create gps thread\n");
         mutexDestroy();
-        printf_debug("GPSPositionProvider exit\n");
-        throw bad_alloc();
+        return false;
     }
+
+    mGpsWanInterface.initialize(mLSHandle);
+    loc_http_start();
 
     if (NYX_ERROR_NONE != mGPSNyxInterface.initialize(this)) {
         goto exit;
     }
-    mPositionMode = mGPSConf.mLgeGPSPositionMode;
-    mFixInterval = DEFAULT_FIX_INTERVAL;
 
     setGpsParameters(mGPSConf.mLgeGPSPositionMode,
                      NYX_GPS_POSITION_RECURRENCE_PERIODIC,
                      DEFAULT_FIX_INTERVAL, mGPSConf.mSUPLHost, mGPSConf.mSUPLPort);
-    printf_debug("GPSPositionProvider exit\n");
-    return;
+    return true;
 
     exit:
     shutdown();
+    return false;
+}
 
+GPSPositionProvider::GPSPositionProvider() : PositionProviderInterface("GPS") {
+    printf_debug("ctor of GPSPositionProvider\n");
+    RegisterMessageHandlers(COMMAND_GPS_ENABLE, &GPSPositionProvider::handleGpsEnable,
+                            COMMAND_GPS_DISABLE, &GPSPositionProvider::handleGpsDisable,
+                            COMMAND_GPS_PERIODIC_UPDATE, &GPSPositionProvider::handlePeriodicUpdates,
+                            COMMAND_EXTRA_COMMAND, &GPSPositionProvider::handleExtraCommand,
+                            COMMAND_SET_GPS_PARAMETER, &GPSPositionProvider::handleSetGpsParameterCommand,
+                               COMMAND_ADD_GEOFENCE,&GPSPositionProvider::handleAddGeofenceCommand,
+                            COMMAND_REMOVE_GEOFENCE,&GPSPositionProvider::handleRemoveGeofenceCommand,
+                            HandlerBase::kEndList);
+
+    mPositionMode = mGPSConf.mLgeGPSPositionMode;
     printf_debug("ctor exit\n");
-    throw bad_exception();
 }
 
 void GPSPositionProvider::enable() {
     printf_info("enter GPSPositionProvider::enable\n");
-    mGpsWanInterface->initialize(mLSHandle);
     if (!mEnabled) {
         mEnabled = true;
     }
@@ -797,9 +788,9 @@ gboolean GPSPositionProvider::gpsTimeoutCb(gpointer userdata) {
     GPSPositionProvider *gpsService = (GPSPositionProvider *) userdata;
     GeoLocation location;
     if (!gpsService)
-    return G_SOURCE_REMOVE;
+        return G_SOURCE_REMOVE;
 
-    if (gpsService->getCallback())
+    if (gpsService->mAPIProgressFlag & LOCATION_UPDATES_ON)
         gpsService->getCallback()->getLocationUpdateCb(location, ERROR_TIMEOUT, HANDLER_GPS);
 
     return G_SOURCE_REMOVE;
@@ -826,8 +817,8 @@ ErrorCodes GPSPositionProvider::processRequest(PositionRequest request) {
             {
                 struct timeval tv;
                 gettimeofday(&tv, (struct timezone *) NULL);
-                mFixRequestTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000; // mri: saved in gpspositionprovider structure
-        }
+                mFixRequestTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+            }
             ret = requestGpsEngineStart();
 
             if (ERROR_NONE == ret) {
@@ -868,7 +859,7 @@ ErrorCodes GPSPositionProvider::processRequest(PositionRequest request) {
             if (false == processCommand(COMMAND_SET_GPS_PARAMETER, command.c_str()))
                 return ERROR_NOT_AVAILABLE;
         }
-           break;
+        break;
 
         case SEND_GPS_EXTRA_CMD: {
             string command = request.getRequestParams();
@@ -878,27 +869,22 @@ ErrorCodes GPSPositionProvider::processRequest(PositionRequest request) {
             if (false == processCommand(COMMAND_EXTRA_COMMAND, command.c_str()))
                 return ERROR_NOT_AVAILABLE;
         }
-         break;
+        break;
 
         case ADD_GEOFENCE_CMD: {
-            bool retValue ;
-
-            retValue = mGPSNyxInterface.geofenceAdd(int32_t (request.getGeofenceID()),
-                                                    request.getGeofenceLatitude(),
-                                                       request.getGeofenceLongitude(),
-                                                       request.getGeofenceRadius());
-            if (!retValue)
-                ret = ERROR_NOT_AVAILABLE;
+            if (false == processCommand(COMMAND_ADD_GEOFENCE, (const char*)&request)) {
+                printf_error("Failed to Add Geofence\n");
+                return ERROR_NOT_AVAILABLE;
+            }
         }
         break;
 
         case REMOVE_GEOFENCE_CMD: {
-            bool retValue;
-
-            retValue = mGPSNyxInterface.geofenceRemove (request.getGeofenceID());
-
-            if (!retValue)
-                ret = ERROR_NOT_AVAILABLE;
+            int geofenceID = request.getGeofenceID();
+            if (false == processCommand(COMMAND_REMOVE_GEOFENCE, (const char*)(&geofenceID))) {
+                printf_error("Failed to Remove Geofence\n");
+                return ERROR_NOT_AVAILABLE;
+            }
         }
         break;
 

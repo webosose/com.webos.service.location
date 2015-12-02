@@ -503,7 +503,8 @@ bool ConnectionStateObserver::_telephony_status_cb(LSHandle *sh, LSMessage *mess
 
         if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("extended"), &extendedobj)) {
             LS_LOG_DEBUG("extendedobj reading power state %s", jvalue_tostring_simple(extendedobj));
-            isTelephonyAvailable = jobject_get_exists(extendedobj, J_CSTR_TO_BUF("power"), &jsonSubObj);
+            if (jobject_get_exists(extendedobj, J_CSTR_TO_BUF("power"), &jsonSubObj))
+                jboolean_get(jsonSubObj, &isTelephonyAvailable);
         }
 
     }

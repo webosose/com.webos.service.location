@@ -43,12 +43,17 @@
 
 using namespace std;
 
-#define    GPS_CONF_FILE    "/etc/gps.conf"
+#define printf_debug LS_LOG_DEBUG
+#define printf_error LS_LOG_ERROR
+#define printf_info LS_LOG_INFO
+#define printf_warning LS_LOG_WARNING
+
+#define GPS_CONF_FILE    "/etc/gps.conf"
 
 #define GPS_UPDATE_INTERVAL_MAX     12*60
 
 // Data connection state
-#define    DATA_CONNECTION_IDLE            0
+#define DATA_CONNECTION_IDLE            0
 #define DATA_CONNECTION_OPEN            1
 #define DATA_CONNECTION_CLOSED          2
 #define DATA_CONNECTION_FAILED          3
@@ -215,6 +220,8 @@ public:
         shutdown();
     }
 
+    bool init(LSHandle *sh);
+
     void enable ();
 
     void disable();
@@ -231,9 +238,9 @@ public:
 
     void updateNetworkState(NetworkInfo *networkInfo);
     static gboolean gpsTimeoutCb(gpointer userdata);
+    static void *gpsThreadProc(void *args);
 
     GPSStatus getGPSStatus();
-    void setLunaHandle(LSHandle *sh);
 
     long long getTimeToFirstFixValue ();
 private:
@@ -257,12 +264,7 @@ private:
 
     bool hasCapability(unsigned int capability);
 
-
-
-    void finalize();
-
     void gpsAccuracyFree(GValueArray *accuracy);
-
 
     bool processCommand(KGpsCommands gpsCommand, const char *value = nullptr);
 
@@ -298,23 +300,27 @@ private:
 
     bool handleSetGpsParameterCommand(void *data);
 
+    bool handleAddGeofenceCommand(void *data);
+
+    bool handleRemoveGeofenceCommand(void *data);
+
 public:
     GPSStatus mGPSStatus = GPS_STATUS_UNAVAILABLE;
 
     GPSServiceConfig mGPSConf;
-    GpsWanInterface *mGpsWanInterface;
+    GpsWanInterface mGpsWanInterface;
     GPSNyxInterface mGPSNyxInterface;
     bool mEngineStarted = false;
     unsigned int mGEngineCapabilities = 0x27;
     uint32_t mPositionMode;
-    uint32_t mFixInterval;
+    uint32_t mFixInterval = DEFAULT_FIX_INTERVAL;
 
     int mGeofenceStatus = NYX_GEOFENCER_UNAVAILABLE;
     bool mGpsParamModified = false;
     uint32_t mGPSDataConnectionState = DATA_CONNECTION_IDLE;
     DownloadStateEType mDownloadXtraDataStatus = IDLE;
 
-    GPSThreadActionEType mGPSThreadAction;
+    GPSThreadActionEType mGPSThreadAction = ACTION_NONE;
     pthread_t mGPSThreadID;
     pthread_mutex_t mGPSThreadMutex;
     pthread_cond_t mGPSThreadCond;
@@ -324,7 +330,7 @@ public:
     long long mLastFixTime=0;
     gboolean mTTFFState = false;
     HttpReqTask *mHttpReqTask = nullptr;
-    GeoLocation* mLocation= nullptr;
+    GeoLocation mLocation;
 
     XtraTime mXtraTime;
     XtraData mXtraData;
@@ -343,7 +349,7 @@ private:
 
     unsigned int mPosTimer = 0;
     LSHandle *mLSHandle;
-    long long mTTFF =0 ; //mri :
+    long long mTTFF =0;
 };
 
 #endif /* GPSPOSITIONPROVIDER_H_ */

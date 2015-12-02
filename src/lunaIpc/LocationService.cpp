@@ -25,8 +25,6 @@
 #include "LocationService.h"
 #include <JsonUtility.h>
 #include <LunaLocationServiceUtil.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string/replace.hpp>
 #include <lunaprefs.h>
 
 using namespace std;
@@ -151,10 +149,11 @@ bool LocationService::init(GMainLoop *mainLoop) {
     mNetworkProvider->setCallback(this);
 
     mGPSProvider = GPSPositionProvider::getInstance();
-    mGPSProvider->setLunaHandle(mServiceHandle);
-
-    mGPSProvider->enable();
-    mGPSProvider->setCallback(this);
+    bool bGPSEnabled = mGPSProvider->init(mServiceHandle);
+    if (bGPSEnabled) {
+        mGPSProvider->enable();
+        mGPSProvider->setCallback(this);
+    }
 
     //Load initial settings from DB
     mGpsStatus = loadHandlerStatus(GPS);
@@ -245,7 +244,9 @@ bool LocationService::locationServiceRegister(const char *srvcname, GMainLoop *m
     return true;
 }
 
- LocationService::~LocationService(){}
+LocationService::~LocationService(){
+
+}
 
 
 bool LocationService::deinit() {
@@ -275,7 +276,7 @@ bool LocationService::deinit() {
     connectionStateObserverObj->finalize(getPrivatehandle());
 
 
-    connectionStateObserverObj->UnregisterListener(locService->getNwProvider());
+    connectionStateObserverObj->UnregisterListener(getNwProvider());
     delete connectionStateObserverObj;
 
     LSError m_LSErr;
@@ -300,7 +301,6 @@ bool LocationService::deinit() {
     mNetReqMgr->deInit();
 
     delete mNetworkProvider;
-    delete mGPSProvider;
 
     return true;
 }
@@ -383,12 +383,12 @@ void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("latitude"), &jsonSubObject)) {
         jnumber_get_f64(jsonSubObject, &pos->latitude);
-        strlat = boost::lexical_cast<string>(pos->latitude);
+        strlat = std::to_string(pos->latitude);
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("longitude"), &jsonSubObject)) {
         jnumber_get_f64(jsonSubObject, &pos->longitude);
-        strlng = boost::lexical_cast<string>(pos->longitude);
+        strlng = std::to_string(pos->longitude);
     }
 
     *posData = g_string_new("latlng=");
@@ -550,16 +550,16 @@ void LocationService::getGeocodeData(jvalue_ref *parsedObj, GString *addressData
 
         jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("southwestLat"));
         jnumber_get_f64(jsonSubObject, &southwestLat);
-        std::string strsouthwestLat = boost::lexical_cast<string>(southwestLat);
+        std::string strsouthwestLat = std::to_string(southwestLat);
         jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("southwestLon"));
         jnumber_get_f64(jsonSubObject, &southwestLon);
-        std::string strsouthwestLon = boost::lexical_cast<string>(southwestLon);
+        std::string strsouthwestLon = std::to_string(southwestLon);
         jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("northeastLat"));
         jnumber_get_f64(jsonSubObject, &northeastLat);
-        std::string strnortheastLat = boost::lexical_cast<string>(northeastLat);
+        std::string strnortheastLat = std::to_string(northeastLat);
         jsonSubObject = jobject_get(jsonBoundSubObject, J_CSTR_TO_BUF("northeastLon"));
         jnumber_get_f64(jsonSubObject, &northeastLon);
-        std::string strnortheastLon = boost::lexical_cast<string>(northeastLon);
+        std::string strnortheastLon = std::to_string(northeastLon);
 
         LS_LOG_DEBUG("value of bounds %f,%f,%f", southwestLat, southwestLon, northeastLat);
         g_string_append(addressData, "&bounds=");
@@ -1114,11 +1114,10 @@ bool LocationService::setGPSParameters(LSHandle *sh, LSMessage *message, void *d
     PositionRequest request("GPS", SET_GPS_PARAMETERS_CMD);
     request.setRequestParams((const char*)jvalue_tostring_simple(parsedObj));
 
-    ret = mGPSProvider->processRequest(request);//get position in callback given in PositionRequest
+    ret = mGPSProvider->processRequest(request);
     if (ERROR_NONE != ret) {
         LS_LOG_ERROR("Error in %s", cmdStr);
         LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
-//        handler_stop(handler_array[HANDLER_GPS], false);
         j_release(&parsedObj);
         return true;
     }
@@ -1229,7 +1228,7 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
         PositionRequest request("GPS", SEND_GPS_EXTRA_CMD);
         request.setRequestParams(command);
 
-        ret = mGPSProvider->processRequest(request);//get position in callback given in PositionRequest
+        ret = mGPSProvider->processRequest(request);
 
 
         if (ret == ERROR_NOT_AVAILABLE) {
@@ -1627,22 +1626,6 @@ bool LocationService::pauseGeofence(LSHandle *sh, LSMessage *message, void *data
         errorReply = LOCATION_GEOFENCE_ID_UNKNOWN;
         goto EXIT;
     }
-#if 0
-    if (handler_pause_geofence((Handler *) handler_array[HANDLER_GPS],
-                               TRUE,
-                               &geofence_id,
-                               geofencePauseCb) != ERROR_NONE) {
-        errorReply = LOCATION_UNKNOWN_ERROR;
-    } else {
-        LSErrorInit(&mLSError);
-        sprintf(str_geofence_id, "%d%s", geofence_id, SUBSC_GEOFENCE_PAUSE_AREA_KEY);
-
-        if (!LSSubscriptionAdd(sh, str_geofence_id, message, &mLSError)) {
-            LSErrorPrintAndFree(&mLSError);
-            errorReply = LOCATION_UNKNOWN_ERROR;
-        }
-    }
-#endif
 
     EXIT:
 
@@ -1838,16 +1821,8 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         /********Request gps Handler*****************************/
         if (startedHandlers & HANDLER_GPS_BIT) {
             if (suspended_state == false) {
-#if 0
-                handler_get_location_updates((Handler *) handler_array[HANDLER_GPS],
-                                             START,
-                                             wrapperGetLocationUpdateCb,
-                                             NULL,
-                                             mServiceHandle);
-#else
                 PositionRequest request("GPS", POSITION_CMD);
-                mGPSProvider->processRequest(request);//get position in callback given in PositionRequest
-#endif
+                mGPSProvider->processRequest(request);
             }
         }
         /********Request NWHandler*****************************/
@@ -2074,16 +2049,16 @@ bool LocationService::enableNwHandler(unsigned char *startedHandlers) {
     if (getHandlerStatus(NETWORK)) {
         LS_LOG_DEBUG("network is on in Settings");
 
-        if (getConnectionManagerState()) {
-            *startedHandlers |= HANDLER_NETWORK_BIT;
-        }
+    if (getConnectionManagerState()) {
+        *startedHandlers |= HANDLER_NETWORK_BIT;
+    }
 
-        LS_LOG_INFO("isInternetConnectionAvailable %d TelephonyState %d",
-                    getConnectionManagerState(),
-                    getTelephonyState());
+    LS_LOG_INFO("isInternetConnectionAvailable %d TelephonyState %d",
+                getConnectionManagerState(),
+                getTelephonyState());
 
-        if (*startedHandlers == HANDLER_STATE_DISABLED)
-            return false;
+    if (*startedHandlers == HANDLER_STATE_DISABLED)
+        return false;
 
     }
 
@@ -2174,7 +2149,10 @@ void LocationService::geofenceStatusCb (int32_t status, Position *lastPosition, 
 
 
 void LocationService::getLocationUpdateCb(GeoLocation location, ErrorCodes errCode, HandlerTypes type) {
-    LS_LOG_DEBUG("getLocationUpdateCb");
+    LS_LOG_DEBUG("getLocationUpdateCb %d getConnectionManagerState() %d",errCode, getConnectionManagerState());
+
+    if (errCode == ERROR_NETWORK_ERROR && getConnectionManagerState())
+         return;
 
     Position pos;
     Accuracy acc;
@@ -2187,7 +2165,11 @@ void LocationService::getLocationUpdateCb(GeoLocation location, ErrorCodes errCo
     pos.speed = location.getSpeed();
     acc.horizAccuracy = location.getHorizontalAccuracy();
     acc.vertAccuracy = location.getVerticalAccuracy();
-    getLocationUpdate_reply(&pos, &acc, errCode, type);
+
+    if ((HANDLER_NETWORK == type)&&(ERROR_NETWORK_ERROR == errCode))
+        getLocationUpdate_reply(NULL, NULL, errCode, type);
+    else
+        getLocationUpdate_reply(&pos, &acc, errCode, type);
 }
 
 /********************************Response to Application layer*********************************************************************/
@@ -2403,7 +2385,6 @@ void LocationService::getGpsStatusCb(int state) {
 
 void LocationService::geofence_breach_reply(int32_t geofenceId, int32_t status, int64_t timestamp, double latitude, double longitude)
 {
-    LSError mLSError;
     jvalue_ref serviceObject = NULL;
     const char *retString = NULL;
     GSimpleAsyncResult *asyncResGeofence = NULL;
@@ -2996,7 +2977,10 @@ void LocationService::geocodingReply(const char *response, int error, LSMessage 
         }
             break;
         case ERROR_NETWORK_ERROR: {
-            retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
+            if (getConnectionManagerState())
+                retString = LSMessageGetErrorReply(LOCATION_TIME_OUT);
+            else
+                retString = LSMessageGetErrorReply(LOCATION_DATA_CONNECTION_OFF);
             goto EXIT;
         }
             break;
@@ -3766,7 +3750,7 @@ void LocationService::resumeGpsEngine(void) {
             ret = mGPSProvider->processRequest(request);
         }
 
-    LS_LOG_INFO("resumeGpsEngine ret %d", ret);
+        LS_LOG_INFO("resumeGpsEngine ret %d", ret);
     }
 }
 

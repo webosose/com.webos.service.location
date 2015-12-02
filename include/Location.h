@@ -61,7 +61,6 @@ typedef enum {
     GPS_STATUS_AVAILABLE
 } GPSStatus;
 
-typedef GObject HandlerObject;
 typedef struct _Position Position;
 typedef struct _Status Status;
 typedef struct _Velocity Velocity;

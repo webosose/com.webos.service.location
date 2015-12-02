@@ -46,7 +46,7 @@ struct _DBHandle {
 /*
  * Error codes
  */
-enum {
+typedef enum {
     SUCCESS = 0,
     IO_ERROR,
     NULL_VALUE,
@@ -66,7 +66,7 @@ enum {
  * @param           <title> <In> <the Root elemnet in XML file>
  * @return          int
  */
-int createPreference(const char *filename, DBHandle *handle, char *title, int enablecheck);
+int createPreference(const char *filename, DBHandle *handle, const char *title, int enablecheck);
 
 /**
  * <Funciton>       put
@@ -76,7 +76,7 @@ int createPreference(const char *filename, DBHandle *handle, char *title, int en
  * @param           <value> <In> <value will be mapped with the given key>
  * @return          int
  */
-int put(DBHandle *handle, char *key, char *value);
+int put(DBHandle *handle, const char *key, char *value);
 
 /**
  * <Funciton>       get
@@ -86,7 +86,7 @@ int put(DBHandle *handle, char *key, char *value);
  * @param           <result> <In> <result will be copied here>
  * @return          int
  */
-int get(DBHandle *handle, char *key, xmlChar **result);
+int get(DBHandle *handle, const char *key, xmlChar **result);
 
 /**
  * <Funciton>       deleteKey

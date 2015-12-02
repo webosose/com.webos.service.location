@@ -20,7 +20,6 @@
 #include <functional>
 #include <ILocationCallbacks.h>
 
-typedef std::function<void(GeoLocation, ErrorCodes, HandlerTypes)> PositionProviderCallback;
 
 
 class PositionProviderInterface {

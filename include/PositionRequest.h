@@ -18,56 +18,29 @@
 #include <GeoLocation.h>
 #include <HandlerRequestCommands.h>
 
-#define printf_debug LS_LOG_DEBUG
-#define printf_error LS_LOG_ERROR
-#define printf_info LS_LOG_INFO
-#define printf_warning LS_LOG_WARNING
-
-using namespace std;
-
 class PositionRequest {
 
 private:
-
-
     typedef std::string ProviderID_t;
     typedef int PositionInterval_t;
-    typedef string RequestParams_t;
+    typedef std::string RequestParams_t;
 
-
-
-
+    ProviderID_t mProviderId;
+    HandlerRequestType mRequestType;
+    RequestParams_t mRequestParams;
     int mGeofenceID;
     double mGeofenceLatitude;
     double mGeofenceRadius;
     double mGeofenceLongitude;
-    gint64 mTimeToFirstFix;
-    ProviderID_t mProviderId;
-    HandlerRequestType mRequestType;
-    RequestParams_t mRequestParams;
-    PositionInterval_t mDefaultInterval = 100;
-    PositionInterval_t mPositionInterval;
-    void* mpUserData;
 
 public:
-
-    //PositionRequest():
-        //mProviderId(""), mRequestType(UNKNOWN_CMD), mPositionInterval(mDefaultInterval) {
-    //}
-
-    PositionRequest():mProviderId(""), mRequestType(UNKNOWN_CMD), mPositionInterval(mDefaultInterval),
-                mRequestParams(""),
-                            mpUserData(nullptr),
-                            mGeofenceID(0),
-                            mGeofenceLatitude(0.0),
-                            mGeofenceRadius(0.0),
-                            mGeofenceLongitude(0.0),
-                            mTimeToFirstFix(0){
+    PositionRequest(): mRequestType(UNKNOWN_CMD), mGeofenceID(0),
+                       mGeofenceLatitude(0.0), mGeofenceRadius(0.0),
+                       mGeofenceLongitude(0.0) {
     }
 
-
     PositionRequest(ProviderID_t providerId, HandlerRequestType requestType):
-                  mProviderId(providerId), mRequestType(requestType), mPositionInterval(mDefaultInterval) {
+                  mProviderId(providerId), mRequestType(requestType) {
     }
 
     const std::string& getProviderId() const {
@@ -80,28 +53,18 @@ public:
 
     ~PositionRequest() {};
 
-    const string& getRequestParams() const {
+    const std::string& getRequestParams() const {
         return mRequestParams;
     }
 
-    void setRequestParams(const string requestParams) {
+    void setRequestParams(const std::string requestParams) {
         mRequestParams = requestParams;
     }
 
-
-    PositionInterval_t getPositionInterval() const {
-    return mPositionInterval;
+    void printRequest() {
+        LS_LOG_INFO("===>position-request: \n");
+        LS_LOG_INFO("[mProvider_id]: %s\n", mProviderId.c_str());
     }
-
-    void setPositionInterval(PositionInterval_t positionInterval) {
-    mPositionInterval = positionInterval;
-    }
-
- void printRequest() {
-    printf_info("===>position-request: \n");
-    printf_info("[mProvider_id]: %s\n", mProviderId.c_str());
-    printf_info("[mPosition_interval]: %d\n", mPositionInterval);
- }
     HandlerRequestType getRequestType() const {
     return mRequestType;
     }
@@ -109,32 +72,6 @@ public:
     void setRequestType(HandlerRequestType requestType) {
         mRequestType = requestType;
     }
-
-#if 0
-    bool getEnableGPSData() const {
-        return mEnableGPSData;
-    }
-
-    void setEnableGPSData(bool enable) {
-        mEnableGPSData = enable;
-    }
-
-    bool getGPSForceStop() const {
-        return mGPSForceStop;
-    }
-
-    void setGPSForceStop(bool bForceStop) {
-        mGPSForceStop = bForceStop;
-    }
-#endif
-    void* getUserData() const {
-        return mpUserData;
-    }
-
-    void setUserData(void* userData) {
-        mpUserData = userData;
-    }
-
 
     void setGeofenceID (int geofenceId){
         mGeofenceID = geofenceId;
@@ -161,10 +98,6 @@ public:
     double getGeofenceRadius (){
         return mGeofenceRadius;
     }
-
-
-
-
 };
 
 #endif /* POSITIONREQUEST_H_ */

@@ -54,7 +54,7 @@ void NetworkRequestManager::handleDataCb(HttpReqTask *task, void *user_data) {
 
     NetworkRequestManager *pThis = (NetworkRequestManager *) user_data;
     LS_LOG_DEBUG("handleDataCb task  %p", task);
-    HttpInterface *client = pThis->httpRequestList[(LSMessage *) task->message];
+    HttpInterface *client = pThis->httpRequestList[task];
 
     if (HTTP_STATUS_CODE_SUCCESS == task->curlDesc.httpResponseCode) {
         LS_LOG_DEBUG("cbHttpResponsee %s", task->responseData);
@@ -109,7 +109,7 @@ ErrorCodes NetworkRequestManager::initiateTransaction(const char **headers, int 
         return ERROR_NETWORK_ERROR;
     }
 
-    httpRequestList[message] = userdata;
+    httpRequestList[gHttpReqTask] = userdata;
     return ERROR_NONE;
 
 }
@@ -119,7 +119,7 @@ void NetworkRequestManager::cancelTransaction(HttpReqTask *) {
 }
 
 void NetworkRequestManager::clearTransaction(HttpReqTask *task) {
-    httpRequestList.erase((LSMessage *) task->message);
+    httpRequestList.erase(task);
     loc_http_remove_request(task);
     loc_http_task_destroy(&task);
 

@@ -146,13 +146,13 @@ private:
 
     char *createWifiQuery();
 
-    bool networkPostQuery(char *post_data, const char *apikey, gboolean sync, LSMessage *message);
+    bool networkPostQuery(char *post_data, const char *apikey, gboolean sync);
 
     void handleResponse(HttpReqTask *task);
 
-    void onUpdateCellData(char *cellData, LSMessage *message);
+    void onUpdateCellData(const char *cellData);
 
-    void onUpdateWifiData(GHashTable *wifiAccessPoints, LSMessage *message);
+    void onUpdateWifiData(GHashTable *wifiAccessPoints);
 
     bool registerServiceStatus(const char *service, void **cookie, LSServerStatusFunc cb);
 
@@ -165,8 +165,13 @@ private:
     bool lunaServiceCall(const char *method, const char *payload, LSFilterFunc cb, LSMessageToken *token,
                          bool oneReply);
 
-    bool triggerPostQuery(LSMessage *message);
+    bool triggerPostQuery();
 
+    template<typename T>
+    bool parseWifiData(T& jsonObj);
+
+    template<typename T>
+    bool parseCellData(T& jsonObj);
 
 private:
 
@@ -181,7 +186,9 @@ private:
     bool mtelephonyPowerd;
     bool mwifiStatus;
     bool mConnectivityStatus;
-    uint32_t clientToken;
+    bool misFirstCellResponse;
 };
+
+
 
 #endif // NETWORKPROVIDER_H_

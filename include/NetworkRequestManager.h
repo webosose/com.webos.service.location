@@ -40,9 +40,9 @@ public:
     void deInit();
 
     ErrorCodes initiateTransaction(const char **headers, int size, std::string url, bool isSync, LSMessage *message,
-                                   HttpInterface *userdata, char *post_data = NULL);
+                                   HttpInterface *client, char *post_data = NULL);
 
-    void cancelTransaction(HttpReqTask *);
+    void cancelTransaction(HttpReqTask *task);
 
     void clearTransaction(HttpReqTask *task);
 
@@ -59,7 +59,7 @@ private:
 private:
 
     std::bitset<sizeof(unsigned long)> _attributes;
-    std::unordered_map<LSMessage *, HttpInterface *> httpRequestList;
+    std::unordered_map<HttpReqTask *, HttpInterface *> httpRequestList;
 
 };
 

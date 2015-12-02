@@ -29,9 +29,9 @@ public:
         LS_LOG_DEBUG("Dtor NetworkDataClient");
     }
 
-    virtual void onUpdateCellData(char *cellData, LSMessage *message) = 0;
+    virtual void onUpdateCellData(const char *cellData) = 0;
 
-    virtual void onUpdateWifiData(GHashTable *wifiAccessPoints, LSMessage *message) = 0;
+    virtual void onUpdateWifiData(GHashTable *wifiAccessPoints) = 0;
 };
 
 class NetworkData {

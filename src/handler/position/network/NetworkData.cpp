@@ -12,14 +12,11 @@
 
 #include <NetworkData.h>
 
-#include <lunaprefs.h>
 #include <loc_security.h>
 #include <Location.h>
 #include <string>
 #include <loc_http.h>
-#include <loc_log.h>
 #include <pbnjson.h>
-#include <functional>
 #include <map>
 
 
@@ -29,7 +26,7 @@
 
 using namespace std;
 
-NetworkData::NetworkData(LSHandle *sh) : mPrvHandle(sh) {
+NetworkData::NetworkData(LSHandle *sh) : mPrvHandle(sh), mCellInfoReq(LSMESSAGE_TOKEN_INVALID), mWifiInfoReq(LSMESSAGE_TOKEN_INVALID) {
     LS_LOG_INFO("## NetworkData:: mPrvHandle ## = %p", mPrvHandle);
 }
 
@@ -37,13 +34,13 @@ NetworkData::~NetworkData() {
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if (mCellInfoReq) {
+    if (LSMESSAGE_TOKEN_INVALID != mCellInfoReq) {
         if (!LSCallCancel(mPrvHandle, mCellInfoReq, &lserror)) {
-            LS_LOG_ERROR("Failed to cancel getCellInfo subscription\n");
+            LS_LOG_ERROR("Failed to cancel getCellInfo subscription");
             LSErrorPrint(&lserror, stderr);
             LSErrorFree(&lserror);
         }
-        mCellInfoReq = DEFAULT_VALUE;
+        mCellInfoReq = LSMESSAGE_TOKEN_INVALID;
     }
 
 }
@@ -67,8 +64,11 @@ bool NetworkData::wifiAccessPointsCb(LSHandle *lshandle, LSMessage *msg) {
                                              (GDestroyNotify) g_free, NULL);
 
     jschema_ref inputSchema = jschema_parse(j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
-    if (!inputSchema)
+    if (!inputSchema) {
+        g_hash_table_remove_all(wifiAccesspoints);
+        g_hash_table_unref(wifiAccesspoints);
         return true;
+    }
 
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, inputSchema, NULL, NULL);
@@ -76,6 +76,8 @@ bool NetworkData::wifiAccessPointsCb(LSHandle *lshandle, LSMessage *msg) {
 
     if (jis_null(parsedObj)) {
         jschema_release(&inputSchema);
+        g_hash_table_remove_all(wifiAccesspoints);
+        g_hash_table_unref(wifiAccesspoints);
         return true;
     }
     jschema_release(&inputSchema);
@@ -130,12 +132,14 @@ bool NetworkData::wifiAccessPointsCb(LSHandle *lshandle, LSMessage *msg) {
         }
     }
 
-    mClient->onUpdateWifiData(wifiAccesspoints, msg);
+    mClient->onUpdateWifiData(wifiAccesspoints);
 
     CLEANUP:
 
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
+    g_hash_table_remove_all(wifiAccesspoints);
+    g_hash_table_unref(wifiAccesspoints);
 
     return true;
 }
@@ -181,13 +185,14 @@ bool NetworkData::unregisterForCellInfo() {
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if (mCellInfoReq) {
+    if (LSMESSAGE_TOKEN_INVALID != mCellInfoReq) {
         if (!LSCallCancel(mPrvHandle, mCellInfoReq, &lserror)) {
             LS_LOG_ERROR("Failed to cancel getCellInfo subscription");
             LSErrorPrint(&lserror, stderr);
             LSErrorFree(&lserror);
             return FALSE;
         }
+        mCellInfoReq = LSMESSAGE_TOKEN_INVALID;
     }
 
     return TRUE;
@@ -198,13 +203,14 @@ bool NetworkData::unregisterForWifiAccessPoints() {
     LSError lserror;
     LSErrorInit(&lserror);
 
-    if (mWifiInfoReq) {
+    if (LSMESSAGE_TOKEN_INVALID != mWifiInfoReq) {
         if (!LSCallCancel(mPrvHandle, mWifiInfoReq, &lserror)) {
             LS_LOG_ERROR("Failed to cancel findnetworks subscription");
             LSErrorPrint(&lserror, stderr);
             LSErrorFree(&lserror);
             return FALSE;
         }
+        mWifiInfoReq = LSMESSAGE_TOKEN_INVALID;
     }
 
     return TRUE;
@@ -260,7 +266,7 @@ bool NetworkData::cellDataCb(LSHandle *sh, LSMessage *message) {
         goto CLEANUP;
     }
 
-    mClient->onUpdateCellData(g_strdup(jvalue_tostring_simple(cellDataObj)), message);
+    mClient->onUpdateCellData(jvalue_tostring_simple(cellDataObj));
 
     CLEANUP:
     if (!jis_null(parsedObj))

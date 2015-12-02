@@ -26,7 +26,7 @@ static void update_satellite_used_in_fix_count(Satellite *satellite) {
     g_return_if_fail(satellite);
 
     satellite->num_satellite_used = 0;
-    int index = 0;
+    guint index = 0;
 
     if (satellite->visible_satellites_count > 0) {
         for (index = 0; index < satellite->visible_satellites_count; index++)

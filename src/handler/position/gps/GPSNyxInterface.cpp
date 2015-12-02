@@ -14,11 +14,6 @@
 #include <GPSPositionProvider.h>
 
 
-#define printf_debug printf
-#define printf_error printf
-#define printf_info printf
-#define printf_warning printf
-
 nyx_error_t GPSNyxInterface::initialize(void *instance) {
     int count;
     nyx_error_t rc;
@@ -242,7 +237,6 @@ void GPSNyxInterface::agpsStatusCb(nyx_agps_status_t *status, void *user_data) {
 }
 
 void GPSNyxInterface::gpsLocationCb(nyx_gps_location_t *positiondata, void *user_data) {
-    int fields;
     GPSNyxInterface *gpsNyxInterface = (GPSNyxInterface *) user_data;
     GPSPositionProvider *providerInstance =
             (GPSPositionProvider *) gpsNyxInterface->gpsProviderInstance;
@@ -269,9 +263,8 @@ void GPSNyxInterface::gpsLocationCb(nyx_gps_location_t *positiondata, void *user
     {
         double hor_acc = DEFAULT_VALUE;
         double vert_acc = INVALID_PARAM;
-        if (providerInstance->mLocation) {
-            providerInstance->gpsAccuracyGetDetails(&hor_acc, &vert_acc);
-        }
+
+        providerInstance->gpsAccuracyGetDetails(&hor_acc, &vert_acc);
 
         if (false == providerInstance->mTTFFState)
            {
@@ -355,8 +348,6 @@ void GPSNyxInterface::gpsSvStatusCb(nyx_gps_sv_status_t *sat_data, void *user_da
     GPSPositionProvider *providerInstance =
             (GPSPositionProvider *) gpsNyxInterface->gpsProviderInstance;
 
-    int index;
-
     if (!providerInstance || !sat_data) {
         printf_warning("Invalid input parameters\n");
         return;
@@ -382,11 +373,11 @@ void GPSNyxInterface::gpsSvStatusCb(nyx_gps_sv_status_t *sat_data, void *user_da
             gdouble elev = (gdouble)sat_data->sv_list[index].elevation;
             gdouble azim = (gdouble)sat_data->sv_list[index].azimuth;
 
-            ((sat_data->used_in_fix_mask & (1 << prn - 1))) == DEFAULT_VALUE ?
+            ((sat_data->used_in_fix_mask & (1 << (prn - 1)))) == DEFAULT_VALUE ?
                     (used = FALSE) : (used = TRUE);
-            ((sat_data->ephemeris_mask & (1 << prn - 1))) == DEFAULT_VALUE ?
+            ((sat_data->ephemeris_mask & (1 << (prn - 1)))) == DEFAULT_VALUE ?
                     (hasephemeris = FALSE) : (hasephemeris = TRUE);
-            ((sat_data->almanac_mask & (1 << prn - 1))) == DEFAULT_VALUE ?
+            ((sat_data->almanac_mask & (1 << (prn - 1)))) == DEFAULT_VALUE ?
                     (hasalmanac = FALSE) : (hasalmanac = TRUE);
 
             set_satellite_details(sat, index, snr, prn, elev, azim, used,
@@ -484,8 +475,6 @@ void GPSNyxInterface::gpsXtraDownloadRequestCb(void *user_data) {
             printf_warning("failed to request downloading xtra\n");
     }
 }
-
-//geoFece
 
 bool GPSNyxInterface::geofenceRemove(int32_t geofenceId) {
     if (NYX_ERROR_NONE

@@ -54,7 +54,10 @@ void GoogleGeoImpl::handleResponse(HttpReqTask *task) {
 }
 
 GoogleGeoImpl::GoogleGeoImpl() {
-    mGoogleGeoCodeApiKey = string(readApiKey());
+    char* key = readApiKey();
+    if(key)
+        mGoogleGeoCodeApiKey = key;//assign only if non-null
+    free(key);
 }
 
 GoogleGeoImpl::~GoogleGeoImpl() {
@@ -176,10 +179,10 @@ char *GoogleGeoImpl::readApiKey() {
                                           &geocode_api_key);
 
     if (LOC_SECURITY_ERROR_SUCCESS == ret_geocode) {
-        return (char *) geocode_api_key;
+        return (char*)geocode_api_key;
+    } else {
+        return NULL;
     }
-
-    return (char *) geocode_api_key;
 }
 
 ErrorCodes GoogleGeoImpl::lbsPostQuery(string url, bool isSync, LSMessage *message) {

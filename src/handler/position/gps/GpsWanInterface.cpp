@@ -25,12 +25,12 @@ std::string GpsWanInterface::mApnName;
 void GpsWanInterface::initialize(LSHandle *sh)
 {
     _mLSHandle = sh;
-    serviceConnected = false;
-    wan_service_status();
-    settingsservicelunacall();
+    mServiceConnected = false;
+    wanServiceStatus();
+    settingsServiceLunaCall();
 }
 
-void GpsWanInterface::register_luna_methods()
+void GpsWanInterface::registerLunaMethods()
 {
     jvalue_ref getContexts = jobject_create();
 
@@ -49,27 +49,24 @@ void GpsWanInterface::register_luna_methods()
     if (LSErrorIsSet(&lserror)) {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
-        goto cleanup;
     }
 
-    cleanup:
     j_release(&getContexts);
+    jschema_release(&getContext_schema);
 }
 
-void GpsWanInterface::service_started()
+void GpsWanInterface::serviceStarted()
 {
-    register_luna_methods();
+    registerLunaMethods();
 
-    serviceConnected = true;
+    mServiceConnected = true;
 }
 
-void GpsWanInterface::service_stopped()
+void GpsWanInterface::serviceStopped()
 {
-    struct connman_device *device = NULL;
-
     LSError lserror;
     LSErrorInit(&lserror);
-    serviceConnected = false;
+    mServiceConnected = false;
 
     if(mWanGetContext){
         LSCallCancel(_mLSHandle, mWanGetContext, &lserror);
@@ -86,7 +83,6 @@ bool GpsWanInterface::settingServiceCb(LSHandle *sh, LSMessage *message, void * 
     string type;
     bool ReqResult = false;
     string apn;
-    std::size_t found;
 
     GpsWanInterface *wanInterface = ((GpsWanInterface*)context);
 
@@ -119,7 +115,6 @@ bool GpsWanInterface::settingServiceCb(LSHandle *sh, LSMessage *message, void * 
                                 if(type.find("supl",0) != string::npos) {
                                   wanInterface->mApnName = valObj["apn"].asString();
                                   break;
-                                //apn_string = (const char *)apn.c_str();
                                 }
                             }
                         }
@@ -128,100 +123,11 @@ bool GpsWanInterface::settingServiceCb(LSHandle *sh, LSMessage *message, void * 
             }
         }
     }
-
-
-
-    #if 0
-    jvalue_ref parsed_obj = {0};
-    GpsWanInterface *wanInterface = ((GpsWanInterface*)context);
-    int context_count = 0;
-    int counter = 0;
-    char *context_string = NULL;
-
-    jschema_ref input_schema = jschema_parse(j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
-    if (!input_schema)
-        return false;
-
-    JSchemaInfo schema_info;
-    jschema_info_init(&schema_info, input_schema, NULL, NULL);
-    parsed_obj = jdom_parse(j_cstr_to_buffer(LSMessageGetPayload(message)), DOMOPT_NOOPT, &schema_info);
-    jschema_release(&input_schema);
-
-    if (jis_null(parsed_obj))
-        return false;
-
-    jvalue_ref return_value_obj = {0};
-    jvalue_ref getContext_obj = {0};
-    jvalue_ref getSettings_obj = {0};
-    bool return_value = false;
-
-    if (!jobject_get_exists(parsed_obj, J_CSTR_TO_BUF("returnValue"), &return_value_obj))
-        goto cleanup;
-
-    jboolean_get(return_value_obj, &return_value);
-
-    if (!return_value)
-        goto cleanup;
-
-
-    if (jobject_get_exists(parsed_obj, J_CSTR_TO_BUF("settings"), &getSettings_obj))
-    {
-        if (jobject_get_exists(getSettings_obj, J_CSTR_TO_BUF("apnList"), &getContext_obj))
-        {
-            context_count =  jarray_size(getContext_obj);
-
-            for (counter = 0; counter < context_count; counter++)
-            {
-                jvalue_ref context_obj = jarray_get(getContext_obj, counter);
-                jvalue_ref context_name_obj = {0};
-
-                if (jobject_get_exists(context_obj, J_CSTR_TO_BUF("type"), &context_name_obj))
-                {
-                    if (!jis_string(context_name_obj))
-                         continue;
-
-                    raw_buffer method_buf = jstring_get(context_name_obj);
-
-                    if (context_string) {
-                        g_free(context_string);
-                        context_string = NULL;
-                    }
-
-                    context_string = g_strdup(method_buf.m_str);
-
-                    if (context_string != NULL)
-                    {
-                        if(strstr(context_string, "supl"))
-                        {
-                            if (jobject_get_exists(context_obj, J_CSTR_TO_BUF("apn"), &context_name_obj))
-                            {
-                                if (!jis_string(context_name_obj))
-                                     continue;
-
-                                char *apn_string = NULL;
-                                raw_buffer method_buf = jstring_get(context_name_obj);
-
-                                apn_string = g_strdup(method_buf.m_str);
-
-                                if (apn_string){
-                                    wanInterface->mApnName = apn_string;
-                                    g_free(apn_string);
-                                }
-
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    #endif
-
 
     return true;
 }
-bool GpsWanInterface::settingsservicelunacall()
+
+bool GpsWanInterface::settingsServiceLunaCall()
 {
     jvalue_ref connect_obj = jobject_create();
 
@@ -240,14 +146,14 @@ bool GpsWanInterface::settingsservicelunacall()
     if (LSErrorIsSet(&lserror)) {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
-        goto cleanup;
     }
 
-    cleanup:
     j_release(&connect_obj);
+    jschema_release(&connect_schema);
+    return true;
 }
 
-bool GpsWanInterface::service_up_cb(LSHandle* handle, LSMessage* message, void* ctxt)
+bool GpsWanInterface::serviceUpCb(LSHandle* handle, LSMessage* message, void* ctxt)
 {
     jvalue_ref parsed_obj = {0};
     jvalue_ref service_value_obj = {0};
@@ -275,9 +181,9 @@ bool GpsWanInterface::service_up_cb(LSHandle* handle, LSMessage* message, void* 
     jboolean_get(service_value_obj, &connected_value);
 
     if (connected_value)
-        wanInterface->service_started();
+        wanInterface->serviceStarted();
     else
-        wanInterface->service_stopped();
+        wanInterface->serviceStopped();
 
 cleanup:
     j_release(&parsed_obj);
@@ -285,7 +191,7 @@ cleanup:
     return true;
 }
 
-void GpsWanInterface::wan_service_status()
+void GpsWanInterface::wanServiceStatus()
 {
     LSError lserror;
     LSErrorInit(&lserror);
@@ -298,7 +204,7 @@ void GpsWanInterface::wan_service_status()
 
     const char *payload = jvalue_tostring(service_status, service_status_schema);
 
-    LSCall(_mLSHandle, "palm://com.palm.lunabus/signal/registerServerStatus", payload,service_up_cb, this, NULL, &lserror);
+    LSCall(_mLSHandle, "palm://com.palm.lunabus/signal/registerServerStatus", payload,serviceUpCb, this, NULL, &lserror);
 
     if (LSErrorIsSet(&lserror)) {
         LSErrorPrint(&lserror, stderr);
@@ -306,6 +212,7 @@ void GpsWanInterface::wan_service_status()
     }
 
     j_release(&service_status);
+    jschema_release(&service_status_schema);
 }
 
 bool GpsWanInterface::getContextCb(LSHandle *sh, LSMessage *message, void * context)
@@ -364,6 +271,7 @@ bool GpsWanInterface::getContextCb(LSHandle *sh, LSMessage *message, void * cont
                 }
 
                 context_string = g_strdup(method_buf.m_str);
+                jstring_free_buffer(method_buf);
                 printf_debug("enter GpsWanInterface::getContextCb context_string %s \n",context_string);
 
                 if (context_string != NULL)
@@ -423,7 +331,6 @@ cleanup:
 bool GpsWanInterface::connectCb(LSHandle *sh, LSMessage *message, void * context)
 {
     jvalue_ref parsed_obj = {0};
-    bool connectedstatus = FALSE;
 
     printf_debug("enter GpsWanInterface::connectCb\n");
     jschema_ref input_schema = jschema_parse(j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
@@ -453,8 +360,6 @@ bool GpsWanInterface::connectCb(LSHandle *sh, LSMessage *message, void * context
     if (!return_value)
         goto cleanup;
 
-    connectedstatus = true;
-
 cleanup:
     j_release(&parsed_obj);
 
@@ -465,7 +370,6 @@ bool GpsWanInterface::disconnectCb(LSHandle *sh, LSMessage *message, void * cont
 {
     printf_debug("enter GpsWanInterface::disconnectCb\n");
     jvalue_ref parsed_obj = {0};
-    bool disconnectedstatus = FALSE;
 
     jschema_ref input_schema = jschema_parse(j_cstr_to_buffer("{}"), DOMOPT_NOOPT, NULL);
 
@@ -494,8 +398,6 @@ bool GpsWanInterface::disconnectCb(LSHandle *sh, LSMessage *message, void * cont
     if (!return_value)
         goto cleanup;
 
-    disconnectedstatus = true;
-
 cleanup:
     j_release(&parsed_obj);
 
@@ -522,11 +424,10 @@ void GpsWanInterface::connect()
     if (LSErrorIsSet(&lserror)) {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
-        goto cleanup;
     }
 
-    cleanup:
     j_release(&connect_obj);
+    jschema_release(&connect_schema);
 }
 
 void GpsWanInterface::disconnect()
@@ -549,10 +450,9 @@ void GpsWanInterface::disconnect()
     if (LSErrorIsSet(&lserror)) {
         LSErrorPrint(&lserror, stderr);
         LSErrorFree(&lserror);
-        goto cleanup;
     }
 
-    cleanup:
     j_release(&disconnect_obj);
+    jschema_release(&disconnect_schema);
 }
 

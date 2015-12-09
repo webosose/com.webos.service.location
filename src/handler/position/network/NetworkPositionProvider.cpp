@@ -284,6 +284,7 @@ char *NetworkPositionProvider::createCellWifiCombinedQuery() {
 
     if (!dataAvailable) {
         LS_LOG_INFO("no data parsed"); //both cell and wifi data is not present in JSONObj
+        j_release(&wifiCellIdObject);
         return postData;
     }
 
@@ -305,12 +306,11 @@ char *NetworkPositionProvider::createCellQuery() {
     }
 
     if (parseCellData(cellObject)) {
-
-        if (!jis_null(cellObject)) {
-            postData = g_strdup(jvalue_tostring_simple(cellObject));
-            j_release(&cellObject);
-        }
+        postData = g_strdup(jvalue_tostring_simple(cellObject));
     }
+
+    j_release(&cellObject);
+
     return postData;
 }
 
@@ -713,6 +713,8 @@ bool NetworkPositionProvider::parseWifiData(T& jsonObj) {
         if (jobject_put(jsonObj, J_CSTR_TO_JVAL("wifiAccessPoints"), wifiAccessPointsList)) {
             LS_LOG_DEBUG("table updation complete");
             return true;
+        } else {
+            j_release(&wifiAccessPointsList);
         }
     }
 
@@ -771,9 +773,10 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
 
     if (mPositionData.cellChanged) {
         LS_LOG_INFO("registered changed cell ID detected");//not a single registered cell change detected, nothing appended
-        if (jobject_put(refJsonObj, J_CSTR_TO_JVAL("cellTowers"), jsonObj))
+        if (jobject_put(refJsonObj, J_CSTR_TO_JVAL("cellTowers"), jvalue_duplicate(jsonObj))) {
+            j_release(&parsedObj);
             return true;
-        else if(!jis_null(parsedObj)) {
+        } else if(!jis_null(parsedObj)) {
             LS_LOG_INFO("failure to insert cell data");
             j_release(&parsedObj);
             return false;
@@ -781,6 +784,9 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
     }
     else
         LS_LOG_DEBUG("no registered changed cell ID detected");
+
+    if (!jis_null(parsedObj))
+        j_release(&parsedObj);
 
     return false;
 }

@@ -1,3 +1,0 @@
-{
-    "com.webos.service.location": ["networking.internal", "networking.query", "telephony"]
-}

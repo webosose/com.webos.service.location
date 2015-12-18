@@ -693,17 +693,13 @@ bool GPSPositionProvider::init(LSHandle *sh) {
     loc_http_start();
 
     if (NYX_ERROR_NONE != mGPSNyxInterface.initialize(this)) {
-        goto exit;
+        return false;
     }
 
     setGpsParameters(mGPSConf.mLgeGPSPositionMode,
                      NYX_GPS_POSITION_RECURRENCE_PERIODIC,
                      DEFAULT_FIX_INTERVAL, mGPSConf.mSUPLHost, mGPSConf.mSUPLPort);
     return true;
-
-    exit:
-    shutdown();
-    return false;
 }
 
 GPSPositionProvider::GPSPositionProvider() : PositionProviderInterface("GPS") {
@@ -800,6 +796,12 @@ ErrorCodes GPSPositionProvider::processRequest(PositionRequest request) {
     ErrorCodes ret = ERROR_NONE;
     printf_info("enter GPSPositionProvider::processRequest\n");
     request.printRequest();
+
+#ifdef WEBOS_TARGET_MACHINE_QEMUX86
+    printf_info("emulator code no support for GPS\n");
+    ret =ERROR_NOT_APPLICABLE_TO_THIS_HANDLER;
+    return ret;
+#endif
 
     if (!mEnabled) {
         LS_LOG_INFO("GPSPositionProvider is not enabled!!!");

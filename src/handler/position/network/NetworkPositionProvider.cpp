@@ -731,6 +731,7 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
     jvalue_ref subObj = NULL;
     bool state = FALSE;
     int32_t cellID = 0;
+    bool cellChanged = FALSE;
 
     if (mPositionData.cellInfo) {
         JSchemaInfo schemaInfo;
@@ -739,7 +740,7 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
 
         if (jis_null(parsedObj)) {
             LS_LOG_ERROR("cellInfo parsing failed");
-            return false;
+            return cellChanged;
         }
 
         //CheckIf cellID changed, query should be posted only if cellID changed
@@ -747,7 +748,7 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
             if (!jis_array(jsonObj)) {
                 LS_LOG_ERROR("cellTowers array not found in JSON schema");
                 j_release(&parsedObj);
-                return false;
+                return cellChanged;
             }
             for (int i = 0; i < jarray_size(jsonObj); i++) {
                 cellTower = jarray_get(jsonObj, i);
@@ -759,9 +760,10 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
 
                         if (cellID != mPositionData.curCellid) {
                             mPositionData.curCellid = cellID;
-                            mPositionData.cellChanged = TRUE;
+                            jobject_put(refJsonObj, J_CSTR_TO_JVAL("cellTowers"), jvalue_duplicate(jsonObj));
+                            cellChanged = TRUE;
                         } else {
-                            mPositionData.cellChanged = FALSE;
+                            LS_LOG_DEBUG("no registered changed cell ID detected");
                         }
                     }
                 }
@@ -772,23 +774,9 @@ bool NetworkPositionProvider::parseCellData(T& refJsonObj) {
         }
     }
 
-    if (mPositionData.cellChanged) {
-        LS_LOG_INFO("registered changed cell ID detected");//not a single registered cell change detected, nothing appended
-        if (jobject_put(refJsonObj, J_CSTR_TO_JVAL("cellTowers"), jvalue_duplicate(jsonObj))) {
-            j_release(&parsedObj);
-            return true;
-        } else if(!jis_null(parsedObj)) {
-            LS_LOG_INFO("failure to insert cell data");
-            j_release(&parsedObj);
-            return false;
-        }
-    }
-    else
-        LS_LOG_DEBUG("no registered changed cell ID detected");
-
     if (!jis_null(parsedObj))
         j_release(&parsedObj);
 
-    return false;
+    return cellChanged;
 }
 

@@ -33,7 +33,6 @@ class NetworkDataClient;
 typedef struct NetworkPositionData {
     const char *nwGeolocationKey;
     char *cellInfo;
-    gboolean cellChanged;
     int32_t curCellid;
     double lastLatitude;
     double lastLongitude;
@@ -50,7 +49,6 @@ typedef struct NetworkPositionData {
         lastTimeStamp = 0;
         lastAps = NULL;
         cellInfo = NULL;
-        cellChanged = false;
         curCellid = 0;
         nwGeolocationKey = NULL;
         requestState = REQUEST_NONE;
@@ -89,7 +87,6 @@ typedef struct NetworkPositionData {
             cellInfo = NULL;
         }
 
-        cellChanged = false;
         curCellid = 0;
 
         requestState = REQUEST_NONE;

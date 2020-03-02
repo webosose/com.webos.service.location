@@ -1,26 +1,20 @@
-/**********************************************************
- * (c) Copyright 2012. All Rights Reserved
- * LG Electronics.
- *
- * Project Name : Red Rose Platform location
- * Team   : SWF Team
- * Security  : Confidential
- * ***********************************************************/
+// Copyright (c) 2020 LG Electronics, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 
-/*********************************************************
- * @file
- * Filename  : LocationService.cpp
- * Purpose  : Provides location related API to application
- * Platform  : RedRose
- * Author(s)  : Mohammed Sameer Mulla
- * E-mail id. : sameer.mulla@lge.com
- * Creation date :
- *
- * Modifications:
- *
- * Sl No Modified by  Date  Version Description
- *
- **********************************************************/
+
 #include <stdio.h>
 #include "LocationService.h"
 #include "MockLocation.h"
@@ -42,7 +36,7 @@ const double LocationService::INVALID_LONG = 0;
  methods belonging to root category
  */
 LSMethod LocationService::rootMethod[] = {
-        {"getNmeaData",               LocationService::_getNmeaData},
+//        {"getNmeaData",               LocationService::_getNmeaData},
         {"getReverseLocation",        LocationService::_getReverseLocation},
         {"getGeoCodeLocation",        LocationService::_getGeoCodeLocation},
         {"getAllLocationHandlers",    LocationService::_getAllLocationHandlers},
@@ -50,10 +44,10 @@ LSMethod LocationService::rootMethod[] = {
         {"setState",                  LocationService::_setState},
         {"getState",                  LocationService::_getState},
         {"getLocationHandlerDetails", LocationService::_getLocationHandlerDetails},
-        {"getGpsSatelliteData",       LocationService::_getGpsSatelliteData},
-        {"getTimeToFirstFix",         LocationService::_getTimeToFirstFix},
+//        {"getGpsSatelliteData",       LocationService::_getGpsSatelliteData},
+//        {"getTimeToFirstFix",         LocationService::_getTimeToFirstFix},
         {"getLocationUpdates",        LocationService::_getLocationUpdates},
-        {"getCachedPosition",         LocationService::_getCachedPosition},
+//        {"getCachedPosition",         LocationService::_getCachedPosition},
         {0,                           0}
 };
 
@@ -62,10 +56,10 @@ LSMethod LocationService::rootMethod[] = {
  methods belonging to root private category
  */
 LSMethod LocationService::prvMethod[] = {
-        {"sendExtraCommand", LocationService::_sendExtraCommand},
-        {"stopGPS",          LocationService::_stopGPS},
+//        {"sendExtraCommand", LocationService::_sendExtraCommand},
+//        {"stopGPS",          LocationService::_stopGPS},
         {"exitLocation",     LocationService::_exitLocation},
-        {"setGPSParameters", LocationService::_setGPSParameters},
+//        {"setGPSParameters", LocationService::_setGPSParameters},
         {0,                  0}
 };
 
@@ -239,14 +233,14 @@ bool LocationService::locationServiceRegister(const char *srvcname, GMainLoop *m
 
     bRetVal = LSCategorySetData(*msvcHandle, "/", this, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
-
+/*
     // add geofence category
     bRetVal = LSRegisterCategoryAppend(*msvcHandle, "/geofence", geofenceMethod, NULL, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
 
     bRetVal = LSCategorySetData(*msvcHandle, "/geofence", this, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
-
+*/
     // add mock categoty
     bRetVal = LSRegisterCategoryAppend(*msvcHandle, "/mock", mockPublicMethod, NULL, &mLSError);
     LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);

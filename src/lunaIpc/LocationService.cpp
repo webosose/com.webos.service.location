@@ -1725,32 +1725,32 @@ bool LocationService::getLocationParameter( _Location* loc, jvalue_ref parsedObj
     jnumber_get_f64(param, &loc->latitude );
 
     /* optional */
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("altitude"), &object)) {
+    if (jobject_get_exists(object, J_CSTR_TO_BUF("altitude"), &param)) {
         jnumber_get_f64(param, &loc->altitude );
         loc->flag |= LOCATION_ALTITUDE_BIT;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("speed"), &object)) {
+    if (jobject_get_exists(object, J_CSTR_TO_BUF("speed"), &param)) {
         jnumber_get_f64(param, &loc->speed );
         loc->flag |= LOCATION_SPEED_BIT;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("horizontalAccuracy"), &object)) {
+    if (jobject_get_exists(object, J_CSTR_TO_BUF("horizAccuracy"), &param)) {
         jnumber_get_f64(param, &loc->horizontalAccuracy );
         loc->flag |= LOCATION_HORIZONTAL_ACCURACY_BIT;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("verticalAccuracy"), &object)) {
+    if (jobject_get_exists(object, J_CSTR_TO_BUF("verAccuracy"), &param)) {
         jnumber_get_f64(param, &loc->verticalAccuracy );
         loc->flag |= LOCATION_VERTICAL_ACCURACY_BIT;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("heading"), &object)) {
+    if (jobject_get_exists(object, J_CSTR_TO_BUF("heading"), &param)) {
         jnumber_get_f64(param, &loc->heading );
         loc->flag |= LOCATION_HEADING_BIT;
     }
 
-    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("timestamp"), &object)) {
+    if (jobject_get_exists(object, J_CSTR_TO_BUF("timestamp"), &param)) {
         jnumber_get_i64(param, &loc->timestamp );
         loc->flag |= LOCATION_TIMESTAMP_BIT;
     }

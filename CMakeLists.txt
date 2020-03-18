@@ -127,7 +127,6 @@ webos_build_system_bus_files()
 install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_PREFIX}/include/location
         FILES_MATCHING PATTERN "*.h")
-install(DIRECTORY files/etc/
-        DESTINATION ${WEBOS_INSTALL_SYSCONFDIR}
-        FILE_PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ
-        PATTERN "*")
+install(FILES files/etc/wsp.conf
+        DESTINATION ${WEBOS_INSTALL_SYSCONFDIR}/location
+        PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)

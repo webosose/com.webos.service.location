@@ -37,7 +37,8 @@
 #include <LifeCycleMonitor.h>
 #include <loc_logger.h>
 #include <unordered_map>
-#include <LBSEngine.h>
+#include <LocationWebServiceProvider.h>
+#include <WSPConfigurationFileParser.h>
 #include <NetworkRequestManager.h>
 #include <NetworkPositionProvider.h>
 #include <PositionProviderInterface.h>
@@ -58,7 +59,6 @@
 #define TIME_SCALE_SEC 1000
 #define LOCATION_SERVICE_NAME           "com.webos.service.location"
 
-#define GOOGLE_PROVIDER_ID "google"
 #define GEOFENCE_ENTERED                    0
 #define GEOFENCE_EXITED                     1
 #define GEOFENCE_UNCERTAIN                  2
@@ -510,9 +510,8 @@ private:
     static long mTTFF;
 
     GMainLoop *mMainLoop;
-    WSPInterface *mGoogleWspInterface;
     NetworkRequestManager *mNetReqMgr;
-    LBSEngine *mLbsEng;
+    LocationWebServiceProvider *mLBSProvider;
     NetworkPositionProvider *mNetworkProvider;
     GPSPositionProvider *mGPSProvider;
     ConnectionStateObserver * connectionStateObserverObj;

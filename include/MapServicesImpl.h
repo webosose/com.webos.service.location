@@ -14,8 +14,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#if !defined(_GOOGLEGEOIMPL_H)
-#define _GOOGLEGEOIMPL_H
+
+#ifndef H_MapServicesImpl
+#define H_MapServicesImpl
+
 
 #include <memory>
 #include <algorithm>
@@ -23,43 +25,31 @@
 #include <GeoCodeInterface.h>
 #include <loc_http.h>
 #include <loc_security.h>
-#include <WSPInterface.h>
 #include <HttpInterface.h>
+#include <MapServicesInterface.h>
 #include <NetworkRequestManager.h>
 #include <loc_log.h>
 
-#define GOOGLE_LBS_URL             https:\/\/maps.googleapis.com
-#define GOOGLE_SUB_URL_TO_SIGN     /maps/api/geocode/json?
-#define GOOGLE_CLIENT_KEY          &client=gme-lgelectronics1
-#define GEOCODEKEY_CONFIG_PATH      "/etc/geocode.conf"
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
+class WSPConfigurationFileParser;
 
-class GoogleGeoImpl : public GeoCodeInterface, public HttpInterface {
+class MapServicesImpl : public MapServicesInterface, public HttpInterface {
+    WSPConfigurationFileParser *configurationData;
 
 public:
+    MapServicesImpl(WSPConfigurationFileParser* confData);
 
-    GoogleGeoImpl();
-
-    ~GoogleGeoImpl();
+    virtual ~MapServicesImpl();
 
     ErrorCodes geoCode(GeoAddress address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message);
-
     ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
                               LSMessage *message);
 
     ErrorCodes lbsPostQuery(std::string url, bool isSync, LSMessage *message);
-
-    std::string formatUrl(std::string address, const char *key);
-
-    char *readApiKey();
-
+    std::string formatUrl(std::string address, std::string url, const char *key);
     void handleResponse(HttpReqTask *task);
-
-private:
-
-    std::string mGoogleGeoCodeApiKey;
 };
 
-#endif  //_GOOGLEGEOIMPL_H
+#endif  //H_MapServicesImpl

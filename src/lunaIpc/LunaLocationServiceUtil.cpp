@@ -20,8 +20,6 @@
 #include <LocationService.h>
 
 #define GEOLOCKEY_CONFIG_PATH       "/etc/geolocation.conf"
-#define GEOCODEKEY_CONFIG_PATH      "/etc/geocode.conf"
-
 
 LocationService *loc_svc_ptr = NULL;
 
@@ -52,6 +50,12 @@ static const locErrorTextPair_t mapLocErrorText[LOCATION_ERROR_MAX] = {
         {LOCATION_NOT_STARTED,                 "Location determination was not started"},
         {LOCATION_MOCK_DISABLED,               "Mock location was not enabled"},
         {LOCATION_UNKNOWN_MOCK_PROVIDER,       "Unknown mock location provider name was supplied" },
+        {LOCATION_WSP_CONF_READ_FAILED, "Failed to read the WSP Configuration file" },
+        {LOCATION_WSP_CONF_NAME_MISSING, "Failed to get the WSP name in conf file" },
+        {LOCATION_WSP_CONF_APIKEY_MISSING, "Failed to get the WSP API Key in conf file" },
+        {LOCATION_WSP_CONF_NO_SERVICES, "Failed to get the WSP service list in conf file" },
+        {LOCATION_WSP_CONF_NO_FEATURES, "Failed to get the WSP supported features list in conf file" },
+        {LOCATION_WSP_CONF_URL_MISSING, "Failed to get the WSP feature's URL in conf file" },
 };
 
 char *locationErrorReply[LOCATION_ERROR_MAX] = {0};

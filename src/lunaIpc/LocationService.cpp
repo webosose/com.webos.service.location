@@ -137,11 +137,9 @@ bool LocationService::init(GMainLoop *mainLoop) {
     mNetReqMgr->init();
 
     //create providers
+    mLBSProvider = LocationWebServiceProvider::getInstance();
 
-    mLbsEng = LBSEngine::getInstance();
-    mGoogleWspInterface = mLbsEng->getWebServiceProvider(std::string(GOOGLE_PROVIDER_ID));
-
-    if (nullptr == mGoogleWspInterface)
+    if (nullptr == mLBSProvider)
         return false;
 
     mNetworkProvider = new(nothrow) NetworkPositionProvider(mServiceHandle);
@@ -469,6 +467,11 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
         return true;
     }
 
+    errorCode = mLBSProvider->readWSPConfiguration();
+    if (errorCode != LOCATION_SUCCESS) {
+        goto EXIT;
+    }
+
     if (!isInternetConnectionAvailable /*&& !isWifiInternetAvailable*/) {
         errorCode = LOCATION_DATA_CONNECTION_OFF;
         goto EXIT;
@@ -477,7 +480,7 @@ bool LocationService::getReverseLocation(LSHandle *sh, LSMessage *message, void 
     getReverseGeocodeData(&parsedObj, &posData, &pos);
     geoLocInfo = GeoLocation(posData->str);
 
-    ret = mGoogleWspInterface->getGeocodeImpl()->reverseGeoCode(geoLocInfo,
+    ret = mLBSProvider->getGeocodeImpl()->reverseGeoCode(geoLocInfo,
                                                                 bind(&LocationService::reverseGeocodingCb, this,
                                                                      placeholders::_1, placeholders::_2,
                                                                      placeholders::_3),
@@ -620,6 +623,11 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message,
         return true;
     }
 
+    errorCode = mLBSProvider->readWSPConfiguration();
+    if (errorCode != LOCATION_SUCCESS) {
+        goto EXIT;
+    }
+
     if (!isInternetConnectionAvailable /*&& !isWifiInternetAvailable*/) {
         errorCode = LOCATION_DATA_CONNECTION_OFF;
         goto EXIT;
@@ -652,7 +660,7 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message,
 
     geoAddressInfo = GeoAddress(addressData->str);
 
-    ret = mGoogleWspInterface->getGeocodeImpl()->geoCode(geoAddressInfo,
+    ret = mLBSProvider->getGeocodeImpl()->geoCode(geoAddressInfo,
                                                          bind(&LocationService::geocodingCb, this, placeholders::_1,
                                                               placeholders::_2, placeholders::_3),
                                                          FALSE,

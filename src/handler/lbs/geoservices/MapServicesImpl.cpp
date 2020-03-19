@@ -15,14 +15,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-#include <GoogleGeoImpl.h>
+#include <MapServicesImpl.h>
+
+#include <WSPConfigurationFileParser.h>
 
 using namespace std;
 
 #define GEOCODEMETHOD    "getGeoCodeLocation"
 #define REVGEOMETHOD       "getReverseLocation"
 
-void GoogleGeoImpl::handleResponse(HttpReqTask *task) {
+void MapServicesImpl::handleResponse(HttpReqTask *task) {
     int error = ERROR_NONE;
     char *response = NULL;
     LSMessage *message = NULL;
@@ -57,57 +59,65 @@ void GoogleGeoImpl::handleResponse(HttpReqTask *task) {
 
 }
 
-GoogleGeoImpl::GoogleGeoImpl() {
-    char* key = readApiKey();
-    if(key)
-        mGoogleGeoCodeApiKey = key;//assign only if non-null
-    free(key);
+MapServicesImpl::MapServicesImpl(WSPConfigurationFileParser* confData)
+    : configurationData(confData) {
+    LS_LOG_DEBUG("===MapServicesImpl Ctor====");
 }
 
-GoogleGeoImpl::~GoogleGeoImpl() {
-    LS_LOG_DEBUG("===GoogleGeoImpl Dtor====");
+MapServicesImpl::~MapServicesImpl() {
+    LS_LOG_DEBUG("===MapServicesImpl Dtor====");
 }
 
-ErrorCodes GoogleGeoImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb, bool isSync, LSMessage *message) {
-    LS_LOG_DEBUG("GoogleGeoImpl Geocode %s %p", address.toString().c_str(), message);
+ErrorCodes MapServicesImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb, bool isSync, LSMessage *message) {
+    LS_LOG_DEBUG("MapServicesImpl Geocode %s %p", address.toString().c_str(), message);
 
     if (nullptr == geoCodeCb) {
         LS_LOG_ERROR("geoCodeCb is NULL");
         return ERROR_NOT_AVAILABLE;
     }
 
-    if (mGoogleGeoCodeApiKey.empty()) {
+    if (!configurationData || !configurationData->isSupported(GEO_CODE)) {
+        LS_LOG_ERROR("Feature not supported");
+        return ERROR_NOT_IMPLEMENTED;
+    }
+
+    if (configurationData->getKey().empty()) {
         LS_LOG_ERROR("License Key not present");
         return ERROR_LICENSE_KEY_INVALID;
     }
 
     this->mGeoCodeCb = geoCodeCb;
 
-    string strFormattedUrl = formatUrl(address.toString(), mGoogleGeoCodeApiKey.c_str());
+    string strFormattedUrl = formatUrl(address.toString(), configurationData->getUrl(GEO_CODE),  configurationData->getKey().c_str());
     return lbsPostQuery(strFormattedUrl, isSync, message);
 }
 
-ErrorCodes GoogleGeoImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
+ErrorCodes MapServicesImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
                                          LSMessage *message) {
-    LS_LOG_DEBUG("GoogleGeoImpl reverseGeoCode %s %p", geolocation.toString().c_str(), message);
+    LS_LOG_DEBUG("MapServicesImpl reverseGeoCode %s %p", geolocation.toString().c_str(), message);
 
     if (nullptr == revGeocodeCallback) {
         LS_LOG_ERROR("revGeocodeCallback is NULL");
         return ERROR_NOT_AVAILABLE;
     }
 
-    if (mGoogleGeoCodeApiKey.empty()) {
+    if (!configurationData || !configurationData->isSupported(REVERSE_GEOCODE)) {
+        LS_LOG_ERROR("Feature not supported");
+        return ERROR_NOT_IMPLEMENTED;
+    }
+
+    if (configurationData->getKey().empty()) {
         LS_LOG_ERROR("License Key not present");
         return ERROR_LICENSE_KEY_INVALID;
     }
 
     this->mRevGeoCodeCb = revGeocodeCallback;
 
-    string strFormattedUrl = formatUrl(geolocation.toString(), mGoogleGeoCodeApiKey.c_str());
+    string strFormattedUrl = formatUrl(geolocation.toString(), configurationData->getUrl(REVERSE_GEOCODE),  configurationData->getKey().c_str());
     return lbsPostQuery(strFormattedUrl, isSync, message);
 }
 
-string GoogleGeoImpl::formatUrl(string geoData, const char *key) {
+string MapServicesImpl::formatUrl(string geoData, std::string url, const char *key) {
     guchar *decodedKey = NULL;
     gsize size = 0;
     gsize len;
@@ -116,13 +126,38 @@ string GoogleGeoImpl::formatUrl(string geoData, const char *key) {
     guint8 *buffer = NULL;
     string finalURL;
     string encodedSignatureStr;
-    string urlToSign = TOSTRING(GOOGLE_SUB_URL_TO_SIGN) + geoData + TOSTRING(GOOGLE_CLIENT_KEY);
+    string urlToSign;
+    std::string subUrlToSign;
+    std::string stDecodeKey;
+    std::string tmpDecodeKey;
+    std::size_t pos;
+
+    if (url.empty()) {
+        LS_LOG_ERROR("URL not valid");
+        goto EXIT;
+    }
+
+    pos = url.find(".com/");
+    if (pos ==std::string::npos) {
+        LS_LOG_ERROR("URL not valid");
+        goto EXIT;
+    }
+    subUrlToSign = url.substr (pos+strlen(".com"));
+
+    if (subUrlToSign.empty()) {
+        LS_LOG_ERROR("URL not valid");
+        goto EXIT;
+    }
 
     //Decode the private key
     decodedKey = g_base64_decode(key, &size);
     if (NULL == decodedKey) {
         goto EXIT;
     }
+
+    tmpDecodeKey = string(reinterpret_cast< const char * > (decodedKey));
+    stDecodeKey.assign(tmpDecodeKey, 0, size-1);
+    urlToSign = subUrlToSign + geoData + "&key=" + stDecodeKey;
 
     hmac = g_hmac_new(G_CHECKSUM_SHA1, decodedKey, size);
     if (NULL == hmac) {
@@ -151,10 +186,10 @@ string GoogleGeoImpl::formatUrl(string geoData, const char *key) {
     replace(encodedSignatureStr.begin(), encodedSignatureStr.end(), '/', '_');
     replace(encodedSignatureStr.begin(), encodedSignatureStr.end(), '+', '-');
 
-    finalURL = TOSTRING(GOOGLE_LBS_URL);
-    finalURL.append(urlToSign);
-    finalURL.append("&signature=");
-    finalURL.append(encodedSignatureStr);
+    finalURL = url;
+    finalURL.append(geoData);
+    finalURL.append("&key=");
+    finalURL.append(stDecodeKey);
 
     LS_LOG_DEBUG("url: formatted succesfully");
 
@@ -175,21 +210,7 @@ string GoogleGeoImpl::formatUrl(string geoData, const char *key) {
     return finalURL;
 }
 
-char *GoogleGeoImpl::readApiKey() {
-    unsigned char *geocode_api_key = NULL;
-    int ret_geocode = LOC_SECURITY_ERROR_FAILURE;
-
-    ret_geocode = locSecurityBase64Decode(GEOCODEKEY_CONFIG_PATH,
-                                          &geocode_api_key);
-
-    if (LOC_SECURITY_ERROR_SUCCESS == ret_geocode) {
-        return (char*)geocode_api_key;
-    } else {
-        return NULL;
-    }
-}
-
-ErrorCodes GoogleGeoImpl::lbsPostQuery(string url, bool isSync, LSMessage *message) {
+ErrorCodes MapServicesImpl::lbsPostQuery(string url, bool isSync, LSMessage *message) {
     LS_LOG_DEBUG("==lbsPostQuery==");
     return NetworkRequestManager::getInstance()->initiateTransaction(NULL, 0, url, isSync, message, this);
 }

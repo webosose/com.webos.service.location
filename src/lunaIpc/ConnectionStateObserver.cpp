@@ -71,7 +71,7 @@ void ConnectionStateObserver::init(LSHandle *ConnHandle) {
         LSErrorFree(&lserror);
     }
     result = LSRegisterServerStatusEx(ConnHandle,
-                                      WAN_SERVICE,
+                                      CONNMGR_SERVICE,
                                       ConnectionStateObserver::wan_service_status_cb,
                                       this,
                                       &m_wan_cookie,

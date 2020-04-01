@@ -24,6 +24,7 @@
 
 #define WIFI_SERVICE "com.webos.service.wifi"
 #define WAN_SERVICE "com.webos.service.wan"
+#define CONNMGR_SERVICE "com.webos.service.connectionmanager"
 #define TELEPHONY_SERVICE "com.webos.service.telephony"
 
 class ConnectionStateObserver {

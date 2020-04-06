@@ -66,9 +66,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-if(${WEBOS_TARGET_MACHINE_IMPL} STREQUAL emulator)
-	add_definitions(-DWEBOS_TARGET_MACHINE_QEMUX86)
-endif()
+#if(${WEBOS_TARGET_MACHINE_IMPL} STREQUAL emulator)
+#	add_definitions(-DWEBOS_TARGET_MACHINE_QEMUX86)
+#endif()
 
 
 set(DB_UTILS_NAME dbutils)

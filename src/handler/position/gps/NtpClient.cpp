@@ -80,13 +80,13 @@ void NtpClient::ntpDownloadThread(void *arg) {
     LS_LOG_DEBUG("enter NtpClient::ntpDownloadThread\n");
 
 
-    if (mGPSConf.mNTPServer1 != nullptr)
+    if (strlen(mGPSConf.mNTPServer1))
         ntpservers[count++] = mGPSConf.mNTPServer1;
 
-    if (mGPSConf.mNTPServer2 != nullptr)
+    if (strlen(mGPSConf.mNTPServer2))
         ntpservers[count++] = mGPSConf.mNTPServer2;
 
-    if (mGPSConf.mNTPServer3 != nullptr)
+    if (strlen(mGPSConf.mNTPServer3))
         ntpservers[count++] = mGPSConf.mNTPServer3;
 
     if (!count) {
@@ -104,7 +104,7 @@ void NtpClient::ntpDownloadThread(void *arg) {
             return;
         }
 
-    if ((he = gethostbyname(ntpservers[nextserverindex]))) {
+        if ((he = gethostbyname(ntpservers[nextserverindex]))) {
             memset(&sock_addr, 0, sizeof(sock_addr));
             memcpy(&sock_addr.sin_addr, he->h_addr_list[0], sizeof(sock_addr.sin_addr));
             sock_addr.sin_port = htons(SOCK_DEFAULT_PORT);
@@ -151,7 +151,6 @@ void NtpClient::ntpDownloadThread(void *arg) {
                 } else {
                     LS_LOG_INFO("Download Length 0 \n");
                     //TODO: on failure why should a new socket needs to be created ??
-                    close(usd);
                 }
             }
             else {
@@ -162,13 +161,16 @@ void NtpClient::ntpDownloadThread(void *arg) {
             LS_LOG_ERROR("ntp download Error gethostbyname\n");
 
         }
+        close(usd);
+        usd = -1;
         nextserverindex++;
     }
 
     if (nextserverindex >= count)
         ntpClient->mCallback->onRequestCompleted(NtpErrors::CONNECTION_PROBLEM, nullptr);
+    if(usd != -1)
+        close(usd);
 
-    close(usd);
     ntpClient->mDownloadNtpDataStatus = NtpDownloadState::NTPIDLE;
 }
 

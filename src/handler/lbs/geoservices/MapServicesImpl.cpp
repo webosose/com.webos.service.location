@@ -205,7 +205,7 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
         delete encodedSignature;
 
     if (buffer != NULL)
-        free(buffer);
+        g_free(buffer);
 
     return finalURL;
 }

@@ -81,24 +81,24 @@ nyx_error_t GPSNyxInterface::initialize(void *instance) {
                 (nyx_gps_xtra_client_time_callback) (xtraTimeCb);
 
         count = 0;
-        strcpy(mXtraConfig.xtra_server_url[count++],
-               gpsInstance->mGPSConf.mXtraServer1);
-        strcpy(mXtraConfig.xtra_server_url[count++],
-               gpsInstance->mGPSConf.mXtraServer2);
-        strcpy(mXtraConfig.xtra_server_url[count++],
-               gpsInstance->mGPSConf.mXtraServer3);
+        strncpy(mXtraConfig.xtra_server_url[count++],
+               gpsInstance->mGPSConf.mXtraServer1, sizeof(mXtraConfig.xtra_server_url[0]));
+        strncpy(mXtraConfig.xtra_server_url[count++],
+               gpsInstance->mGPSConf.mXtraServer2, sizeof(mXtraConfig.xtra_server_url[0]));
+        strncpy(mXtraConfig.xtra_server_url[count++],
+               gpsInstance->mGPSConf.mXtraServer3, sizeof(mXtraConfig.xtra_server_url[0]));
 
         count = 0;
-        strcpy(mXtraConfig.sntp_server_url[count++],
-               gpsInstance->mGPSConf.mNTPServer1);
-        strcpy(mXtraConfig.sntp_server_url[count++],
-               gpsInstance->mGPSConf.mNTPServer2);
-        strcpy(mXtraConfig.sntp_server_url[count++],
-               gpsInstance->mGPSConf.mNTPServer3);
+        strncpy(mXtraConfig.sntp_server_url[count++],
+               gpsInstance->mGPSConf.mNTPServer1, sizeof(mXtraConfig.sntp_server_url[0]));
+        strncpy(mXtraConfig.sntp_server_url[count++],
+               gpsInstance->mGPSConf.mNTPServer2, sizeof(mXtraConfig.sntp_server_url[0]));
+        strncpy(mXtraConfig.sntp_server_url[count++],
+               gpsInstance->mGPSConf.mNTPServer3, sizeof(mXtraConfig.sntp_server_url[0]));
 
         // test need to decide on UA string
-        strcpy(mXtraConfig.user_agent_string,
-               "LE/1.2.3/OEM/Model/Board/Carrier");
+        strncpy(mXtraConfig.user_agent_string,
+               "LE/1.2.3/OEM/Model/Board/Carrier", sizeof(mXtraConfig.user_agent_string));
 
         rc = nyx_gps_init_xtra_client(mNyxGpsSystem, &mXtraConfig,
                                       &mXtraClientCallbacks);

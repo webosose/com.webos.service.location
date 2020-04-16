@@ -38,19 +38,19 @@ using namespace std;
 
 void GPSServiceConfig::loadDefaults() {
     mSUPLVer = SUPL_VERSION;
-    strcpy(mSUPLHost, SUPL_HOST);
+    strncpy(mSUPLHost, SUPL_HOST, sizeof(mSUPLHost));
     mSUPLPort = SUPL_PORT;
 
-    strcpy(mXtraServer1, XTRASERVER1);
-    strcpy(mXtraServer2, XTRASERVER2);
-    strcpy(mXtraServer3, XTRASERVER3);
-    strcpy(mNTPServer1, NTPSERVER1);
-    strcpy(mNTPServer2, NTPSERVER2);
-    strcpy(mNTPServer3, NTPSERVER3);
-    strcpy(mVENDOR, VENDOR);
+    strncpy(mXtraServer1, XTRASERVER1, sizeof(mXtraServer1));
+    strncpy(mXtraServer2, XTRASERVER2, sizeof(mXtraServer2));
+    strncpy(mXtraServer3, XTRASERVER3, sizeof(mXtraServer3));
+    strncpy(mNTPServer1, NTPSERVER1, sizeof(mNTPServer1));
+    strncpy(mNTPServer2, NTPSERVER2, sizeof(mNTPServer2));
+    strncpy(mNTPServer3, NTPSERVER3, sizeof(mNTPServer3));
+    strncpy(mVENDOR, VENDOR, sizeof(mVENDOR));
     mLgeTlsMode = LGETLSMODE;
     mLgeGPSPositionMode = LGEPOSITIONMODE;
-    strcpy(mChipsetID, CHIPSETID);
+    strncpy(mChipsetID, CHIPSETID, sizeof(mChipsetID));
 
 
 }

@@ -22,7 +22,6 @@
 #include <memory>
 #include <algorithm>
 #include <string.h>
-#include <GeoCodeInterface.h>
 #include <loc_http.h>
 #include <loc_security.h>
 #include <HttpInterface.h>

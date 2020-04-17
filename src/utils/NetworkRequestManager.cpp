@@ -99,7 +99,7 @@ ErrorCodes NetworkRequestManager::initiateTransaction(const char **headers, int 
         return ERROR_NETWORK_ERROR;
     }
 
-    LS_LOG_INFO("initiate_Transaction succesful gHttpReqTask %d=\n", gHttpReqTask);
+    LS_LOG_INFO("initiate_Transaction succesful gHttpReqTask %p=\n", gHttpReqTask);
 
     if (gHttpReqTask->post_data) {     // free up any past data
         free(gHttpReqTask->post_data);

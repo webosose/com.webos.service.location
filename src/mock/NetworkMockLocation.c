@@ -53,7 +53,7 @@ start_network_mock_server( void* param )
 {
     uint64_t u = 1;
     network_mock_server = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-    write( network_event_fd, &u, sizeof(u) );
+    (void)write( network_event_fd, &u, sizeof(u) );
     if ( network_mock_server >= 0 ) {
         struct sockaddr_in addr;
         addr.sin_family = AF_INET;
@@ -111,7 +111,7 @@ start_network_mock_server( void* param )
                                     &rfds, NULL, NULL, NULL );
                                 if ( FD_ISSET(network_event_fd,&rfds) ) {
                                     uint64_t u;
-                                    read( network_event_fd, &u, sizeof(u) );
+                                    (void)read( network_event_fd, &u, sizeof(u) );
                                     snprintf( buf, sizeof(buf), body,
                                         network_mock_lat, network_mock_lon, network_mock_acc );
                                     len = strlen(buf);
@@ -155,7 +155,7 @@ network_mock_location( struct _Location* loc, void* ctx )
         network_mock_lon = loc->longitude;
         network_mock_lat = loc->latitude;
         network_mock_acc = loc->horizontalAccuracy;
-        write( network_event_fd, &u, sizeof(u) );
+        (void)write( network_event_fd, &u, sizeof(u) );
     } else {
         void* res;
         close_socket( &network_mock_client );
@@ -178,7 +178,7 @@ network_location_provider_url( const char* url )
 
             network_event_fd = eventfd( 0, 0 );
             pthread_create(&network_mock_server_thread, NULL, start_network_mock_server, NULL);
-            read( network_event_fd, &u, sizeof(u) );
+            (void)read( network_event_fd, &u, sizeof(u) );
 
             pthread_attr_destroy( &attr );
             network_mock_location_provider.location = network_mock_location;

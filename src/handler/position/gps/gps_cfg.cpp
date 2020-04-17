@@ -56,7 +56,7 @@ void gps_set_config_entry(gps_param_s_type *config_entry, gps_param_v_type *conf
         if (strcmp(config_value->param_str_value, "NULL") == 0) {
           *((char *) config_entry->param_ptr) = '\0';
         } else {
-          g_strlcpy((char *) config_entry->param_ptr,
+          (void)g_strlcpy((char *) config_entry->param_ptr,
                     config_value->param_str_value,
                     GPS_MAX_PARAM_STRING + 1);
         }

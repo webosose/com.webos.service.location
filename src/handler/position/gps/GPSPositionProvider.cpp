@@ -707,7 +707,8 @@ bool GPSPositionProvider::init(LSHandle *sh) {
     return true;
 }
 
-GPSPositionProvider::GPSPositionProvider() : PositionProviderInterface("GPS") {
+GPSPositionProvider::GPSPositionProvider() : PositionProviderInterface("GPS"),
+    mLSHandle(nullptr) {
     printf_debug("ctor of GPSPositionProvider\n");
     RegisterMessageHandlers(COMMAND_GPS_ENABLE, &GPSPositionProvider::handleGpsEnable,
                             COMMAND_GPS_DISABLE, &GPSPositionProvider::handleGpsDisable,

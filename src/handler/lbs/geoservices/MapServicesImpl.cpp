@@ -165,7 +165,7 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
     }
 
     g_hmac_update(hmac, (unsigned char *) urlToSign.c_str(), -1);
-    buffer = (guint8 *) g_malloc(strlen(urlToSign.c_str()));
+    buffer = (guint8 *) g_malloc(strlen(urlToSign.c_str())+1);
     if (NULL == buffer) {
         goto EXIT;
     }

@@ -31,7 +31,8 @@
 #define SCAN_PAYLOAD                           "{}"
 
 NetworkPositionProvider::NetworkPositionProvider(LSHandle *sh) : PositionProviderInterface("Network"),
-                                                                 mNetworkData(sh) {
+                                                                 mNetworkData(sh),
+                                                                 mScanToken(LSMESSAGE_TOKEN_INVALID) {
     mwifiStatus = false;
     mtelephonyPowerd = false;
     mEnabled = false;

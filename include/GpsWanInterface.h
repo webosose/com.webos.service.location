@@ -21,7 +21,8 @@
 class GpsWanInterface
 {
     public:
-        GpsWanInterface() {
+        GpsWanInterface() :
+            mWanGetContext(LSMESSAGE_TOKEN_INVALID), _mLSHandle(nullptr), mServiceConnected(false) {
         }
         ~GpsWanInterface() {
         }

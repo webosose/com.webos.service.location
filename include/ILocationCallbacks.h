@@ -25,7 +25,7 @@
 
 class ILocationCallbacks {
 public:
-    virtual void getLocationUpdateCb(GeoLocation location, ErrorCodes errCode,
+    virtual void getLocationUpdateCb(GeoLocation& location, ErrorCodes errCode,
             HandlerTypes type)=0;
 
     virtual void getNmeaDataCb(long long timestamp, char *data, int length)=0;

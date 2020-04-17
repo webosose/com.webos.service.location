@@ -2063,8 +2063,9 @@ bool LocationService::getCachedPosition(LSHandle *sh, LSMessage *message, void *
     memset(&pos, 0x00, sizeof(Position));
     memset(&gpspos, 0x00, sizeof(Position));
     memset(&nwpos, 0x00, sizeof(Position));
-    memset(&gpsacc,0x00,sizeof(Accuracy));
-    memset(&nwacc,0x00,sizeof(Accuracy));
+    memset(&gpsacc, 0x00, sizeof(Accuracy));
+    memset(&nwacc, 0x00, sizeof(Accuracy));
+    memset(&acc, 0x00, sizeof(Accuracy));
     /*Parse Handler name*/
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("Handler"), &handlerObj)) {
         raw_buffer nameBuf = jstring_get(handlerObj);
@@ -2275,7 +2276,7 @@ int LocationService::getHandlerVal(char *handlerName) {
  ********************   Called from handlers********************************************************************
  **************************************************************************************************************/
 
-void LocationService::geocodingCb(GeoLocation location, int errCode, LSMessage *message) {
+void LocationService::geocodingCb(GeoLocation& location, int errCode, LSMessage *message) {
     LS_LOG_DEBUG("geocodingCb");
     getInstance()->geocodingReply(location.toString().c_str(), errCode, message);
 }
@@ -2323,7 +2324,7 @@ void LocationService::geofenceStatusCb (int32_t status, Position *lastPosition, 
 
 
 
-void LocationService::getLocationUpdateCb(GeoLocation location, ErrorCodes errCode, HandlerTypes type) {
+void LocationService::getLocationUpdateCb(GeoLocation& location, ErrorCodes errCode, HandlerTypes type) {
     LS_LOG_DEBUG("getLocationUpdateCb %d getConnectionManagerState() %d",errCode, getConnectionManagerState());
 
     if (errCode == ERROR_NETWORK_ERROR && getConnectionManagerState())
@@ -3648,7 +3649,7 @@ bool LocationService::removeTimer(LSMessage *message) {
     bool found = false;
     TimerData *timerdata;
     guint timerID;
-    bool timerRemoved;
+    bool timerRemoved = false;
 
     LS_LOG_INFO("size = %d", size);
     if (size <= 0) {
@@ -3683,7 +3684,7 @@ bool LocationService::LSMessageRemoveReqList(LSMessage *message) {
     bool found = false;
     TimerData *timerdata;
     guint timerID;
-    bool timerRemoved;
+    bool timerRemoved  =  false;
 
     LS_LOG_INFO("m_locUpdate_req_list size %d", size);
 

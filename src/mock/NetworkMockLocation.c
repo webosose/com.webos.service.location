@@ -56,6 +56,7 @@ start_network_mock_server( void* param )
     (void)write( network_event_fd, &u, sizeof(u) );
     if ( network_mock_server >= 0 ) {
         struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_port = htons((unsigned short)_NETWORK_MOCK_SERVER_PORT);
         addr.sin_addr.s_addr = htonl(INADDR_ANY);

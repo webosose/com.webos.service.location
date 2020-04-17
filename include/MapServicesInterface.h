@@ -27,8 +27,8 @@
 #include <loc_log.h>
 #include <functional>
 
-typedef std::function<void(GeoLocation, int, LSMessage *)> GeoCodeCb;
-typedef std::function<void(GeoAddress, int, LSMessage *)> ReverseGeoCodeCb;
+typedef std::function<void(GeoLocation&, int, LSMessage *)> GeoCodeCb;
+typedef std::function<void(GeoAddress&, int, LSMessage *)> ReverseGeoCodeCb;
 
 class MapServicesInterface {
 public:
@@ -39,12 +39,12 @@ public:
     virtual ~MapServicesInterface() {
     }
 
-    virtual ErrorCodes geoCode(GeoAddress address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message) {
+    virtual ErrorCodes geoCode(GeoAddress& address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message) {
         LS_LOG_ERROR("No support for geocode");
         return ERROR_NOT_IMPLEMENTED;
     }
 
-    virtual ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGecodeCallback, bool isSync,
+    virtual ErrorCodes reverseGeoCode(GeoLocation& geolocation, ReverseGeoCodeCb revGecodeCallback, bool isSync,
                                       LSMessage *message) {
         LS_LOG_ERROR("No support for reverseGeoCode");
         return ERROR_NOT_IMPLEMENTED;

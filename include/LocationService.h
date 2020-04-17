@@ -475,7 +475,7 @@ public:
 
     bool deinit();
 public:
-    void getLocationUpdateCb(GeoLocation location, ErrorCodes errCode,HandlerTypes type);
+    void getLocationUpdateCb(GeoLocation& location, ErrorCodes errCode,HandlerTypes type);
     void getNmeaDataCb(long long timestamp, char *data, int length);
     void getGpsStatusCb(int state);
     void getGpsSatelliteDataCb(Satellite *);
@@ -557,7 +557,7 @@ private:
 
     void geocodingReply(const char *response, int error, LSMessage *message);
 
-    void geocodingCb(GeoLocation location, int errCode, LSMessage *message);
+    void geocodingCb(GeoLocation& location, int errCode, LSMessage *message);
 
     void reverseGeocodingCb(GeoAddress address, int errCode, LSMessage *message);
 

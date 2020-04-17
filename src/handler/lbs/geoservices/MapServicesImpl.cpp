@@ -49,9 +49,11 @@ void MapServicesImpl::handleResponse(HttpReqTask *task) {
     LS_LOG_INFO("cbHttpResponse : %d %p", error, message);
 
     if (!strcmp(LSMessageGetMethod(message), GEOCODEMETHOD)) {
-        mGeoCodeCb(GeoLocation(response), error, message);
+        GeoLocation geolocation(response);
+        mGeoCodeCb(geolocation, error, message);
     } else if (!strcmp(LSMessageGetMethod(message), REVGEOMETHOD)) {
-        mRevGeoCodeCb(GeoAddress(response), error, message);
+        GeoAddress geoaddr(response);
+        mRevGeoCodeCb(geoaddr, error, message);
     }
 
     if (response)
@@ -68,7 +70,7 @@ MapServicesImpl::~MapServicesImpl() {
     LS_LOG_DEBUG("===MapServicesImpl Dtor====");
 }
 
-ErrorCodes MapServicesImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb, bool isSync, LSMessage *message) {
+ErrorCodes MapServicesImpl::geoCode(GeoAddress& address, GeoCodeCb geoCodeCb, bool isSync, LSMessage *message) {
     LS_LOG_DEBUG("MapServicesImpl Geocode %s %p", address.toString().c_str(), message);
 
     if (nullptr == geoCodeCb) {
@@ -92,7 +94,7 @@ ErrorCodes MapServicesImpl::geoCode(GeoAddress address, GeoCodeCb geoCodeCb, boo
     return lbsPostQuery(strFormattedUrl, isSync, message);
 }
 
-ErrorCodes MapServicesImpl::reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
+ErrorCodes MapServicesImpl::reverseGeoCode(GeoLocation& geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
                                          LSMessage *message) {
     LS_LOG_DEBUG("MapServicesImpl reverseGeoCode %s %p", geolocation.toString().c_str(), message);
 

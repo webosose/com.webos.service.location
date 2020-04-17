@@ -188,10 +188,10 @@ gboolean NetworkPositionProvider::networkUpdateCallback(void *obj) {
     }
 
     if (!(pThis->mConnectivityStatus)) {
+        GeoLocation geoLocation((pThis->mPositionData).lastLatitude, (pThis->mPositionData).lastLongitude, -1.0,
+           (pThis->mPositionData).lastAccuracy, (pThis->mPositionData).lastTimeStamp, -1.0, -1.0, -1.0, -1.0);
         LS_LOG_ERROR("networkUpdateCallback no internetConnection");
-        pThis->getCallback()->getLocationUpdateCb(GeoLocation((pThis->mPositionData).lastLatitude, (pThis->mPositionData).lastLongitude, -1.0,
-                                                 (pThis->mPositionData).lastAccuracy, (pThis->mPositionData).lastTimeStamp, -1.0, -1.0, -1.0,
-                                                  -1.0),ERROR_NETWORK_ERROR, HANDLER_NETWORK);
+        pThis->getCallback()->getLocationUpdateCb(geoLocation, ERROR_NETWORK_ERROR, HANDLER_NETWORK);
         return true;
     }
     if (pThis->mwifiStatus)
@@ -216,11 +216,11 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
             LS_LOG_INFO("processRequest:POSITION_CMD received");
 
             if (mProcessRequestInProgress) {
-            if (getCallback())
-                    getCallback()->getLocationUpdateCb(GeoLocation(mPositionData.lastLatitude, mPositionData.lastLongitude, -1.0,
-                                          mPositionData.lastAccuracy, mPositionData.lastTimeStamp, -1.0, -1.0, -1.0,
-                                          -1.0),
-                              ERROR_NONE, HANDLER_NETWORK);
+                if (getCallback()) {
+                    GeoLocation geoLocation(mPositionData.lastLatitude, mPositionData.lastLongitude, -1.0,
+                       mPositionData.lastAccuracy, mPositionData.lastTimeStamp, -1.0, -1.0, -1.0, -1.0);
+                    getCallback()->getLocationUpdateCb(geoLocation, ERROR_NONE, HANDLER_NETWORK);
+                }
                 break;
             }
 
@@ -357,7 +357,7 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
     ErrorCodes error = ERROR_NONE;
     int64_t currentTime = 0;
     double latitude, longitude, accuracy;
-    struct timeval tv;
+    struct timeval tval;
 
     if (!task) {
         LS_LOG_ERROR("handleResponse::invalid http data received");
@@ -405,15 +405,18 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
         mPositionData.lastLatitude = latitude;
         mPositionData.lastLongitude = longitude;
         mPositionData.lastAccuracy = accuracy;
-        gettimeofday(&tv, (struct timezone *) NULL);
-        currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+        gettimeofday(&tval, (struct timezone *) NULL);
+        currentTime = tval.tv_sec * 1000LL + tval.tv_usec / 1000;
 
         set_store_position(currentTime, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM,
                            accuracy, INVALID_PARAM, const_cast<char *>(LOCATION_DB_PREF_PATH_NETWORK));
 
         if (getCallback())
-            getCallback()->getLocationUpdateCb(GeoLocation(latitude, longitude, -1.0, accuracy, currentTime, -1.0, -1.0, -1.0, -1.0), error,
+        {
+            GeoLocation geoLocation(latitude, longitude, -1.0, accuracy, currentTime, -1.0, -1.0, -1.0, -1.0);
+            getCallback()->getLocationUpdateCb(geoLocation, error,
                       HANDLER_NETWORK);
+        }
     } else {
         //error case handling
         LS_LOG_ERROR("network error: task->curlDesc.curlResultErrorStr %s", task->curlDesc.curlResultErrorStr);
@@ -422,11 +425,14 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
 
         error = ERROR_NETWORK_ERROR;
 
-        gettimeofday(&tv, (struct timezone *) NULL);
-        currentTime = tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+        gettimeofday(&tval, (struct timezone *) NULL);
+        currentTime = tval.tv_sec * 1000LL + tval.tv_usec / 1000;
 
         if (getCallback())
-            getCallback()->getLocationUpdateCb(GeoLocation(0, 0, -1.0, 0, currentTime, -1.0, -1.0, -1.0, -1.0), error, HANDLER_NETWORK);
+        {
+            GeoLocation geoLocation1(0, 0, -1.0, 0, currentTime, -1.0, -1.0, -1.0, -1.0);
+            getCallback()->getLocationUpdateCb(geoLocation1, error, HANDLER_NETWORK);
+        }
     }
 }
 

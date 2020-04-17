@@ -42,8 +42,8 @@ public:
 
     virtual ~MapServicesImpl();
 
-    ErrorCodes geoCode(GeoAddress address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message);
-    ErrorCodes reverseGeoCode(GeoLocation geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
+    ErrorCodes geoCode(GeoAddress& address, GeoCodeCb geocodeCallback, bool isSync, LSMessage *message);
+    ErrorCodes reverseGeoCode(GeoLocation& geolocation, ReverseGeoCodeCb revGeocodeCallback, bool isSync,
                               LSMessage *message);
 
     ErrorCodes lbsPostQuery(std::string url, bool isSync, LSMessage *message);

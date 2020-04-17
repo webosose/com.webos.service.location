@@ -119,9 +119,9 @@ void NtpClient::ntpDownloadThread(void *arg) {
                 //Systems using a 32-bit time_t type are susceptible to the Year 2038 problem :-)
                 //if system is using 64bit htonl takes  uint32_t then this passing is right ??
                 pkt.originateTimeStampSecs = htonl(time(nullptr) + NTP_EPOCH);
-                send(usd, &pkt, sizeof(pkt), 0);
+                (void)send(usd, &pkt, sizeof(pkt), 0);
                 timeout = NTP_REPLY_TIMEOUT;
-                setsockopt(usd, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout, sizeof(int));
+                (void)setsockopt(usd, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout, sizeof(int));
 
                 LS_LOG_DEBUG("connected to socket, call recv\n");
 

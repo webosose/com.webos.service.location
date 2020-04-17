@@ -21,11 +21,12 @@
 
 GeoLocation::GeoLocation() :
         mLatitude(0.0), mLongitude(0.0), mAltitude(0.0), mHorAccuracy(0.0),
-        mTimeStamp(    0.0), mDirection(0.0), mClimb(0.0), mSpeed(0.0), mVertAccuracy(    0.0) {
+        mTimeStamp(0.0), mDirection(0.0), mClimb(0.0), mSpeed(0.0), mVertAccuracy(0.0) {
 
 }
 GeoLocation::GeoLocation(std::string slocation) :
-        mLatitude(0), mLongitude(0), mAltitude(0), mHorAccuracy(0), mVertAccuracy(0) {
+        mLatitude(0), mLongitude(0), mAltitude(0), mHorAccuracy(0),
+        mTimeStamp(0.0), mDirection(0.0), mClimb(0.0), mSpeed(0.0), mVertAccuracy(0.0) {
     this->mStrLocation = slocation;
 }
 bool GeoLocation::operator==(const GeoLocation &location) const {

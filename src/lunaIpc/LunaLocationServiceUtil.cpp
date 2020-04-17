@@ -269,9 +269,6 @@ Position *position_create(gint64 timestamp,
     g_return_val_if_fail(position, NULL);
     position->timestamp = timestamp;
 
-    if (flags & POSITION_FIELDS_NONE)
-        return position;
-
     if (flags & POSITION_FIELDS_LATITUDE)
         position->latitude = latitude;
 

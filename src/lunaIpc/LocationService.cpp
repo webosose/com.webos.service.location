@@ -112,7 +112,18 @@ LocationService::LocationService() :
         m_enableSuspendBlocker(false),
         nwGeolocationKey(nullptr),
         lbsGeocodeKey(nullptr),
-        location_request_logger(nullptr) {
+        location_request_logger(nullptr),
+        mCachedGpsEngineStatus(false),
+        wifistate(false),
+        isInternetConnectionAvailable(false),
+        isTelephonyAvailable(false),
+        isWifiInternetAvailable(false),
+        mMainLoop(nullptr),
+        mNetReqMgr(nullptr),
+        mLBSProvider(nullptr),
+        mNetworkProvider(nullptr),
+        mGPSProvider(nullptr),
+        connectionStateObserverObj(nullptr) {
     LS_LOG_DEBUG("LocationService object created");
 }
 
@@ -131,7 +142,7 @@ bool LocationService::init(GMainLoop *mainLoop) {
         return false;
     }
 
-    LS_LOG_DEBUG("mServiceHandle =%x", mServiceHandle);
+    LS_LOG_DEBUG("mServiceHandle =%p", mServiceHandle);
 
     mNetReqMgr = NetworkRequestManager::getInstance();
     mNetReqMgr->init();
@@ -646,9 +657,9 @@ bool LocationService::getGeoCodeLocation(LSHandle *sh, LSMessage *message,
     bRetVal = jobject_get_exists(parsedObj, J_CSTR_TO_BUF("address"), &jsonSubObject);
 
     if (bRetVal == true) {
-        LS_LOG_DEBUG("value of address %s", jsonSubObject);
         raw_buffer nameBuf = jstring_get(jsonSubObject);
         std::string str(nameBuf.m_str);
+        LS_LOG_DEBUG("value of address %s", str.c_str());
         std::replace(str.begin(), str.end(), ' ', '+');
         g_string_append(addressData, "address=");
         g_string_append(addressData, str.c_str());
@@ -895,7 +906,8 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data) {
         if (lpret != LP_ERR_NONE) {
             location_util_form_json_reply(serviceObject, true, LOCATION_SUCCESS);
             jobject_put(serviceObject, J_CSTR_TO_JVAL("state"), jnumber_create_i32(0));
-            LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
+            if (!LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError))
+                 LSErrorPrintAndFree(&mLSError);
             goto EXIT;
         }
 
@@ -904,7 +916,8 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data) {
 
         LS_LOG_INFO("state=%d", state);
 
-        LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError);
+        if (!LSMessageReply(sh, message, jvalue_tostring_simple(serviceObject), &mLSError))
+            LSErrorPrint(&mLSError, stderr);
     } else {
         LS_LOG_ERROR("LPAppGetHandle is not created ");
         LSMessageReplyError(sh, message, LOCATION_UNKNOWN_ERROR);
@@ -1509,16 +1522,16 @@ bool LocationService::addGeofenceArea(LSHandle *sh, LSMessage *message, void *da
     }
 
     /* Extract latitude from message */
-    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("latitude"), &jsonSubObject);
-    jnumber_get_f64(jsonSubObject, &latitude);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("latitude"), &jsonSubObject))
+        jnumber_get_f64(jsonSubObject, &latitude);
 
     /* Extract longitude from message */
-    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("longitude"), &jsonSubObject);
-    jnumber_get_f64(jsonSubObject, &longitude);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("longitude"), &jsonSubObject))
+        jnumber_get_f64(jsonSubObject, &longitude);
 
     /* Extract radius from message */
-    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("radius"), &jsonSubObject);
-    jnumber_get_f64(jsonSubObject, &radius);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("radius"), &jsonSubObject))
+        jnumber_get_f64(jsonSubObject, &radius);
     request.setGeofenceCoordinates(longitude, latitude, radius);
 
      /* Generate random Geofence Id which is not used by previous request */
@@ -1590,8 +1603,8 @@ bool LocationService::removeGeofenceArea(LSHandle *sh, LSMessage *message, void 
     }
 
     PositionRequest request("GPS", REMOVE_GEOFENCE_CMD);
-    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject);
-    jnumber_get_i32(jsonSubObject, &geofenceId);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject))
+        jnumber_get_i32(jsonSubObject, &geofenceId);
 
     sprintf(strGeofenceId, "%d%s", geofenceId, SUBSC_GEOFENCE_ADD_AREA_KEY);
 
@@ -1643,8 +1656,8 @@ bool LocationService::pauseGeofence(LSHandle *sh, LSMessage *message, void *data
         return true;
     }
 
-    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonObject);
-    jnumber_get_i32(jsonObject, &geofence_id);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonObject))
+        jnumber_get_i32(jsonObject, &geofence_id);
 
     sprintf(str_geofence_id, "%d%s", geofence_id, SUBSC_GEOFENCE_ADD_AREA_KEY);
     if (isSubscListFilled(message, str_geofence_id, false) == false) {
@@ -1679,8 +1692,8 @@ bool LocationService::resumeGeofence(LSHandle *sh, LSMessage *message, void *dat
         return true;
     }
 
-    jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject);
-    jnumber_get_i32(jsonSubObject, &geofenceid);
+    if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("geofenceid"), &jsonSubObject))
+        jnumber_get_i32(jsonSubObject, &geofenceid);
 
     sprintf(str_geofenceid, "%d%s", geofenceid, SUBSC_GEOFENCE_ADD_AREA_KEY);
     if (isSubscListFilled(message, str_geofenceid, false) == false) {
@@ -1805,7 +1818,6 @@ bool LocationService::disableMockLocation(LSHandle *sh, LSMessage *message, void
 
 bool LocationService::setMockLocation(LSHandle *sh, LSMessage *message, void *data) {
     struct _Location loc;
-    jvalue_ref param;
     jvalue_ref parsedObj = NULL;
 
     MOCK_CALL_LOG;

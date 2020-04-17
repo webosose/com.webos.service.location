@@ -31,7 +31,7 @@
 
 using namespace std;
 
-NetworkData::NetworkData(LSHandle *sh) : mPrvHandle(sh), mCellInfoReq(LSMESSAGE_TOKEN_INVALID), mWifiInfoReq(LSMESSAGE_TOKEN_INVALID) {
+NetworkData::NetworkData(LSHandle *sh) : mPrvHandle(sh), mCellInfoReq(LSMESSAGE_TOKEN_INVALID), mWifiInfoReq(LSMESSAGE_TOKEN_INVALID), mClient(nullptr)  {
     LS_LOG_INFO("## NetworkData:: mPrvHandle ## = %p", mPrvHandle);
 }
 

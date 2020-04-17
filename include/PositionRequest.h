@@ -45,7 +45,8 @@ public:
     }
 
     PositionRequest(ProviderID_t providerId, HandlerRequestType requestType):
-                  mProviderId(providerId), mRequestType(requestType) {
+                  mProviderId(providerId), mRequestType(requestType), mGeofenceID(0),
+                  mGeofenceLatitude(0.0), mGeofenceRadius(0.0), mGeofenceLongitude(0.0) {
     }
 
     const std::string& getProviderId() const {

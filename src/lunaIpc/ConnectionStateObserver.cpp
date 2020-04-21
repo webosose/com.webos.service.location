@@ -378,7 +378,7 @@ bool ConnectionStateObserver::_wifi_status_cb(LSHandle *sh, LSMessage *message) 
         Notify_WifiInternetStateChange(true);
     }
 
-    g_free(wifisrvEnable);
+    free(wifisrvEnable);
 
     j_release(&parsedObj);
     return true;

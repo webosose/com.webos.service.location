@@ -161,14 +161,16 @@ void NtpClient::ntpDownloadThread(void *arg) {
             LS_LOG_ERROR("ntp download Error gethostbyname\n");
 
         }
-        close(usd);
-        usd = -1;
+        if (usd > 0) {
+            close(usd);
+            usd = -1;
+        }
         nextserverindex++;
     }
 
     if (nextserverindex >= count)
         ntpClient->mCallback->onRequestCompleted(NtpErrors::CONNECTION_PROBLEM, nullptr);
-    if(usd != -1)
+    if (usd > 0)
         close(usd);
 
     ntpClient->mDownloadNtpDataStatus = NtpDownloadState::NTPIDLE;

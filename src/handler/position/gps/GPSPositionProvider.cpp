@@ -302,7 +302,7 @@ bool GPSPositionProvider::handleCEPLog(void *data) {
         }
         // maximum count of measurements for CEP
         memset(temp, 0, 256);
-        strncpy(temp, cep_values + 1, sizeof(temp));
+        strncpy(temp, cep_values + 1, sizeof(temp)-1);
         max_count = atoi(temp);
     }
     if (0 != ref_lat && 0 != ref_lon) {
@@ -334,7 +334,7 @@ bool GPSPositionProvider::handleStartAnonymousLog(void *data) {
     offset = strchr(cvalue, ':');
     memset(title, 0, 256);
     if (offset) {
-        strncpy(title, offset + 1, sizeof(title));
+        strncpy(title, offset + 1, sizeof(title)-1);
     }
     if (!mAnonymousLogger)
         mAnonymousLogger = loc_logger_create();
@@ -446,7 +446,7 @@ bool GPSPositionProvider::handleSetGpsParameterCommand(void *data) {
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("supladdress"),
                            &jsonSubObject)) {
         raw_buffer nameBuf = jstring_get(jsonSubObject);
-        strncpy(supl_host, nameBuf.m_str, sizeof(supl_host));
+        strncpy(supl_host, nameBuf.m_str, sizeof(supl_host)-1);
         jstring_free_buffer(nameBuf);
     }
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("suplport"),

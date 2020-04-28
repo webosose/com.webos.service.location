@@ -36,7 +36,7 @@ const double LocationService::INVALID_LONG = 0;
  methods belonging to root category
  */
 LSMethod LocationService::rootMethod[] = {
-//        {"getNmeaData",               LocationService::_getNmeaData},
+        {"getNmeaData",               LocationService::_getNmeaData},
         {"getReverseLocation",        LocationService::_getReverseLocation},
         {"getGeoCodeLocation",        LocationService::_getGeoCodeLocation},
         {"getAllLocationHandlers",    LocationService::_getAllLocationHandlers},
@@ -44,7 +44,7 @@ LSMethod LocationService::rootMethod[] = {
         {"setState",                  LocationService::_setState},
         {"getState",                  LocationService::_getState},
         {"getLocationHandlerDetails", LocationService::_getLocationHandlerDetails},
-//        {"getGpsSatelliteData",       LocationService::_getGpsSatelliteData},
+        {"getGpsSatelliteData",       LocationService::_getGpsSatelliteData},
 //        {"getTimeToFirstFix",         LocationService::_getTimeToFirstFix},
         {"getLocationUpdates",        LocationService::_getLocationUpdates},
 //        {"getCachedPosition",         LocationService::_getCachedPosition},

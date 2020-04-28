@@ -3,9 +3,11 @@
     "com.webos.service.location/exitLocation",
     "com.webos.service.location/getAllLocationHandlers",
     "com.webos.service.location/getGeoCodeLocation",
+    "com.webos.service.location/getGpsSatelliteData",
     "com.webos.service.location/getGpsStatus",
     "com.webos.service.location/getLocationHandlerDetails",
     "com.webos.service.location/getLocationUpdates",
+    "com.webos.service.location/getNmeaData",
     "com.webos.service.location/getReverseLocation",
     "com.webos.service.location/getState",
     "com.webos.service.location/setState",
@@ -19,9 +21,11 @@
   "location.query": [
     "com.webos.service.location/getAllLocationHandlers",
     "com.webos.service.location/getGeoCodeLocation",
+    "com.webos.service.location/getGpsSatelliteData",
     "com.webos.service.location/getGpsStatus",
     "com.webos.service.location/getLocationHandlerDetails",
     "com.webos.service.location/getLocationUpdates",
+    "com.webos.service.location/getNmeaData",
     "com.webos.service.location/getReverseLocation",
     "com.webos.service.location/getState",
     "com.webos.service.location/mock/setLocation"

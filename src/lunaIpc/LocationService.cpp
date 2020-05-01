@@ -1797,12 +1797,24 @@ bool LocationService::setMockLocationState(LSHandle *sh, LSMessage *message, voi
     }
     else {
         LocationErrorCode e;
+        bool locSubsStarted = false;
+        int ret;
         jvalue_ref object  = jobject_get( parsedObj, J_CSTR_TO_BUF("name") );
         if ( jis_null(object) ) {
             e = LOCATION_OUT_OF_MEM;
         } else {
             raw_buffer name = jstring_get(object);
+            if (isSubscListFilled(NULL, SUBSC_GET_LOC_UPDATES_GPS_KEY, false)) {
+                locSubsStarted = true;
+                ret = mGPSProvider->processRequest(PositionRequest("GPS", STOP_GPS_CMD));
+                if (ERROR_NONE != ret) LS_LOG_ERROR("GPS force stop failed");
+            }
             e = set_mock_location_state( name.m_str, state );
+            if (locSubsStarted) {
+                ret = mGPSProvider->processRequest(PositionRequest("GPS", POSITION_CMD));
+                if (ERROR_NONE != ret) LS_LOG_ERROR("GPS force start failed");
+            }
+
             jstring_free_buffer(name);
         }
         j_release(&parsedObj);

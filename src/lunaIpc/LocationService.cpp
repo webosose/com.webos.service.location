@@ -1002,10 +1002,10 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data) {
         raw_buffer handler_buf = jstring_get(handlerObj);
         handler = g_strdup(handler_buf.m_str);
         jstring_free_buffer(handler_buf);
-        if (!handler)
-            goto EXIT;
     }
 
+    if (!handler)
+        goto EXIT;
     //Read state from json
     if (jobject_get_exists(parsedObj, J_CSTR_TO_BUF("state"), &stateObj)) {
         jboolean_get(stateObj, &state);
@@ -1253,9 +1253,10 @@ bool LocationService::sendExtraCommand(LSHandle *sh, LSMessage *message, void *d
         raw_buffer handler_buf = jstring_get(commandObj);
         command = g_strdup(handler_buf.m_str);
         jstring_free_buffer(handler_buf);
-        if (!command)
-            return true;
     }
+
+    if (!command)
+        return true;
 
     if (strcmp(command, "enable_suspend_blocker") == 0) {
         m_enableSuspendBlocker = true;
@@ -2293,7 +2294,7 @@ void LocationService::geocodingCb(GeoLocation& location, int errCode, LSMessage 
     getInstance()->geocodingReply(location.toString().c_str(), errCode, message);
 }
 
-void LocationService::reverseGeocodingCb(GeoAddress address, int errCode, LSMessage *message) {
+void LocationService::reverseGeocodingCb(GeoAddress& address, int errCode, LSMessage *message) {
     LS_LOG_DEBUG("reverseGeocodingCb");
     getInstance()->geocodingReply(address.toString().c_str(), errCode, message);
 }

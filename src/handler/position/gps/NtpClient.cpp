@@ -67,7 +67,7 @@ void NtpClient::ntpDownloadThread(void *arg) {
     GPSServiceConfig mGPSConf = *ntpClient->mConfig;
     struct sockaddr_in sock_addr;
     struct hostent *he;
-    struct timeval tv;
+    struct timeval tval;
     struct ntp_packet pkt;
     int usd = -1;
     int timeout;
@@ -128,21 +128,21 @@ void NtpClient::ntpDownloadThread(void *arg) {
                 len = recvfrom(usd, &pkt, sizeof(pkt), 0, nullptr, nullptr);
                 int64_t responseTicks = NtpClient::getElapsedRealtime();
                 //TODO:nthol uint32_t where as transmitTimeStampSecs unsigned long ?? is it ok.
-                tv.tv_sec = ntohl(pkt.transmitTimeStampSecs) - NTP_EPOCH;
+                tval.tv_sec = ntohl(pkt.transmitTimeStampSecs) - NTP_EPOCH;
 
-                LS_LOG_DEBUG("tv.tv_sec= %ld\n", tv.tv_sec);
+                LS_LOG_DEBUG("tval.tv_sec= %ld\n", tval.tv_sec);
 
                 if (len > 0) {
-                    int64_t NtpTime = tv.tv_sec * OFFSET;
+                    int64_t NtpTime = (int64_t) (tval.tv_sec * OFFSET);
                     int64_t NtpTimeReference = responseTicks;
                     //TODO :: RoundTripTime is int ??? should be unsigned long ?
                     int RoundTripTime = responseTicks - requestTicks -
                                         (pkt.transmitTimeStampSecs - pkt.receiveTimeStampSeqs);
-                    LS_LOG_INFO("NtpTime = %lld and NtpTimeReference = %lld and RoundTripTime=%d\n tv.tv_sec= %ld\n",
+                    LS_LOG_INFO("NtpTime = %lld and NtpTimeReference = %lld and RoundTripTime=%d\n tval.tv_sec= %ld\n",
                                  NtpTime,
                                  NtpTimeReference,
                                  RoundTripTime,
-                                 tv.tv_sec);
+                                 tval.tv_sec);
 
                     NTPData ntpData(NtpTime, NtpTimeReference, RoundTripTime);
                     ntpClient->mCallback->onRequestCompleted(NtpErrors::NONE, &ntpData);

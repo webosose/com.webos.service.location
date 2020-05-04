@@ -326,7 +326,7 @@ public:
     DownloadStateEType mDownloadXtraDataStatus = IDLE;
 
     GPSThreadActionEType mGPSThreadAction = ACTION_NONE;
-    pthread_t mGPSThreadID;
+    pthread_t mGPSThreadID = -1;
     pthread_mutex_t mGPSThreadMutex;
     pthread_cond_t mGPSThreadCond;
 

@@ -559,7 +559,7 @@ private:
 
     void geocodingCb(GeoLocation& location, int errCode, LSMessage *message);
 
-    void reverseGeocodingCb(GeoAddress address, int errCode, LSMessage *message);
+    void reverseGeocodingCb(GeoAddress& address, int errCode, LSMessage *message);
 
     void geofence_add_reply(int32_t geofence_id, int32_t status);
 

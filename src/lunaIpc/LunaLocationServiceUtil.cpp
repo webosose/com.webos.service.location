@@ -120,6 +120,26 @@ void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode) {
     }
 }
 
+void LSMessageReplyCustomError(LSHandle *sh, LSMessage *message, int errorCode) {
+    LSError lserror;
+
+    if (errorCode < 0 || errorCode >= LOCATION_ERROR_MAX)
+        return;
+
+    if (locationErrorReply[errorCode] == NULL)
+       return;
+
+    LSErrorInit(&lserror);
+    char *errorString = g_strdup_printf("{\"returnValue\":false, \"errorCode\":%d, \"errorText\":\"%s\"}",
+                              errorCode, mapLocErrorText[errorCode].text);
+
+    if (!LSMessageReply(sh, message, errorString, &lserror)) {
+        LSErrorPrint(&lserror, stderr);
+        LSErrorFree(&lserror);
+    }
+    g_free(errorString);
+}
+
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message) {
     const char *subscribe_answer = "{\"returnValue\":true, \"subscribed\":true}";
     LSError lsError;
@@ -167,7 +187,7 @@ bool LSMessageValidateSchemaReplyOnError(LSHandle *sh, LSMessage *message, const
 
         jschema_release(&input_schema);
 
-        LSMessageReplyError(sh, message, LOCATION_INVALID_INPUT);
+        LSMessageReplyCustomError(sh, message, LOCATION_INVALID_INPUT);
     } else {
         ret = true;
     }

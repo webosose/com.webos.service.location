@@ -272,6 +272,7 @@ void LSMessageReleaseErrorReply();
 char *LSMessageGetErrorReply(int errorCode);
 
 void LSMessageReplyError(LSHandle *sh, LSMessage *message, int errorCode);
+void LSMessageReplyCustomError(LSHandle *sh, LSMessage *message, int errorCode);
 bool LSMessageReplySubscriptionSuccess(LSHandle *sh, LSMessage *message);
 void LSMessageReplySuccess(LSHandle *sh, LSMessage *message);
 bool LSMessageValidateSchemaReplyOnError(LSHandle *sh, LSMessage *message,const char *schema, jvalue_ref *parsedObj);

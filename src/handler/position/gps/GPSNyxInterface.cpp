@@ -260,7 +260,7 @@ void GPSNyxInterface::gpsLocationCb(nyx_gps_location_t *positiondata, void *user
     }
 
     // Set the accuracy to detailed
-    providerInstance->gpsAccuracySetDetails(positiondata->accuracy, -1.0);
+    providerInstance->gpsAccuracySetDetails(positiondata->accuracy, positiondata->vertical_accuracy);
 
     memcpy(&gpsNyxInterface->mPosition, positiondata,
            sizeof(nyx_gps_location_t));

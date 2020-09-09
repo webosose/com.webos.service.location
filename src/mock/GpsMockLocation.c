@@ -54,6 +54,10 @@ gps_mock_location( struct _Location* loc, void* ctx )
             gpsloc.accuracy = loc->horizontalAccuracy;
             gpsloc.flags |= NYX_GPS_LOCATION_HAS_ACCURACY;
         }
+        if ( loc->flag & LOCATION_VERTICAL_ACCURACY_BIT ) {
+            gpsloc.vertical_accuracy = loc->verticalAccuracy;
+            gpsloc.flags |= NYX_GPS_LOCATION_HAS_VERTICAL_ACCURACY;
+        }
         if ( loc->flag & LOCATION_TIMESTAMP_BIT ) {
             gpsloc.timestamp = loc->timestamp;
         }

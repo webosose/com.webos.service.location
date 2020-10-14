@@ -66,8 +66,12 @@ bool LSMessageInitErrorReply() {
 
     LSMessageReleaseErrorReply();
 
-    for (i = 0; i < LOCATION_ERROR_MAX; i++) {
-        locationErrorReply[i] = g_strdup_printf("{\"returnValue\":true,\"errorCode\":%d,\"errorText\":\"%s\"}",
+    locationErrorReply[0] = g_strdup_printf("{\"returnValue\":true,\"errorCode\":%d,\"errorText\":\"%s\"}",
+                                                mapLocErrorText[0].code,
+                                                mapLocErrorText[0].text);
+
+    for (i = 1; i < LOCATION_ERROR_MAX; i++) {
+        locationErrorReply[i] = g_strdup_printf("{\"returnValue\":false,\"errorCode\":%d,\"errorText\":\"%s\"}",
                                                 mapLocErrorText[i].code,
                                                 mapLocErrorText[i].text);
 

@@ -34,7 +34,7 @@ using namespace std;
 #define    VENDOR            "undefined"
 #define    LGETLSMODE        0
 #define    LGEPOSITIONMODE    NYX_GPS_POSITION_MODE_MS_BASED
-#define    CHIPSETID        "Mock"
+#define    CHIPSETID        "Main"
 
 void GPSServiceConfig::loadDefaults() {
     mSUPLVer = SUPL_VERSION;

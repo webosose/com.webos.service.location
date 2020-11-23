@@ -379,7 +379,12 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data) 
         ret = mGPSProvider->processRequest(request);
     }
 
-    if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
+    if (ret == ERROR_NOT_AVAILABLE)
+    {
+        errorCode = LOCATION_LOCATION_OFF;
+        goto EXIT;
+    }
+    else if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
         LS_LOG_ERROR("Error in getNmeaData");
         errorCode = LOCATION_UNKNOWN_ERROR;
         goto EXIT;
@@ -1230,6 +1235,7 @@ bool LocationService::stopGPS(LSHandle *sh, LSMessage *message, void *data) {
 
     j_release(&serviceObject);
     j_release(&parsedObj);
+
     return true;
 }
 
@@ -1435,7 +1441,12 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
         ret = mGPSProvider->processRequest(request);
     }
 
-    if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
+    if (ret == ERROR_NOT_AVAILABLE)
+    {
+        errorCode = LOCATION_LOCATION_OFF;
+        goto EXIT;
+    }
+    else if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
         errorCode = LOCATION_UNKNOWN_ERROR;
         goto EXIT;
     }
@@ -2010,7 +2021,9 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         if (startedHandlers & HANDLER_GPS_BIT) {
             if (suspended_state == false) {
                 PositionRequest request("GPS", POSITION_CMD);
-                mGPSProvider->processRequest(request);
+                errorCode = mGPSProvider->processRequest(request);
+                if (errorCode != LOCATION_SUCCESS)
+                    goto EXIT;
             }
         }
         /********Request NWHandler*****************************/

@@ -56,6 +56,7 @@ static const locErrorTextPair_t mapLocErrorText[LOCATION_ERROR_MAX] = {
         {LOCATION_WSP_CONF_NO_SERVICES, "Failed to get the WSP service list in conf file" },
         {LOCATION_WSP_CONF_NO_FEATURES, "Failed to get the WSP supported features list in conf file" },
         {LOCATION_WSP_CONF_URL_MISSING, "Failed to get the WSP feature's URL in conf file" },
+        {LOCATION_GPS_NYX_SOURCE_UNAVAILABLE, "Location data source not present" },
 };
 
 char *locationErrorReply[LOCATION_ERROR_MAX] = {0};

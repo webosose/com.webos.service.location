@@ -381,7 +381,7 @@ bool LocationService::getNmeaData(LSHandle *sh, LSMessage *message, void *data) 
 
     if (ret == ERROR_NOT_AVAILABLE)
     {
-        errorCode = LOCATION_LOCATION_OFF;
+        errorCode = LOCATION_GPS_NYX_SOURCE_UNAVAILABLE;
         goto EXIT;
     }
     else if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
@@ -1443,7 +1443,7 @@ bool LocationService::getGpsSatelliteData(LSHandle *sh, LSMessage *message, void
 
     if (ret == ERROR_NOT_AVAILABLE)
     {
-        errorCode = LOCATION_LOCATION_OFF;
+        errorCode = LOCATION_GPS_NYX_SOURCE_UNAVAILABLE;
         goto EXIT;
     }
     else if (ret != ERROR_NONE && ret != ERROR_DUPLICATE_REQUEST) {
@@ -2023,7 +2023,10 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
                 PositionRequest request("GPS", POSITION_CMD);
                 errorCode = mGPSProvider->processRequest(request);
                 if (errorCode != LOCATION_SUCCESS)
+                {
+                    errorCode = LOCATION_GPS_NYX_SOURCE_UNAVAILABLE;
                     goto EXIT;
+                }
             }
         }
         /********Request NWHandler*****************************/

@@ -2021,8 +2021,17 @@ bool LocationService::getLocationUpdates(LSHandle *sh, LSMessage *message, void 
         if (startedHandlers & HANDLER_GPS_BIT) {
             if (suspended_state == false) {
                 PositionRequest request("GPS", POSITION_CMD);
-                errorCode = mGPSProvider->processRequest(request);
-                if (errorCode != LOCATION_SUCCESS)
+                int requestError = mGPSProvider->processRequest(request);
+                /* Check for mock location*/
+                struct _mock_location_provider* mlp = get_mock_location_provider(GPS);
+                if (mlp) {
+                    if (mlp->flag & MOCKLOC_FLAG_ENABLED) {
+                        LS_LOG_DEBUG("Mock Location is Enabled\n");
+                        goto EXIT;
+                    }
+                }
+
+                if (requestError == LOCATION_LOCATION_OFF)
                 {
                     errorCode = LOCATION_GPS_NYX_SOURCE_UNAVAILABLE;
                     goto EXIT;

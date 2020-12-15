@@ -1,0 +1,5 @@
+{
+    "allowedNames": ["com.webos.service.location"],
+          "location.operation": ["oem"],
+          "location.query": ["dev"]
+}

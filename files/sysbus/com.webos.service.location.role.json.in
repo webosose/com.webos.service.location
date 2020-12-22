@@ -1,7 +1,7 @@
 {
     "exeName":"@WEBOS_INSTALL_BINDIR@/location",
     "type": "regular",
-    "trustlevel": ["oem"],
+    "trustlevel": "oem",
     "allowedNames": ["com.webos.service.location"],
     "permissions": [
         {

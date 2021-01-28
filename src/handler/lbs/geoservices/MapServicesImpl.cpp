@@ -133,6 +133,7 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
     std::string stDecodeKey;
     std::string tmpDecodeKey;
     std::size_t pos;
+    int retAPIKey = LOC_SECURITY_ERROR_FAILURE;
 
     if (url.empty()) {
         LS_LOG_ERROR("URL not valid");
@@ -152,8 +153,10 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
     }
 
     //Decode the private key
-    decodedKey = g_base64_decode(key, &size);
-    if (NULL == decodedKey) {
+    retAPIKey = locSecurityBase64DecodeData(key, &decodedKey);
+
+    if (LOC_SECURITY_ERROR_SUCCESS  != retAPIKey) {
+        LS_LOG_ERROR("Decoding the private key failed");
         goto EXIT;
     }
 

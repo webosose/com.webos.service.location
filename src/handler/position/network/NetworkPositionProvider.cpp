@@ -1,4 +1,4 @@
-// Copyright (c) 2020 LG Electronics, Inc.
+// Copyright (c) 2020-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -208,6 +208,19 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
     if (!mEnabled) {
         LS_LOG_ERROR("processRequest::NetworkPositionProvider is not enabled!!!");
         return ERROR_NOT_STARTED;
+    }
+
+    /* Check for mock location*/
+    struct _mock_location_provider* mlp = get_mock_location_provider(NETWORK);
+
+    if (mlp) {
+        if (mlp->flag & MOCKLOC_FLAG_ENABLED) {
+            LS_LOG_DEBUG("Network Mock Location is Enabled\n");
+            if (!networkPostQuery(NULL, "", FALSE)) {
+                  LS_LOG_ERROR("Failed to post query!");
+            }
+            return ERROR_NONE;
+        }
     }
 
     switch (request.getRequestType()) {

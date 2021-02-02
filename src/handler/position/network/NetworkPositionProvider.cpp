@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 LG Electronics, Inc.
+// Copyright (c) 2020 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -135,7 +135,6 @@ void NetworkPositionProvider::onUpdateWifiData(GHashTable *wifiAccessPoints) {
 
 bool NetworkPositionProvider::triggerPostQuery() {
     char *postData = NULL;
-    bool isNetworkMockEnabled = false;
 
     if (!mwifiStatus && mtelephonyPowerd) {
         LS_LOG_DEBUG("createCellQuery");
@@ -152,18 +151,8 @@ bool NetworkPositionProvider::triggerPostQuery() {
         postData = createCellWifiCombinedQuery();
     }
 
-    /* Check for mock location*/
-    struct _mock_location_provider* mlp = get_mock_location_provider(NETWORK);
-
-    if (mlp) {
-        if (mlp->flag & MOCKLOC_FLAG_ENABLED) {
-            LS_LOG_DEBUG("Network Mock Location is Enabled\n");
-            isNetworkMockEnabled = true;
-        }
-    }
-
     // for tracking, no update means no need to emit signal
-    if (!postData && !isNetworkMockEnabled) {
+    if (!postData) {
         LS_LOG_ERROR("triggerPostQuery: no data to post");
         return false;
     }

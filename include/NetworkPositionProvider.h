@@ -183,6 +183,7 @@ private:
     LSHandle *mLSHandle;
     guint mTimeoutId;
     bool mProcessRequestInProgress;
+    bool mMockRequestInProgress;
     void *mTelephonyCookie;
     void *mWifiCookie;
     LSMessageToken mScanToken;

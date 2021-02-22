@@ -38,6 +38,7 @@ NetworkPositionProvider::NetworkPositionProvider(LSHandle *sh) : PositionProvide
     mEnabled = false;
     mLSHandle = sh;
     mProcessRequestInProgress = false;
+    mMockRequestInProgress = false;
     mNetworkData.setNetworkDataClient(this);
     mTelephonyCookie = nullptr;
     mWifiCookie = nullptr;
@@ -210,23 +211,28 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
         return ERROR_NOT_STARTED;
     }
 
-    /* Check for mock location*/
-    struct _mock_location_provider* mlp = get_mock_location_provider(NETWORK);
-
-    if (mlp) {
-        if (mlp->flag & MOCKLOC_FLAG_ENABLED) {
-            LS_LOG_DEBUG("Network Mock Location is Enabled\n");
-            if (!networkPostQuery(NULL, "", FALSE)) {
-                  LS_LOG_ERROR("Failed to post query!");
-            }
-            return ERROR_NONE;
-        }
-    }
 
     switch (request.getRequestType()) {
         case POSITION_CMD:
 
+        {
+
             LS_LOG_INFO("processRequest:POSITION_CMD received");
+
+            /* Check for mock location*/
+            struct _mock_location_provider* mlp = get_mock_location_provider(NETWORK);
+
+            if (mlp) {
+                if (mlp->flag & MOCKLOC_FLAG_ENABLED) {
+                    LS_LOG_DEBUG("Network Mock Location is Enabled\n");
+                    if (!networkPostQuery(NULL, "", FALSE)) {
+                          LS_LOG_ERROR("Failed to post query!");
+                          return ERROR_NETWORK_ERROR;
+                    }
+                    mMockRequestInProgress = true;
+                    break;
+                }
+            }
 
             if (mProcessRequestInProgress) {
                 if (getCallback()) {
@@ -254,10 +260,18 @@ ErrorCodes  NetworkPositionProvider::processRequest(PositionRequest request) {
             registerServiceStatus(WIFI_SERVICE, &mWifiCookie, serviceStatusCb);
             mTimeoutId = g_timeout_add(60000, &networkUpdateCallback, (gpointer) this);
             break;
+        }
 
         case STOP_POSITION_CMD:
 
             LS_LOG_INFO("processRequest:STOP_POSITION_CMD received");
+            if (mMockRequestInProgress) {
+                LS_LOG_INFO("stop network mock request");
+                mMockRequestInProgress = false;
+                mPositionData.resetData();
+                break;
+            }
+
             if (!mProcessRequestInProgress) {
                 LS_LOG_ERROR("no request in progress");
                 return ERROR_NOT_STARTED;

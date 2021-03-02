@@ -1,4 +1,4 @@
-// Copyright (c) 2020 LG Electronics, Inc.
+// Copyright (c) 2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -207,7 +207,7 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
         g_hmac_unref(hmac);
 
     if (encodedSignature != NULL)
-        delete encodedSignature;
+        g_free(encodedSignature);
 
     if (buffer != NULL)
         g_free(buffer);

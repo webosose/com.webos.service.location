@@ -2369,7 +2369,7 @@ void LocationService::getLocationUpdateCb(GeoLocation& location, ErrorCodes errC
          return;
 
     Position pos;
-    Accuracy acc = {0};
+    Accuracy acc = {};
     pos.timestamp = location.getTimeStamp();
     pos.altitude = location.getAltitude();
     pos.latitude = location.getLatitude();

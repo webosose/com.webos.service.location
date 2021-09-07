@@ -133,7 +133,7 @@ void NtpClient::ntpDownloadThread(void *arg) {
                 LS_LOG_DEBUG("tval.tv_sec= %ld\n", tval.tv_sec);
 
                 if (len > 0) {
-                    int64_t NtpTime = (int64_t) (tval.tv_sec * OFFSET);
+                    int64_t NtpTime = (((int64_t)tval.tv_sec) * OFFSET);
                     int64_t NtpTimeReference = responseTicks;
                     //TODO :: RoundTripTime is int ??? should be unsigned long ?
                     int RoundTripTime = responseTicks - requestTicks -

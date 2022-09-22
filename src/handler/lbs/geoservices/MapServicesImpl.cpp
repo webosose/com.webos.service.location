@@ -153,10 +153,16 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
     }
 
     //Decode the private key
-    retAPIKey = locSecurityBase64DecodeData(key, &decodedKey);
+  /*retAPIKey = locSecurityBase64DecodeData(key, &decodedKey);
 
     if (LOC_SECURITY_ERROR_SUCCESS  != retAPIKey) {
         LS_LOG_ERROR("Decoding the private key failed");
+        goto EXIT;
+    }*/
+
+     //Decode the private key
+    decodedKey = g_base64_decode(key, &size);
+    if (NULL == decodedKey) {
         goto EXIT;
     }
 

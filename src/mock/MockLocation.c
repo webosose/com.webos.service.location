@@ -121,7 +121,10 @@ finalize_mock_location( void )
     struct _mock_location_provider* mlp = mock_location_provider;
     while ( mlp ) {
         mlp->flag |= MOCKLOC_FLAG_FINALIZE;
-        mlp->location( NULL, mlp->ctx );
+	if(mlp->location!=NULL)
+	{
+		mlp->location( NULL, mlp->ctx );
+	}
         mlp = mlp->next;
     }
     LS_LOG_INFO( MOCK_TAG "Finalized. Bye ~" );

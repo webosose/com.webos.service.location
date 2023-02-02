@@ -1191,7 +1191,18 @@ bool LocationService::exitLocation(LSHandle *sh, LSMessage *message, void *data)
     printMessageDetails("LUNA-API", message, sh);
     finalize_mock_location();
     stopGpsEngine();
-    g_main_loop_quit(mMainLoop);
+    g_main_loop_unref(mMainLoop);
+    mMainLoop = NULL;
+    pbnjson::JValue reply = pbnjson::Object();
+    if (reply.isNull())
+        return false;
+
+    reply.put("returnValue", true);
+
+    LSError lserror;
+    LSErrorInit(&lserror);
+
+    LSMessageReply(sh, message, reply.stringify().c_str(), &lserror);
     return true;
 }
 

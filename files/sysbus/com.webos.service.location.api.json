@@ -1,6 +1,5 @@
 {
   "location.operation": [
-    "com.webos.service.location/exitLocation",
     "com.webos.service.location/setState",
     "com.webos.service.location/mock/enable",
     "com.webos.service.location/mock/disable",

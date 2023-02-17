@@ -58,7 +58,7 @@ LSMethod LocationService::rootMethod[] = {
 LSMethod LocationService::prvMethod[] = {
 //        {"sendExtraCommand", LocationService::_sendExtraCommand},
 //        {"stopGPS",          LocationService::_stopGPS},
-        {"exitLocation",     LocationService::_exitLocation},
+ //       {"exitLocation",     LocationService::_exitLocation},
 //        {"setGPSParameters", LocationService::_setGPSParameters},
         {0,                  0}
 };

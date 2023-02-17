@@ -125,7 +125,6 @@ finalize_mock_location( void )
 	{
 		mlp->location( NULL, mlp->ctx );
 	}
-        mlp->location( NULL, mlp->ctx );
         mlp = mlp->next;
     }
     LS_LOG_INFO( MOCK_TAG "Finalized. Bye ~" );

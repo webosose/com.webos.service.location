@@ -897,6 +897,7 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data) {
             //Add to subscription list with handler+method name
             char subscription_key[MAX_GETSTATE_PARAM];
             strncpy(subscription_key, handler, sizeof(subscription_key)-1);
+	    key[sizeof(subscription_key)-1] = '\0';
             LS_LOG_INFO("handler_key=%s len =%zu", subscription_key, (strlen(SUBSC_GET_STATE_KEY) + strlen(handler)));
 
             if (LSSubscriptionAdd(sh, strncat(subscription_key, SUBSC_GET_STATE_KEY, strlen(SUBSC_GET_STATE_KEY)), message, &mLSError) == false) {
@@ -1029,6 +1030,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data) {
         LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
 
         strncpy(subscription_key, handler, sizeof(subscription_key)-1);
+	key[sizeof(subscription_key)-1] = '\0';
         strncat(subscription_key, SUBSC_GET_STATE_KEY, strlen(SUBSC_GET_STATE_KEY));
 
         if ((strcmp(handler, GPS) == 0) && mGpsStatus != state) {
@@ -2230,6 +2232,7 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
         case LocationService::GETLOC_UPDATE_GPS:
             if (enableGpsHandler(startedHandlers)) {
                 strncpy(key, SUBSC_GET_LOC_UPDATES_GPS_KEY, strlen(SUBSC_GET_LOC_UPDATES_GPS_KEY));
+		key[sizeof(key)-1] = '\0';
             }
 
             break;
@@ -2237,6 +2240,7 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
         case LocationService::GETLOC_UPDATE_NW:
             if (enableNwHandler(startedHandlers)) {
                 strncpy(key, SUBSC_GET_LOC_UPDATES_NW_KEY, strlen(SUBSC_GET_LOC_UPDATES_NW_KEY));
+		key[sizeof(key)-1] = '\0';
             }
 
             break;
@@ -2247,12 +2251,14 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
 
             if (gpsHandlerStatus || nwHandlerStatus) {
                 strncpy(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, strlen(SUBSC_GET_LOC_UPDATES_HYBRID_KEY));
+		key[sizeof(key)-1] = '\0';
             }
 
             break;
 
         case LocationService::GETLOC_UPDATE_PASSIVE:
             strncpy(key, SUBSC_GET_LOC_UPDATES_PASSIVE_KEY, strlen(SUBSC_GET_LOC_UPDATES_PASSIVE_KEY));
+	    key[sizeof(key)-1] = '\0';
             break;
 
         default:

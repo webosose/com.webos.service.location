@@ -650,8 +650,10 @@ void GPSNyxInterface::xtraDataCb(char *data, int length) {
     printf_debug("enter xtraDataCb\n");
 
     pthread_mutex_lock(&gpsService->mGPSThreadMutex);
-
-    gpsService->mXtraData.data = data;
+    
+    if(data != nullptr) {
+    	gpsService->mXtraData.data = data;
+    }
 
     gpsService->mGPSThreadAction = ACTION_XTRA_DATA;
 

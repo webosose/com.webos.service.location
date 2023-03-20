@@ -20,7 +20,7 @@
 
 #include <glib.h>
 #include <gio/gio.h>
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <ServiceAgent.h>
 #include <IConnectivityListener.h>
 #include <ILocationCallbacks.h>

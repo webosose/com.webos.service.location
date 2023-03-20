@@ -18,7 +18,7 @@
 #ifndef _LUNA_LOCATION_SERVICE_UTIL_H_
 #define _LUNA_LOCATION_SERVICE_UTIL_H_
 
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include "JsonUtility.h"
 // temproray so keeping hardcoded value
 

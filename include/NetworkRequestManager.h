@@ -26,7 +26,7 @@
 #include <HttpInterface.h>
 #include <NetworkRequestManagerDefines.h>
 #include <location_errors.h>
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 
 
 class NetworkRequestManager {

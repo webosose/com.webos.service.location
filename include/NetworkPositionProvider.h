@@ -27,7 +27,7 @@
 #include <loc_http.h>
 #include <loc_log.h>
 #include <pbnjson.h>
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <NetworkData.h>
 #include <HttpInterface.h>
 #include <NetworkRequestManager.h>

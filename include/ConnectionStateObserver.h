@@ -18,7 +18,7 @@
 #define _LOCATION_SERVICE_STATE_H_
 
 
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <set>
 #include "IConnectivityListener.h"
 

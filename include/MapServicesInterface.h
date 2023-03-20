@@ -23,7 +23,7 @@
 #include <GeoLocation.h>
 #include <GeoAddress.h>
 #include <location_errors.h>
-#include <lunaservice.h>
+#include <luna-service2/lunaservice.h>
 #include <loc_log.h>
 #include <functional>
 

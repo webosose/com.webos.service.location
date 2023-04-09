@@ -72,7 +72,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include")
 
 
 set(DB_UTILS_NAME dbutils)
-set(DB_UTILS_LIB_PATH ${CMAKE_INSTALL_PREFIX}/lib)
+set(DB_UTILS_LIB_PATH ${WEBOS_INSTALL_LIBDIR})
 set(DB_UTILS_DATA_PATH ${WEBOS_INSTALL_LOCALSTATEDIR}/location)
 set(DB_UTILS_SRC ${PROJECT_SOURCE_DIR}/src/utils/db_util.cpp ${PROJECT_SOURCE_DIR}/src/utils/Gps_stored_data.cpp)
 set(LIBRARIES ${GLIB2_LDFLAGS} ${LIB2XML_LDFLAGS})

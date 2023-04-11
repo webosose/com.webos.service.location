@@ -2231,7 +2231,7 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
     switch (sel_handler) {
         case LocationService::GETLOC_UPDATE_GPS:
             if (enableGpsHandler(startedHandlers)) {
-                strncpy(key, SUBSC_GET_LOC_UPDATES_GPS_KEY, strlen(SUBSC_GET_LOC_UPDATES_GPS_KEY));
+                strncpy(key, SUBSC_GET_LOC_UPDATES_GPS_KEY,sizeof(key)-1);
 		key[sizeof(key)-1] = '\0';
             }
 
@@ -2239,7 +2239,7 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
 
         case LocationService::GETLOC_UPDATE_NW:
             if (enableNwHandler(startedHandlers)) {
-                strncpy(key, SUBSC_GET_LOC_UPDATES_NW_KEY, strlen(SUBSC_GET_LOC_UPDATES_NW_KEY));
+                strncpy(key, SUBSC_GET_LOC_UPDATES_NW_KEY,sizeof(key)-1);
 		key[sizeof(key)-1] = '\0';
             }
 
@@ -2250,14 +2250,14 @@ int LocationService::enableHandlers(int sel_handler, char *key, unsigned char *s
             nwHandlerStatus = enableNwHandler(startedHandlers);
 
             if (gpsHandlerStatus || nwHandlerStatus) {
-                strncpy(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY, strlen(SUBSC_GET_LOC_UPDATES_HYBRID_KEY));
+                strncpy(key, SUBSC_GET_LOC_UPDATES_HYBRID_KEY,sizeof(key)-1);
 		key[sizeof(key)-1] = '\0';
             }
 
             break;
 
         case LocationService::GETLOC_UPDATE_PASSIVE:
-            strncpy(key, SUBSC_GET_LOC_UPDATES_PASSIVE_KEY, strlen(SUBSC_GET_LOC_UPDATES_PASSIVE_KEY));
+            strncpy(key, SUBSC_GET_LOC_UPDATES_PASSIVE_KEY, sizeof(key)-1);
 	    key[sizeof(key)-1] = '\0';
             break;
 

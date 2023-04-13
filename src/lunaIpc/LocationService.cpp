@@ -897,7 +897,7 @@ bool LocationService::getState(LSHandle *sh, LSMessage *message, void *data) {
             //Add to subscription list with handler+method name
             char subscription_key[MAX_GETSTATE_PARAM];
             strncpy(subscription_key, handler, sizeof(subscription_key)-1);
-	    key[sizeof(subscription_key)-1] = '\0';
+            subscription_key[sizeof(subscription_key)-1] = '\0';
             LS_LOG_INFO("handler_key=%s len =%zu", subscription_key, (strlen(SUBSC_GET_STATE_KEY) + strlen(handler)));
 
             if (LSSubscriptionAdd(sh, strncat(subscription_key, SUBSC_GET_STATE_KEY, strlen(SUBSC_GET_STATE_KEY)), message, &mLSError) == false) {
@@ -1030,7 +1030,7 @@ bool LocationService::setState(LSHandle *sh, LSMessage *message, void *data) {
         LSERROR_CHECK_AND_PRINT(bRetVal, mLSError);
 
         strncpy(subscription_key, handler, sizeof(subscription_key)-1);
-	key[sizeof(subscription_key)-1] = '\0';
+	subscription_key[sizeof(subscription_key)-1] = '\0';
         strncat(subscription_key, SUBSC_GET_STATE_KEY, strlen(SUBSC_GET_STATE_KEY));
 
         if ((strcmp(handler, GPS) == 0) && mGpsStatus != state) {

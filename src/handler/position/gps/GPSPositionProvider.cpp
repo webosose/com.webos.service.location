@@ -60,8 +60,9 @@ void * GPSPositionProvider::gpsThreadProc(void *args) {
     pthread_mutex_lock(&gpsService->mGPSThreadMutex);
 
     do {
-        pthread_cond_wait(&gpsService->mGPSThreadCond,
-                          &gpsService->mGPSThreadMutex);
+	while (gpsService->mGPSThreadAction == ACTION_NONE) {
+		pthread_cond_wait(&gpsService->mGPSThreadCond, &gpsService->mGPSThreadMutex);
+        }
         printf_debug("gps thread unblocked, action = %d\n",
                      gpsService->mGPSThreadAction);
 

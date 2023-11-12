@@ -50,13 +50,17 @@ bool NtpClient::start(GPSServiceConfig *config, INtpClinetCallback *callback) {
     mCallback = callback;
     mConfig = config;
     mDownloadNtpDataStatus = NtpDownloadState::NTPDOWNLOADING;
-    if (!g_thread_new("download ntp time",
-                      (GThreadFunc) NtpClient::ntpDownloadThread, this)) {
+    GThread *ntpThread = g_thread_new("download ntp time", (GThreadFunc) NtpClient::ntpDownloadThread, this);
+
+    if (!ntpThread) {
         LS_LOG_ERROR("failed to create ntp download thread\n");
-     mCallback->onRequestCompleted(NtpErrors::CONNECTION_PROBLEM, nullptr);
+        mCallback->onRequestCompleted(NtpErrors::CONNECTION_PROBLEM, nullptr);
+        // No additional resource management is typically needed for a failed g_thread_new
+        // But handle any other necessary cleanup or state management here
         return false;
     }
 
+    g_thread_unref(ntpThread);
     return true;
 }
 

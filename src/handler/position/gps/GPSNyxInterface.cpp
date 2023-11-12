@@ -469,11 +469,16 @@ void GPSNyxInterface::gpsXtraDownloadRequestCb(void *user_data) {
         return;
 
     if (gpsNyxInterface->mXtraDefault) {
-        if (!g_thread_new("download xtra", (GThreadFunc) xtraDataDownloadThread,
-                          user_data)) {
-            printf_warning("failed to create xtra download thread\n");
-        }
-    } else {
+	    GThread *downloadThread = g_thread_new("download xtra", (GThreadFunc)xtraDataDownloadThread, user_data);
+	    if (!downloadThread) {
+		    printf_warning("failed to create xtra download thread\n");
+	    }
+	    else
+	    {
+                   g_thread_unref(downloadThread);
+            }
+     }
+    else {
         providerInstance->mDownloadXtraDataStatus = DOWNLOADING;
 
         if (NYX_ERROR_NONE != nyx_gps_download_xtra_data(gpsNyxInterface->mNyxGpsSystem))

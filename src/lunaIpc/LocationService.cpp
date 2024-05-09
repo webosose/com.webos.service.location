@@ -1,4 +1,4 @@
-// Copyright (c) 2020 LG Electronics, Inc.
+// Copyright (c) 2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <JsonUtility.h>
 #include <LunaLocationServiceUtil.h>
 #include <lunaprefs.h>
+#include <random>
 
 using namespace std;
 
@@ -1195,6 +1196,9 @@ bool LocationService::exitLocation(LSHandle *sh, LSMessage *message, void *data)
     stopGpsEngine();
     g_main_loop_unref(mMainLoop);
     mMainLoop = NULL;
+    LSError error;
+    bool retVal;
+
     pbnjson::JValue reply = pbnjson::Object();
     if (reply.isNull())
         return false;
@@ -1204,7 +1208,9 @@ bool LocationService::exitLocation(LSHandle *sh, LSMessage *message, void *data)
     LSError lserror;
     LSErrorInit(&lserror);
 
-    LSMessageReply(sh, message, reply.stringify().c_str(), &lserror);
+    if((retVal=LSMessageReply(sh, message, reply.stringify().c_str(), &lserror))==false){
+	    LSErrorPrintAndFree(&error);
+    }
     return true;
 }
 
@@ -1535,6 +1541,9 @@ bool LocationService::addGeofenceArea(LSHandle *sh, LSMessage *message, void *da
     jvalue_ref parsedObj = NULL;
     jvalue_ref jsonSubObject = NULL;
     ErrorCodes ret;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(MIN_GEOFENCE_RANGE, MAX_GEOFENCE_RANGE);
 
     LS_LOG_DEBUG("=======addGeofenceArea=======\n");
 
@@ -1565,8 +1574,7 @@ bool LocationService::addGeofenceArea(LSHandle *sh, LSMessage *message, void *da
 
      /* Generate random Geofence Id which is not used by previous request */
     while (count < (MAX_GEOFENCE_RANGE - MIN_GEOFENCE_RANGE)) {
-        geofenceId = rand() % (MAX_GEOFENCE_RANGE-MIN_GEOFENCE_RANGE) + MIN_GEOFENCE_RANGE;
-
+	geofenceId = dis(gen);
         LS_LOG_DEBUG("=======addGeofenceArea ID genrated %d=======\n", geofenceId);
 
         if (!is_geofenceId_used[geofenceId - MIN_GEOFENCE_RANGE]) {

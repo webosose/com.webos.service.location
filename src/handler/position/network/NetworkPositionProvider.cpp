@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021 LG Electronics, Inc.
+// Copyright (c) 2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ bool NetworkPositionProvider::triggerPostQuery() {
 }
 
 ErrorCodes NetworkPositionProvider::getLastPosition(Position *position, Accuracy *accuracy) {
-    if (get_stored_position(position, accuracy, const_cast<char *>(LOCATION_DB_PREF_PATH_NETWORK)) ==
+    if (get_stored_position(position, accuracy, (LOCATION_DB_PREF_PATH_NETWORK)) ==
         ERROR_NOT_AVAILABLE) {
         LS_LOG_ERROR("getLastPosition Failed to read\n");
         return ERROR_NOT_AVAILABLE;
@@ -436,7 +436,7 @@ void NetworkPositionProvider::handleResponse(HttpReqTask *task) {
         currentTime = tval.tv_sec * 1000LL + tval.tv_usec / 1000;
 
         set_store_position(currentTime, latitude, longitude, INVALID_PARAM, INVALID_PARAM, INVALID_PARAM,
-                           accuracy, INVALID_PARAM, const_cast<char *>(LOCATION_DB_PREF_PATH_NETWORK));
+                           accuracy, INVALID_PARAM, (LOCATION_DB_PREF_PATH_NETWORK));
 
         if (getCallback())
         {
@@ -645,7 +645,7 @@ template<typename T>
 bool NetworkPositionProvider::parseWifiData(T& jsonObj) {
     gchar *updateKey = NULL;
     gboolean isFirst = FALSE;
-    int vanishedCount = 0;
+    unsigned int vanishedCount = 0;
     int signalChange = 0;
     guint oldSize = 0;
     guint newSize = 0;

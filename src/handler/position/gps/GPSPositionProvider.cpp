@@ -1,4 +1,4 @@
-// Copyright (c) 2020 LG Electronics, Inc.
+// Copyright (c) 2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -209,7 +209,6 @@ bool GPSPositionProvider::handleGpsDisable(void *data) {
                     loc_geometry_rtcep_get_current_count(&mCEPCalculator));
 
             loc_logger_feed_data(&mCEPLogger, cep_info, strlen(cep_info));
-
             sprintf(cep_info,
                     "CEP (50): %f\nDRMS (63 ~ 68): %f\n2DRMS (95 ~ 98): %f\nR95 (= CEP 95): %f\n",
                     loc_geometry_rtcep_get_cep(&mCEPCalculator),
@@ -764,7 +763,7 @@ ErrorCodes GPSPositionProvider::requestGpsEngineStart() {
 ErrorCodes GPSPositionProvider::getLastPosition(Position *position,
                                                 Accuracy *accuracy) {
     if (get_stored_position(position, accuracy,
-                            const_cast<char *>(LOCATION_DB_PREF_PATH_GPS))
+                            (LOCATION_DB_PREF_PATH_GPS))
         == ERROR_NOT_AVAILABLE) {
         LS_LOG_ERROR("getLastPosition Failed to read\n");
         return ERROR_NOT_AVAILABLE;

@@ -437,7 +437,7 @@ void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("result_type"), &jsonSubObject)) {
-        int size = jarray_size(jsonSubObject);
+        long int size = jarray_size(jsonSubObject);
         g_string_append(*posData, "&result_type=");
         LS_LOG_DEBUG("result_type size [%d]", size);
         for (int i = 0; i < size; i++) {
@@ -453,11 +453,11 @@ void LocationService::getReverseGeocodeData(jvalue_ref *parsedObj, GString **pos
     }
 
     if (jobject_get_exists(*parsedObj, J_CSTR_TO_BUF("location_type"), &jsonSubObject)) {
-        int size = jarray_size(jsonSubObject);
+        long int size = jarray_size(jsonSubObject);
         g_string_append(*posData, "&location_type=");
         LS_LOG_DEBUG("location_type size [%d]", size);
 
-        for (int i = 0; i < size; i++) {
+        for (long int i = 0; i < size; i++) {
             arrObject = jarray_get(jsonSubObject, i);
             nameBuf = jstring_get(arrObject);
 
@@ -3708,7 +3708,7 @@ bool LocationService::LSMessageReplyLocUpdateCase(LSMessage *msg,
 
 bool LocationService::removeTimer(LSMessage *message) {
     std::unordered_map<LSMessage *, LocationUpdateRequestPtr>::iterator it;
-    int size = m_locUpdate_req_table.size();
+    unsigned long size = m_locUpdate_req_table.size();
     bool found = false;
     TimerData *timerdata;
     guint timerID;
@@ -3743,7 +3743,7 @@ bool LocationService::removeTimer(LSMessage *message) {
 
 bool LocationService::LSMessageRemoveReqList(LSMessage *message) {
     std::unordered_map<LSMessage *, LocationUpdateRequestPtr>::iterator it;
-    int size = m_locUpdate_req_table.size();
+    unsigned long size = m_locUpdate_req_table.size();
     bool found = false;
     TimerData *timerdata;
     guint timerID;

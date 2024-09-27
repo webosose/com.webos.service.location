@@ -1,4 +1,4 @@
-// Copyright (c) 2020 LG Electronics, Inc.
+// Copyright (c) 2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -239,8 +239,8 @@ bool GpsWanInterface::getContextCb(LSHandle *sh, LSMessage *message, void * cont
 
     jvalue_ref return_value_obj = {0};
     jvalue_ref getContext_obj = {0};
-    int context_count = 0;
-    int counter = 0;
+    long int context_count = 0;
+    long int counter = 0;
     char *context_string = NULL;
     bool return_value = false;
 

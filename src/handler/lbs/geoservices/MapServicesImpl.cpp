@@ -1,4 +1,4 @@
-// Copyright (c) 2021 LG Electronics, Inc.
+// Copyright (c) 2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ string MapServicesImpl::formatUrl(string geoData, std::string url, const char *k
         goto EXIT;
     }
 
-    g_hmac_update(hmac, (unsigned char *) urlToSign.c_str(), -1);
+    g_hmac_update(hmac, (const unsigned char *) urlToSign.c_str(), -1);
     buffer = (guint8 *) g_malloc(strlen(urlToSign.c_str())+1);
     if (NULL == buffer) {
         goto EXIT;

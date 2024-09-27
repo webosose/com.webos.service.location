@@ -1,4 +1,4 @@
-// Copyright (c) 2020 LG Electronics, Inc.
+// Copyright (c) 2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ void NtpClient::ntpDownloadThread(void *arg) {
     int nextserverindex = 0;
     int noofservers = 3;
     int count = 0;
-    int len = 0;
+    long int len = 0;
     char *ntpservers[noofservers];
 
     LS_LOG_DEBUG("enter NtpClient::ntpDownloadThread\n");
@@ -165,7 +165,7 @@ void NtpClient::ntpDownloadThread(void *arg) {
             LS_LOG_ERROR("ntp download Error gethostbyname\n");
 
         }
-        if (usd > 0) {
+        if (usd >= 0) {
             close(usd);
             usd = -1;
         }
@@ -174,7 +174,7 @@ void NtpClient::ntpDownloadThread(void *arg) {
 
     if (nextserverindex >= count)
         ntpClient->mCallback->onRequestCompleted(NtpErrors::CONNECTION_PROBLEM, nullptr);
-    if (usd > 0)
+    if (usd >= 0)
         close(usd);
 
     ntpClient->mDownloadNtpDataStatus = NtpDownloadState::NTPIDLE;

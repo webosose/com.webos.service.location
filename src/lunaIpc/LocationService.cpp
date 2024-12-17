@@ -3880,31 +3880,31 @@ void LocationService::printMessageDetails(const char *usage, LSMessage *msg, LSH
 
     snprintf(log, 256, "=============== LSMessage Details for %s ===============\n", usage ? usage : "NA");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
-    LS_LOG_INFO(log);
+    LS_LOG_DEBUG("%s", log);
     snprintf(log, 256, "Connection \"%s\"\n", service_name ? service_name : "None");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
     snprintf(log, 256, "UniqueToken: %s\n", LSMessageGetUniqueToken(msg) ? LSMessageGetUniqueToken(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
     snprintf(log, 256, "ApplicationID: %s\n", LSMessageGetApplicationID(msg) ? LSMessageGetApplicationID(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
-    LS_LOG_INFO(log);
+    LS_LOG_DEBUG("%s", log);
     snprintf(log, 256, "Sender: %s\n", LSMessageGetSender(msg) ? LSMessageGetSender(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
     snprintf(log, 256, "SenderServiceName: %s\n",
              LSMessageGetSenderServiceName(msg) ? LSMessageGetSenderServiceName(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
-    LS_LOG_INFO(log);
+    LS_LOG_DEBUG("%s", log);
     snprintf(log, 256, "Category: %s\n", LSMessageGetCategory(msg) ? LSMessageGetCategory(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
     snprintf(log, 256, "Method: %s\n", LSMessageGetMethod(msg) ? LSMessageGetMethod(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
-    LS_LOG_INFO(log);
+    LS_LOG_DEBUG("%s", log);
     snprintf(log, 256, "Payload: %s\n", LSMessageGetPayload(msg) ? LSMessageGetPayload(msg) : "NULL");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
-    LS_LOG_INFO(log);
+    LS_LOG_DEBUG("%s", log);
     snprintf(log, 256, "==============================================================\n");
     loc_logger_feed_log(&location_request_logger, log, strlen(log));
-    LS_LOG_INFO(log);
+    LS_LOG_DEBUG("%s", log);
 }
 
 void LocationService::replyErrorToGpsNwReq(HandlerTypes handler) {
